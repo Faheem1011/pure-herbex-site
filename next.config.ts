@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
         pathname: '/**', // This allows any path under the hostname
       },
     ],
+    unoptimized: true,
   },
   output: 'export',
   trailingSlash: true,
