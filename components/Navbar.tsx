@@ -16,12 +16,13 @@ export default function Navbar() {
   return (
     <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-background/80 backdrop-blur-lg border-b border-border py-4' : 'bg-transparent py-6'}`}>
       <div className="container mx-auto px-6 flex justify-between items-center">
-        <Link href="/" className="relative h-10 w-40">
+        <Link href="/" className="relative h-10 w-48">
           <Image 
-            src="/assets/images/logo.svg" 
+            src="/assets/images/typo-herbex.png" 
             alt="Pure Herbex Logo" 
             fill
-            className="object-contain"
+            className="object-contain brightness-110"
+            priority
           />
         </Link>
 
@@ -33,7 +34,7 @@ export default function Navbar() {
           <Link href="/contact" className="text-sm font-medium hover:text-primary transition-colors">Contact</Link>
           <Link 
             href="https://wa.me/923001234567"
-            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:scale-105 transition-transform"
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:scale-105 transition-transform shadow-[0_0_15px_rgba(16,115,84,0.3)]"
           >
             Order Now
           </Link>
