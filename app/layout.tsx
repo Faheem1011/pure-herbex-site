@@ -15,6 +15,9 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: 'Pure Herbex Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
   description: 'Pure Herbex Ultra Force is Pakistan\'s premium medical-grade herbal formula for sexual enhancement, natural stamina, and genital health. 100% Herbal. Rs. 3,000. Cash on Delivery Available.',
+  verification: {
+    google: 'r6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
