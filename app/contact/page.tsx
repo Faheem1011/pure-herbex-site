@@ -64,7 +64,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <div className="font-bold">Call / WhatsApp</div>
-                        <div className="text-sm text-muted-foreground">+92 300 1234567</div>
+                        <div className="text-sm text-muted-foreground">+92 316 0924151</div>
                       </div>
                     </div>
 
@@ -84,7 +84,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <div className="font-bold">Location</div>
-                        <div className="text-sm text-muted-foreground">Lahore, Pakistan</div>
+                        <div className="text-sm text-muted-foreground">Okara, Pakistan</div>
                       </div>
                     </div>
                   </div>
@@ -95,7 +95,7 @@ export default function ContactPage() {
                       <span>Instant Help</span>
                     </div>
                     <p className="text-sm text-muted-foreground">Most customers get a response within 10 minutes on WhatsApp.</p>
-                    <a href="https://wa.me/923001234567" className="block text-center py-3 bg-primary/10 text-primary border border-primary/20 rounded-xl font-bold hover:bg-primary/20 transition-colors">
+                    <a href="https://wa.me/923160924151" className="block text-center py-3 bg-primary/10 text-primary border border-primary/20 rounded-xl font-bold hover:bg-primary/20 transition-colors">
                       Open WhatsApp
                     </a>
                   </div>

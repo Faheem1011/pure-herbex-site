@@ -33,7 +33,7 @@ export default function Navbar() {
           <Link href="/about" className="text-sm font-medium hover:text-primary transition-colors">About</Link>
           <Link href="/contact" className="text-sm font-medium hover:text-primary transition-colors">Contact</Link>
           <Link 
-            href="https://wa.me/923001234567"
+            href="https://wa.me/923160924151"
             className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-bold hover:scale-105 transition-transform shadow-[0_0_15px_rgba(16,115,84,0.3)]"
           >
             Order Now

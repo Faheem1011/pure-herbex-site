@@ -26,7 +26,7 @@ export default function Home() {
             <h2 className="text-4xl font-heading font-bold mb-8">Ready for Real Results?</h2>
             <div className="flex flex-col items-center gap-6">
               <a 
-                href="https://wa.me/923001234567?text=Assalam%20o%20Alaikum,%20I%20want%20to%20order%20Pure%20Herbex%20Ultra%20Force%20(Rs.%203,000)."
+                href="https://wa.me/923160924151?text=Assalam%20o%20Alaikum,%20I%20want%20to%20order%20Pure%20Herbex%20Ultra%20Force%20(Rs.%203,000)."
                 className="px-12 py-5 bg-primary text-primary-foreground rounded-2xl font-bold text-xl hover:scale-105 transition-transform shadow-[0_0_30px_rgba(16,115,84,0.3)]"
               >
                 Order Rs. 3,000 Bottle via WhatsApp

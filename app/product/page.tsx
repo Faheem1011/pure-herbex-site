@@ -60,7 +60,7 @@ export default function ProductPage() {
                   <p className="text-sm">Take 1 capsule twice daily after meals. For maximum results, take with warm milk and maintain a consistent routine for 30 days.</p>
                 </div>
                 <a 
-                  href="https://wa.me/923001234567?text=Assalam%20o%20Alaikum,%20I%20want%20to%20order%20Pure%20Herbex%20Ultra%20Force%20(Rs.%203,000)."
+                  href="https://wa.me/923160924151?text=Assalam%20o%20Alaikum,%20I%20want%20to%20order%20Pure%20Herbex%20Ultra%20Force%20(Rs.%203,000)."
                   className="block w-full text-center py-5 bg-primary text-primary-foreground rounded-2xl font-bold text-xl hover:scale-[1.02] transition-transform shadow-[0_0_30px_rgba(16,115,84,0.3)]"
                 >
                   Order via WhatsApp

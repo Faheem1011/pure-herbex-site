@@ -34,7 +34,7 @@ export default function HeroSection() {
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <Link 
-              href="https://wa.me/923001234567?text=Assalam%20o%20Alaikum,%20I%20want%20to%20order%20Pure%20Herbex%20Ultra%20Force%20(Rs.%203,000)."
+              href="https://wa.me/923160924151?text=Assalam%20o%20Alaikum,%20I%20want%20to%20order%20Pure%20Herbex%20Ultra%20Force%20(Rs.%203,000)."
               className="px-8 py-4 bg-primary text-primary-foreground rounded-xl font-bold text-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,115,84,0.4)]"
             >
               Order Now via WhatsApp
