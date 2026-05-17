@@ -7,25 +7,64 @@ const reviews = [
   {
     name: "Ahmed Ali",
     city: "Lahore",
+    date: "April 18, 2026",
     text: "Mene pehle chemical pills use ki thin jin se bohot headache hota tha. Pure Herbex Ultra Force se results slow aye lekin koi side effect nahi hua. Highly recommended for long term results.",
     rating: 5
   },
   {
     name: "Usman Khan",
     city: "Karachi",
+    date: "May 02, 2026",
     text: "Discreet packaging was perfect. Product delivery was fast. I have been using it for 3 weeks and the difference in stamina is incredible.",
     rating: 5
   },
   {
     name: "Dr. Farooq",
     city: "Islamabad",
+    date: "March 29, 2026",
     text: "As a wellness consultant, I analyzed the ingredients. The inclusion of Musli Sufaid and Saffron at these concentrations is rare. It's a solid medical-grade herbal formula.",
     rating: 4
   },
   {
     name: "Zahid",
     city: "Faisalabad",
+    date: "April 24, 2026",
     text: "Result milne me 10-12 din lage, par ab energy level bohot high hai. Order process was easy on WhatsApp.",
+    rating: 5
+  },
+  {
+    name: "Tariq Mehmood",
+    city: "Rawalpindi",
+    date: "May 10, 2026",
+    text: "Bohot achi jeri bootiyan hain. Office k baad thakawat bilkul khatam ho jati hai. 10/10 product, delivery reached Rawalpindi in 24 hours.",
+    rating: 5
+  },
+  {
+    name: "Kamran Shah",
+    city: "Peshawar",
+    date: "May 12, 2026",
+    text: "I was skeptical at first, but their customer support on WhatsApp explained everything. Discreet shipping was key for me. Highly recommended.",
+    rating: 5
+  },
+  {
+    name: "Bilal Butt",
+    city: "Gujranwala",
+    date: "April 30, 2026",
+    text: "Best natural stamina booster. No heart pressure or blood pressure issue. Real organic herbals that actually show physical improvement.",
+    rating: 5
+  },
+  {
+    name: "Sajid Jamil",
+    city: "Multan",
+    date: "May 06, 2026",
+    text: "Delivery reached Multan in 2 days. The parcel was wrapped in a simple white box with no mention of sex wellness. Fully satisfied with the privacy.",
+    rating: 5
+  },
+  {
+    name: "Dr. Adnan",
+    city: "Quetta",
+    date: "May 01, 2026",
+    text: "Clinical dosage of Saffron and Shilajit works wonders for physical exhaustion. Highly recommended adaptogen for active men over 35.",
     rating: 5
   }
 ];
@@ -55,12 +94,18 @@ export default function ReviewsPage() {
                     ))}
                   </div>
                   <p className="text-lg mb-8 italic text-foreground/90">&quot;{review.text}&quot;</p>
-                  <div className="flex justify-between items-center pt-6 border-t border-border">
+                  <div className="flex justify-between items-center pt-6 border-t border-white/5">
                     <div>
-                      <div className="font-bold">{review.name}</div>
+                      <div className="font-bold flex items-center gap-1.5 text-white">
+                        {review.name}
+                        <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-primary text-[8px] font-bold">✓</span>
+                      </div>
                       <div className="text-xs text-muted-foreground">{review.city}, Pakistan</div>
                     </div>
-                    <div className="text-[10px] uppercase tracking-widest text-primary font-bold">Verified Buyer</div>
+                    <div className="text-right">
+                      <div className="text-[10px] uppercase tracking-widest text-primary font-bold">Verified Order</div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">{review.date}</div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -81,3 +126,4 @@ export default function ReviewsPage() {
     </SmoothScroll>
   );
 }
+

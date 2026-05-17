@@ -63,30 +63,32 @@ export default function BlogPage() {
 
           {/* Post Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {blogPosts.slice(0, 3).map((post) => (
-              <Link 
-                key={post.slug} 
-                href={`/blog/${post.slug}`}
-                className="group glass-card rounded-[2rem] p-8 hover:border-primary/50 transition-all flex flex-col h-full"
-              >
-                <div className="text-xs font-bold text-primary uppercase tracking-widest mb-4">
-                  {post.category}
-                </div>
-                <h3 className="text-2xl font-bold mb-4 group-hover:text-primary transition-colors">
-                  {post.title}
-                </h3>
-                <p className="text-muted-foreground mb-6 line-clamp-3 flex-grow">
-                  {post.excerpt}
-                </p>
-                <div className="flex items-center justify-between text-sm text-muted-foreground pt-6 border-t border-white/5">
-                  <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1.5"><Calendar size={14} /> {post.date.split(',')[0]}</span>
-                    <span className="flex items-center gap-1.5"><Clock size={14} /> {post.readTime}</span>
+            {blogPosts
+              .filter((post) => post.slug !== blogPosts[3].slug)
+              .map((post) => (
+                <Link 
+                  key={post.slug} 
+                  href={`/blog/${post.slug}`}
+                  className="group glass-card rounded-[2rem] p-8 hover:border-primary/50 transition-all flex flex-col h-full"
+                >
+                  <div className="text-xs font-bold text-primary uppercase tracking-widest mb-4">
+                    {post.category}
                   </div>
-                  <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform text-primary" />
-                </div>
-              </Link>
-            ))}
+                  <h3 className="text-2xl font-bold mb-4 group-hover:text-primary transition-colors">
+                    {post.title}
+                  </h3>
+                  <p className="text-muted-foreground mb-6 line-clamp-3 flex-grow">
+                    {post.excerpt}
+                  </p>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground pt-6 border-t border-white/5">
+                    <div className="flex items-center gap-4">
+                      <span className="flex items-center gap-1.5"><Calendar size={14} /> {post.date.split(',')[0]}</span>
+                      <span className="flex items-center gap-1.5"><Clock size={14} /> {post.readTime}</span>
+                    </div>
+                    <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform text-primary" />
+                  </div>
+                </Link>
+              ))}
           </div>
 
           {/* Newsletter / CTA */}

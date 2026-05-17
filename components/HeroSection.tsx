@@ -26,8 +26,12 @@ export default function HeroSection() {
             <span className="text-accent text-glow-gold">Naturally.</span>
           </h1>
 
+          <div className="text-sm font-bold uppercase tracking-wider text-primary bg-primary/10 px-4 py-1.5 rounded-lg w-fit">
+            Natural Men Sexual Health Supplement & Enhancement Formula
+          </div>
+
           <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-            No sugar-coating. No fake promises. Pure Herbex Ultra Force is a potent medical-grade herbal formula 
+            No sugar-coating. No fake promises. Pure Herbex Ultra Force is Pakistan&apos;s premier medical-grade herbal formula 
             specifically engineered for <span className="text-foreground font-semibold underline decoration-primary/50">Genital Enhancement</span>, 
             natural stamina, and explosive vitality.
           </p>
