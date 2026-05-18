@@ -22,15 +22,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = blogPosts.find((p) => p.slug === slug);
   if (!post) return { title: 'Post Not Found' };
 
+  const metaTitle = post.seoTitle || `${post.title} | Pure Herbex`;
+
   return {
-    title: `${post.title} | Pure Herbex Wellness Journal`,
+    title: metaTitle,
     description: post.seoDescription,
     keywords: post.seoKeywords.join(', '),
     alternates: {
       canonical: `https://pureherbex.com/blog/${slug}`,
     },
     openGraph: {
-      title: `${post.title} | Pure Herbex Wellness Journal`,
+      title: metaTitle,
       description: post.seoDescription,
       url: `https://pureherbex.com/blog/${slug}`,
       siteName: 'Pure Herbex',
@@ -48,7 +50,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${post.title} | Pure Herbex Wellness Journal`,
+      title: metaTitle,
       description: post.seoDescription,
       images: ['/assets/images/product-bottle.png'],
     },

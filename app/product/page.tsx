@@ -7,7 +7,7 @@ import IngredientsGrid from '@/components/IngredientsGrid';
 import JsonLd from '@/components/JsonLd';
 
 export const metadata: Metadata = {
-  title: 'Order Pure Herbex Ultra Force | High-Potency Stamina & Enhancement Formula',
+  title: 'Buy Pure Herbex Ultra Force | Stamina & Vitality Formula',
   description: 'Buy Pure Herbex Ultra Force in Pakistan for Rs. 3,000. 100% organic medical-grade formula with Saffron and Ginseng. Free & discreet Cash on Delivery.',
   alternates: {
     canonical: 'https://pureherbex.com/product',
