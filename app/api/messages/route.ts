@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { toPhone, replyText } = await request.json();
+    const { toPhone, replyText, contactName } = await request.json();
 
     if (!toPhone || !replyText) {
       return NextResponse.json({ error: "Missing recipient or text content" }, { status: 400 });
@@ -78,10 +78,13 @@ export async function POST(request: NextRequest) {
       let contact: any = await kv.get(`whatsapp:contact:${toPhone}`);
       if (!contact) {
         contact = {
-          name: "WhatsApp Contact",
+          name: contactName || "WhatsApp Contact",
           phone: toPhone,
           messages: []
         };
+      } else if (contactName && contact.name === "WhatsApp Contact") {
+        // If it was created automatically with default name, update it with custom name
+        contact.name = contactName;
       }
 
       contact.messages.push({

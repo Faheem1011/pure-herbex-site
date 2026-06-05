@@ -20,7 +20,12 @@ const ACCESS_PASSWORD = "PureHerbex2026!";
 
 export default function InboxPage() {
   const [password, setPassword] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("inbox_password") === ACCESS_PASSWORD;
+    }
+    return false;
+  });
   const [loginError, setLoginError] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activeChat, setActiveChat] = useState<Contact | null>(null);
@@ -28,15 +33,31 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [directoryContacts, setDirectoryContacts] = useState<{ name: string; phone: string }[]>([]);
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [newChatTab, setNewChatTab] = useState<"directory" | "custom">("directory");
+  const [dirSearchQuery, setDirSearchQuery] = useState("");
+  const [customName, setCustomName] = useState("");
+  const [customPhone, setCustomPhone] = useState("");
 
-  // Check login on load
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  
+  // Track activeChat in a Ref to prevent missing dependency warnings/re-runs in setInterval
+  const activeChatRef = useRef<Contact | null>(null);
   useEffect(() => {
-    const savedPass = sessionStorage.getItem("inbox_password");
-    if (savedPass === ACCESS_PASSWORD) {
-      setIsLoggedIn(true);
-    }
-  }, []);
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
+
+  // Load directory contacts
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetch("/contacts.json")
+      .then((res) => res.json())
+      .then((data) => {
+        setDirectoryContacts(data);
+      })
+      .catch((err) => console.error("Failed to load contacts directory", err));
+  }, [isLoggedIn]);
 
   // Fetch messages with polling
   useEffect(() => {
@@ -57,11 +78,19 @@ export default function InboxPage() {
             const timeB = b.messages[b.messages.length - 1]?.timestamp || 0;
             return timeB - timeA;
           });
-          setContacts(sorted);
+
+          // Preserve any newly started empty chats that haven't received a message yet
+          setContacts((prev) => {
+            const emptyChats = prev.filter(
+              (p) => p.messages.length === 0 && !sorted.some((s: Contact) => s.phone === p.phone)
+            );
+            return [...emptyChats, ...sorted];
+          });
 
           // Update active chat history if open
-          if (activeChat) {
-            const updatedActive = sorted.find((c: Contact) => c.phone === activeChat.phone);
+          const currentActive = activeChatRef.current;
+          if (currentActive) {
+            const updatedActive = sorted.find((c: Contact) => c.phone === currentActive.phone);
             if (updatedActive) {
               setActiveChat(updatedActive);
             }
@@ -75,7 +104,7 @@ export default function InboxPage() {
     fetchChats();
     const interval = setInterval(fetchChats, 5000); // Poll every 5 seconds
     return () => clearInterval(interval);
-  }, [isLoggedIn, activeChat?.phone]);
+  }, [isLoggedIn]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -108,6 +137,7 @@ export default function InboxPage() {
         body: JSON.stringify({
           toPhone: activeChat.phone,
           replyText: replyText,
+          contactName: activeChat.name,
         }),
       });
 
@@ -126,6 +156,12 @@ export default function InboxPage() {
           messages: [...activeChat.messages, newMsg],
         };
         setActiveChat(updatedChat);
+        
+        // Update this contact's message list in the main contacts state
+        setContacts((prev) =>
+          prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
+        );
+
         setReplyText("");
       } else {
         alert("Failed to send message: " + (data.error || "Unknown error"));
@@ -140,6 +176,35 @@ export default function InboxPage() {
   const handleLogout = () => {
     sessionStorage.removeItem("inbox_password");
     setIsLoggedIn(false);
+  };
+
+  const startChat = (phone: string, name: string) => {
+    // Clean phone number (only digits)
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (!cleanPhone) {
+      alert("Invalid phone number.");
+      return;
+    }
+
+    // Check if contact already exists in active contacts list
+    const existing = contacts.find((c) => c.phone === cleanPhone);
+    if (existing) {
+      setActiveChat(existing);
+    } else {
+      const newContact: Contact = {
+        name: name || "WhatsApp Contact",
+        phone: cleanPhone,
+        messages: [],
+      };
+      setContacts((prev) => [newContact, ...prev]);
+      setActiveChat(newContact);
+    }
+    
+    // Reset states and close modal
+    setIsNewChatOpen(false);
+    setDirSearchQuery("");
+    setCustomName("");
+    setCustomPhone("");
   };
 
   // Filter contacts by search query
@@ -228,14 +293,23 @@ export default function InboxPage() {
         
         {/* Sidebar Contacts */}
         <aside className="w-80 border-r border-slate-800/80 bg-slate-900/10 flex flex-col overflow-hidden">
-          <div className="p-4 shrink-0 border-b border-slate-800/40">
+          <div className="p-4 shrink-0 border-b border-slate-800/40 flex items-center space-x-2">
             <input
               type="text"
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
             />
+            <button
+              onClick={() => setIsNewChatOpen(true)}
+              className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-bold rounded-xl flex items-center justify-center transition-all shrink-0 shadow-lg shadow-emerald-500/10"
+              title="New Conversation"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
           </div>
           
           <div className="flex-1 overflow-y-auto space-y-1 p-2">
@@ -244,7 +318,7 @@ export default function InboxPage() {
             ) : (
               filteredContacts.map((c) => {
                 const latestMsg = c.messages[c.messages.length - 1];
-                const latestText = latestMsg?.text || "(No messages)";
+                const latestText = latestMsg?.text || "(New Conversation)";
                 const latestTime = latestMsg
                   ? new Date(latestMsg.timestamp * 1000).toLocaleTimeString([], {
                       hour: "2-digit",
@@ -303,40 +377,54 @@ export default function InboxPage() {
 
               {/* Message History Bubble list */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
-                {activeChat.messages.map((msg) => {
-                  const isMe = msg.sender === "me";
-                  const msgTime = new Date(msg.timestamp * 1000).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                {activeChat.messages.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 my-auto">
+                    <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center border border-emerald-500/20 mb-3">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                      </svg>
+                    </div>
+                    <h3 className="font-bold text-sm">Start the Conversation</h3>
+                    <p className="text-slate-500 text-xs mt-1 max-w-xs leading-relaxed">
+                      This is the start of your chat history with <span className="text-slate-300 font-semibold">{activeChat.name}</span>. Send a message below to start.
+                    </p>
+                  </div>
+                ) : (
+                  activeChat.messages.map((msg) => {
+                    const isMe = msg.sender === "me";
+                    const msgTime = new Date(msg.timestamp * 1000).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
 
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-                    >
+                    return (
                       <div
-                        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm relative ${
-                          isMe
-                            ? "bg-emerald-500 text-slate-950 font-medium rounded-tr-none"
-                            : "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none"
-                        }`}
+                        key={msg.id}
+                        className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                       >
-                        <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                         <div
-                          className={`flex items-center justify-end space-x-1 mt-1 text-[9px] ${
-                            isMe ? "text-slate-800/80" : "text-slate-500"
+                          className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm relative ${
+                            isMe
+                              ? "bg-emerald-500 text-slate-950 font-medium rounded-tr-none"
+                              : "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none"
                           }`}
                         >
-                          <span>{msgTime}</span>
-                          {isMe && (
-                            <span className="capitalize">({msg.status || "sent"})</span>
-                          )}
+                          <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                          <div
+                            className={`flex items-center justify-end space-x-1 mt-1 text-[9px] ${
+                              isMe ? "text-slate-800/80" : "text-slate-500"
+                            }`}
+                          >
+                            <span>{msgTime}</span>
+                            {isMe && (
+                              <span className="capitalize">({msg.status || "sent"})</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -371,12 +459,140 @@ export default function InboxPage() {
               </div>
               <h2 className="text-xl font-bold">No Conversation Selected</h2>
               <p className="text-slate-500 text-sm mt-1 max-w-sm">
-                Select a contact from the sidebar to view chat history and reply.
+                Select a contact from the sidebar or click the plus <span className="text-emerald-400 font-semibold">+</span> icon to start a new chat.
               </p>
             </div>
           )}
         </main>
       </div>
+
+      {/* New Chat Modal */}
+      {isNewChatOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative flex flex-col max-h-[80vh]">
+            <button
+              onClick={() => setIsNewChatOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+
+            <h2 className="text-xl font-bold mb-4 pr-8">New Conversation</h2>
+
+            {/* Tab Headers */}
+            <div className="flex border-b border-slate-800 mb-4 shrink-0">
+              <button
+                type="button"
+                onClick={() => setNewChatTab("directory")}
+                className={`flex-1 pb-2.5 text-sm font-semibold transition-all border-b-2 ${
+                  newChatTab === "directory"
+                    ? "border-emerald-500 text-emerald-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Search Directory
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewChatTab("custom")}
+                className={`flex-1 pb-2.5 text-sm font-semibold transition-all border-b-2 ${
+                  newChatTab === "custom"
+                    ? "border-emerald-500 text-emerald-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Enter Number
+              </button>
+            </div>
+
+            {/* Tab Contents */}
+            <div className="flex-1 overflow-hidden flex flex-col min-h-[300px]">
+              {newChatTab === "directory" ? (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Search by name or phone..."
+                    value={dirSearchQuery}
+                    onChange={(e) => setDirSearchQuery(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 mb-3 shrink-0"
+                  />
+                  <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+                    {directoryContacts
+                      .filter(
+                        (dc) =>
+                          dc.name.toLowerCase().includes(dirSearchQuery.toLowerCase()) ||
+                          dc.phone.includes(dirSearchQuery)
+                      )
+                      .slice(0, 30) // Limit display to 30 results for rendering speed
+                      .map((dc) => (
+                        <button
+                          key={dc.phone}
+                          type="button"
+                          onClick={() => startChat(dc.phone, dc.name)}
+                          className="w-full text-left flex justify-between items-center px-4 py-3 bg-slate-950/40 hover:bg-slate-800/50 border border-slate-800/30 rounded-xl transition-all"
+                        >
+                          <div>
+                            <div className="text-sm font-semibold text-slate-200">{dc.name}</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">+{dc.phone}</div>
+                          </div>
+                          <span className="text-xs text-emerald-400 font-semibold px-2.5 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/10">
+                            Chat
+                          </span>
+                        </button>
+                      ))}
+                    {directoryContacts.filter(
+                      (dc) =>
+                        dc.name.toLowerCase().includes(dirSearchQuery.toLowerCase()) ||
+                        dc.phone.includes(dirSearchQuery)
+                    ).length === 0 && (
+                      <p className="text-center text-slate-500 text-sm py-8">No matching contacts found.</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    startChat(customPhone, customName);
+                  }}
+                  className="space-y-4 pt-2"
+                >
+                  <div>
+                    <label className="block text-xs text-slate-400 font-semibold mb-1.5">Phone Number (with Country Code)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 923160924151"
+                      value={customPhone}
+                      onChange={(e) => setCustomPhone(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 font-semibold mb-1.5">Contact Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-bold rounded-xl shadow-lg transition-all text-sm"
+                  >
+                    Start Chat
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
