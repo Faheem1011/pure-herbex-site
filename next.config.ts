@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
     ],
     unoptimized: true,
   },
-  output: 'export',
+  output: process.env.VERCEL ? undefined : 'export',
   trailingSlash: true,
   transpilePackages: ['motion'],
   webpack: (config, {dev}) => {
