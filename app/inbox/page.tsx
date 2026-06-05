@@ -27,6 +27,7 @@ interface Contact {
 }
 
 const ACCESS_PASSWORD = "PureHerbex2026!";
+const getEpochTime = () => Math.floor(Date.now() / 1000);
 
 const TAGS = [
   { id: "Confirm", label: "Confirm", color: "bg-emerald-500", text: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/10" },
@@ -141,9 +142,14 @@ export default function InboxPage() {
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    fetchChats(true);
+    const timer = setTimeout(() => {
+      fetchChats(true);
+    }, 0);
     const interval = setInterval(() => fetchChats(true), 5000); // Poll every 5 seconds
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [isLoggedIn]);
 
   // Scroll to bottom on new message
@@ -262,7 +268,7 @@ export default function InboxPage() {
           id: data.msgId,
           sender: "me",
           text: displayLogText,
-          timestamp: Math.floor(Date.now() / 1000),
+          timestamp: getEpochTime(),
           status: "sent",
           type: msgType,
           mediaId: mediaId || undefined,
