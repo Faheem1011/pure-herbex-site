@@ -162,7 +162,7 @@ export default function InboxPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
               </svg>
             </div>
-            <h1 class="text-2xl font-bold tracking-tight">Pure Herbex Inbox</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Pure Herbex Inbox</h1>
             <p className="text-slate-400 text-sm mt-1">Unlock WhatsApp conversations</p>
           </div>
 
@@ -199,7 +199,7 @@ export default function InboxPage() {
   return (
     <div className="bg-slate-950 text-slate-100 min-h-screen flex flex-col h-screen overflow-hidden">
       
-      <!-- Header -->
+      {/* Header */}
       <header className="bg-slate-900/50 backdrop-blur-md border-b border-slate-800/80 px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center border border-emerald-500/20 font-bold">
@@ -223,10 +223,10 @@ export default function InboxPage() {
         </div>
       </header>
 
-      <!-- Main Section -->
+      {/* Main Section */}
       <div className="flex flex-1 overflow-hidden">
         
-        <!-- Sidebar Contacts -->
+        {/* Sidebar Contacts */}
         <aside className="w-80 border-r border-slate-800/80 bg-slate-900/10 flex flex-col overflow-hidden">
           <div className="p-4 shrink-0 border-b border-slate-800/40">
             <input
@@ -284,11 +284,11 @@ export default function InboxPage() {
           </div>
         </aside>
 
-        <!-- Message Panel -->
+        {/* Message Panel */}
         <main className="flex-1 flex flex-col bg-slate-950 overflow-hidden">
           {activeChat ? (
             <>
-              <!-- Chat Info Header -->
+              {/* Chat Info Header */}
               <div className="bg-slate-900/20 border-b border-slate-800/80 px-6 py-4 flex items-center shrink-0">
                 <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center font-bold">
                   {activeChat.name.substring(0, 1).toUpperCase()}
@@ -301,7 +301,7 @@ export default function InboxPage() {
                 </div>
               </div>
 
-              <!-- Message History Bubble list -->
+              {/* Message History Bubble list */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
                 {activeChat.messages.map((msg) => {
                   const isMe = msg.sender === "me";
@@ -340,7 +340,7 @@ export default function InboxPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <!-- Chat Input Form -->
+              {/* Chat Input Form */}
               <div className="p-4 border-t border-slate-800/80 bg-slate-900/10 shrink-0">
                 <form onSubmit={handleSend} className="flex items-center space-x-2">
                   <input
