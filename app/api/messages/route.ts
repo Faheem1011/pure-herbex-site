@@ -42,14 +42,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { toPhone, replyText, contactName } = await request.json();
+    const { toPhone, replyText, contactName, type, mediaId, location, fileName } = await request.json();
 
-    if (!toPhone || !replyText) {
-      return NextResponse.json({ error: "Missing recipient or text content" }, { status: 400 });
+    if (!toPhone) {
+      return NextResponse.json({ error: "Missing recipient phone number" }, { status: 400 });
+    }
+
+    const msgType = type || "text";
+    if (msgType === "text" && !replyText) {
+      return NextResponse.json({ error: "Missing text content" }, { status: 400 });
+    }
+    if (["image", "audio", "video", "document"].includes(msgType) && !mediaId) {
+      return NextResponse.json({ error: `Missing media ID for type ${msgType}` }, { status: 400 });
+    }
+    if (msgType === "location" && (!location || !location.latitude || !location.longitude)) {
+      return NextResponse.json({ error: "Missing latitude or longitude for location" }, { status: 400 });
     }
 
     const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
     
+    // Build Payload based on Message Type
+    let messagePayload: any = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: toPhone,
+      type: msgType,
+    };
+
+    if (msgType === "text") {
+      messagePayload.text = { preview_url: false, body: replyText };
+    } else if (msgType === "image") {
+      messagePayload.image = { id: mediaId };
+    } else if (msgType === "audio") {
+      messagePayload.audio = { id: mediaId };
+    } else if (msgType === "video") {
+      messagePayload.video = { id: mediaId };
+    } else if (msgType === "document") {
+      messagePayload.document = { id: mediaId, filename: fileName || "Document" };
+    } else if (msgType === "location") {
+      messagePayload.location = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        name: location.name || "Location",
+        address: location.address || "",
+      };
+    }
+
     // Call Meta API
     const response = await fetch(url, {
       method: "POST",
@@ -57,16 +95,7 @@ export async function POST(request: NextRequest) {
         "Authorization": `Bearer ${accessToken}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: toPhone,
-        type: "text",
-        text: {
-          preview_url: false,
-          body: replyText
-        }
-      })
+      body: JSON.stringify(messagePayload)
     });
 
     const respData = await response.json();
@@ -83,16 +112,27 @@ export async function POST(request: NextRequest) {
           messages: []
         };
       } else if (contactName && contact.name === "WhatsApp Contact") {
-        // If it was created automatically with default name, update it with custom name
         contact.name = contactName;
       }
+
+      // Format text content for logs
+      let displayLogText = replyText || "";
+      if (msgType === "image") displayLogText = "📷 Photo";
+      else if (msgType === "audio") displayLogText = "🎵 Audio/Voice Note";
+      else if (msgType === "video") displayLogText = "🎥 Video";
+      else if (msgType === "document") displayLogText = fileName ? `📄 File: ${fileName}` : "📄 File";
+      else if (msgType === "location") displayLogText = location?.name ? `📍 Location: ${location.name}` : "📍 Location";
 
       contact.messages.push({
         id: msgId,
         sender: "me",
-        text: replyText,
+        text: displayLogText,
         timestamp: Math.floor(Date.now() / 1000),
-        status: "sent"
+        status: "sent",
+        type: msgType,
+        mediaId: mediaId || undefined,
+        location: location || undefined,
+        fileName: fileName || undefined
       });
 
       await kv.set(`whatsapp:contact:${toPhone}`, contact);

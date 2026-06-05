@@ -36,9 +36,39 @@ export async function POST(request: NextRequest) {
       if (value?.messages) {
         const message = value.messages[0];
         const from = message.from;
-        const text = message.text?.body || "(Media/Non-text message)";
+        const msgType = message.type || "text";
         const timestamp = message.timestamp || Math.floor(Date.now() / 1000);
         const msgId = message.id;
+
+        let text = message.text?.body || "";
+        let mediaId = "";
+        let fileName = "";
+        let location = null;
+
+        if (msgType === "image") {
+          mediaId = message.image?.id || "";
+          text = message.image?.caption || "📷 Photo";
+        } else if (msgType === "audio" || msgType === "voice") {
+          mediaId = message.audio?.id || message.voice?.id || "";
+          text = "🎵 Audio/Voice Note";
+        } else if (msgType === "video") {
+          mediaId = message.video?.id || "";
+          text = message.video?.caption || "🎥 Video";
+        } else if (msgType === "document") {
+          mediaId = message.document?.id || "";
+          fileName = message.document?.filename || "";
+          text = fileName ? `📄 File: ${fileName}` : "📄 File";
+        } else if (msgType === "location") {
+          location = {
+            latitude: message.location?.latitude,
+            longitude: message.location?.longitude,
+            name: message.location?.name || "",
+            address: message.location?.address || "",
+          };
+          text = location.name ? `📍 Location: ${location.name}` : "📍 Location";
+        } else if (!text) {
+          text = `(${msgType} message)`;
+        }
 
         // Fetch existing contact or create new
         let contact: any = await kv.get(`whatsapp:contact:${from}`);
@@ -57,7 +87,11 @@ export async function POST(request: NextRequest) {
           sender: "them",
           text: text,
           timestamp: parseInt(timestamp),
-          status: "received"
+          status: "received",
+          type: msgType,
+          mediaId: mediaId || undefined,
+          fileName: fileName || undefined,
+          location: location || undefined
         });
 
         // Save back to KV

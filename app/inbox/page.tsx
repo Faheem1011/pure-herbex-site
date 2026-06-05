@@ -8,6 +8,15 @@ interface Message {
   text: string;
   timestamp: number;
   status?: string;
+  type?: string; // "text" | "image" | "audio" | "voice" | "video" | "document" | "location"
+  mediaId?: string;
+  fileName?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    name?: string;
+    address?: string;
+  };
 }
 
 interface Contact {
@@ -33,6 +42,7 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
+  // Media & Location features
   const [directoryContacts, setDirectoryContacts] = useState<{ name: string; phone: string }[]>([]);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [newChatTab, setNewChatTab] = useState<"directory" | "custom">("directory");
@@ -40,7 +50,14 @@ export default function InboxPage() {
   const [customName, setCustomName] = useState("");
   const [customPhone, setCustomPhone] = useState("");
 
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFileType, setPendingFileType] = useState<"image" | "audio" | "video" | "document" | null>(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [pendingLocation, setPendingLocation] = useState<{ latitude: string; longitude: string; name: string; address: string } | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   
   // Track activeChat in a Ref to prevent missing dependency warnings/re-runs in setInterval
   const activeChatRef = useRef<Contact | null>(null);
@@ -92,7 +109,10 @@ export default function InboxPage() {
           if (currentActive) {
             const updatedActive = sorted.find((c: Contact) => c.phone === currentActive.phone);
             if (updatedActive) {
-              setActiveChat(updatedActive);
+              setActiveChat((prevActive) => {
+                // Keep the messages array sync'd but preserve empty chats that are now populated
+                return updatedActive;
+              });
             }
           }
         }
@@ -122,12 +142,47 @@ export default function InboxPage() {
     }
   };
 
+  // Upload attachment file to API
+  const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/media", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${ACCESS_PASSWORD}`,
+      },
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to upload file to WhatsApp Media server");
+    }
+    return data.mediaId;
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeChat || !replyText.trim() || sending) return;
+    if (!activeChat || sending) return;
+
+    const hasAttachment = pendingFile || pendingLocation;
+    if (!replyText.trim() && !hasAttachment) return;
 
     setSending(true);
     try {
+      let mediaId = "";
+      let msgType = "text";
+
+      // 1. Handle file upload if any
+      if (pendingFile) {
+        mediaId = await uploadFile(pendingFile);
+        msgType = pendingFileType || "document";
+      } else if (pendingLocation) {
+        msgType = "location";
+      }
+
+      // 2. Dispatch message
       const res = await fetch("/api/messages", {
         method: "POST",
         headers: {
@@ -136,38 +191,68 @@ export default function InboxPage() {
         },
         body: JSON.stringify({
           toPhone: activeChat.phone,
-          replyText: replyText,
+          replyText: msgType === "text" ? replyText : undefined,
           contactName: activeChat.name,
+          type: msgType,
+          mediaId: mediaId || undefined,
+          fileName: pendingFile ? pendingFile.name : undefined,
+          location: pendingLocation ? {
+            latitude: parseFloat(pendingLocation.latitude),
+            longitude: parseFloat(pendingLocation.longitude),
+            name: pendingLocation.name,
+            address: pendingLocation.address,
+          } : undefined,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.status === "success") {
-        // Optimistically append message to current thread
+        // Format display text for optimistic update
+        let displayLogText = replyText || "";
+        if (msgType === "image") displayLogText = "📷 Photo";
+        else if (msgType === "audio") displayLogText = "🎵 Audio/Voice Note";
+        else if (msgType === "video") displayLogText = "🎥 Video";
+        else if (msgType === "document") displayLogText = pendingFile ? `📄 File: ${pendingFile.name}` : "📄 File";
+        else if (msgType === "location") displayLogText = pendingLocation?.name ? `📍 Location: ${pendingLocation.name}` : "📍 Location";
+
         const newMsg: Message = {
           id: data.msgId,
           sender: "me",
-          text: replyText,
+          text: displayLogText,
           timestamp: Math.floor(Date.now() / 1000),
           status: "sent",
+          type: msgType,
+          mediaId: mediaId || undefined,
+          fileName: pendingFile ? pendingFile.name : undefined,
+          location: pendingLocation ? {
+            latitude: parseFloat(pendingLocation.latitude),
+            longitude: parseFloat(pendingLocation.longitude),
+            name: pendingLocation.name,
+            address: pendingLocation.address,
+          } : undefined,
         };
+
         const updatedChat = {
           ...activeChat,
           messages: [...activeChat.messages, newMsg],
         };
         setActiveChat(updatedChat);
         
-        // Update this contact's message list in the main contacts state
+        // Update main contacts list
         setContacts((prev) =>
           prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
         );
 
+        // Reset inputs
         setReplyText("");
+        setPendingFile(null);
+        setPendingFileType(null);
+        setPendingLocation(null);
       } else {
         alert("Failed to send message: " + (data.error || "Unknown error"));
       }
-    } catch (err) {
-      alert("Network error sending message.");
+    } catch (err: any) {
+      alert("Error sending message: " + err.message);
     } finally {
       setSending(false);
     }
@@ -179,14 +264,12 @@ export default function InboxPage() {
   };
 
   const startChat = (phone: string, name: string) => {
-    // Clean phone number (only digits)
     const cleanPhone = phone.replace(/\D/g, "");
     if (!cleanPhone) {
       alert("Invalid phone number.");
       return;
     }
 
-    // Check if contact already exists in active contacts list
     const existing = contacts.find((c) => c.phone === cleanPhone);
     if (existing) {
       setActiveChat(existing);
@@ -200,11 +283,42 @@ export default function InboxPage() {
       setActiveChat(newContact);
     }
     
-    // Reset states and close modal
     setIsNewChatOpen(false);
     setDirSearchQuery("");
     setCustomName("");
     setCustomPhone("");
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "audio" | "video" | "document") => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPendingFile(file);
+      setPendingFileType(type);
+      setPendingLocation(null); // Clear location
+      setShowAttachMenu(false);
+    }
+  };
+
+  const handleShareCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setPendingLocation({
+            latitude: position.coords.latitude.toString(),
+            longitude: position.coords.longitude.toString(),
+            name: "Current Location",
+            address: "Shared via Web Inbox",
+          });
+          setPendingFile(null); // Clear file
+          setIsLocationModalOpen(false);
+        },
+        (error) => {
+          alert("Error getting location: " + error.message);
+        }
+      );
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
   };
 
   // Filter contacts by search query
@@ -289,7 +403,7 @@ export default function InboxPage() {
       </header>
 
       {/* Main Section */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         
         {/* Sidebar Contacts */}
         <aside className="w-80 border-r border-slate-800/80 bg-slate-900/10 flex flex-col overflow-hidden">
@@ -397,6 +511,101 @@ export default function InboxPage() {
                       minute: "2-digit",
                     });
 
+                    // Render different bubble contents depending on message type
+                    const renderBubbleContent = () => {
+                      const type = msg.type || "text";
+                      
+                      if (type === "image") {
+                        return (
+                          <div className="space-y-2">
+                            <img
+                              src={`/api/media?id=${msg.mediaId}`}
+                              alt="WhatsApp attachment"
+                              className="max-w-full max-h-72 rounded-xl object-contain border border-slate-800 bg-slate-950 mt-1 cursor-pointer hover:opacity-90"
+                              onClick={() => window.open(`/api/media?id=${msg.mediaId}`, "_blank")}
+                            />
+                            {msg.text && msg.text !== "📷 Photo" && (
+                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                            )}
+                          </div>
+                        );
+                      }
+                      
+                      if (type === "audio" || type === "voice") {
+                        return (
+                          <div className="pt-1 min-w-[240px]">
+                            <audio
+                              controls
+                              src={`/api/media?id=${msg.mediaId}`}
+                              className="w-full h-10 mt-1 focus:outline-none"
+                            />
+                          </div>
+                        );
+                      }
+
+                      if (type === "video") {
+                        return (
+                          <div className="space-y-2">
+                            <video
+                              controls
+                              src={`/api/media?id=${msg.mediaId}`}
+                              className="max-w-full max-h-72 rounded-xl border border-slate-800 bg-slate-950 mt-1"
+                            />
+                            {msg.text && msg.text !== "🎥 Video" && (
+                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      if (type === "document") {
+                        return (
+                          <a
+                            href={`/api/media?id=${msg.mediaId}`}
+                            download={msg.fileName || "document"}
+                            className="flex items-center space-x-3 p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 hover:bg-slate-950/70 transition-all text-slate-100 no-underline mt-1"
+                          >
+                            <div className="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center shrink-0 border border-rose-500/20">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                              </svg>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="font-semibold text-xs block truncate">{msg.fileName || "Document"}</span>
+                              <span className="text-[9px] text-slate-500 block">Download Attachment</span>
+                            </div>
+                          </a>
+                        );
+                      }
+
+                      if (type === "location" && msg.location) {
+                        return (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${msg.location.latitude},${msg.location.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center space-x-3 p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 hover:bg-slate-950/70 transition-all text-slate-100 no-underline mt-1"
+                          >
+                            <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-lg flex items-center justify-center shrink-0 border border-emerald-500/20">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                              </svg>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="font-semibold text-xs block truncate">{msg.location.name || "Shared Location"}</span>
+                              {msg.location.address && (
+                                <span className="text-[9px] text-slate-500 block truncate">{msg.location.address}</span>
+                              )}
+                              <span className="text-[9px] text-emerald-400 block mt-0.5">Open in Google Maps</span>
+                            </div>
+                          </a>
+                        );
+                      }
+
+                      return <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>;
+                    };
+
                     return (
                       <div
                         key={msg.id}
@@ -405,11 +614,12 @@ export default function InboxPage() {
                         <div
                           className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm relative ${
                             isMe
-                              ? "bg-emerald-500 text-slate-950 font-medium rounded-tr-none"
-                              : "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none"
+                              ? "bg-emerald-500 text-slate-950 font-medium rounded-tr-none shadow-md shadow-emerald-500/10"
+                              : "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none shadow-md"
                           }`}
                         >
-                          <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                          {renderBubbleContent()}
+                          
                           <div
                             className={`flex items-center justify-end space-x-1 mt-1 text-[9px] ${
                               isMe ? "text-slate-800/80" : "text-slate-500"
@@ -428,18 +638,162 @@ export default function InboxPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Chat Input Form */}
-              <div className="p-4 border-t border-slate-800/80 bg-slate-900/10 shrink-0">
+              {/* Chat Input Area */}
+              <div className="p-4 border-t border-slate-800/80 bg-slate-900/10 shrink-0 relative">
+                
+                {/* Previews of pending files/locations */}
+                {pendingFile && (
+                  <div className="mb-3 p-3 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between animate-fade-in">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center border border-emerald-500/10 font-bold text-xs uppercase">
+                        {pendingFileType === "image" ? "IMG" : pendingFileType === "video" ? "VID" : pendingFileType === "audio" ? "AUD" : "DOC"}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-semibold text-xs block truncate text-slate-200">{pendingFile.name}</span>
+                        <span className="text-[10px] text-slate-500 block">{(pendingFile.size / 1024 / 1024).toFixed(2)} MB • Ready to send</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { setPendingFile(null); setPendingFileType(null); }}
+                      className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {pendingLocation && (
+                  <div className="mb-3 p-3 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between animate-fade-in">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center border border-emerald-500/10">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-semibold text-xs block truncate text-slate-200">{pendingLocation.name}</span>
+                        <span className="text-[10px] text-slate-500 block">{pendingLocation.latitude}, {pendingLocation.longitude}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setPendingLocation(null)}
+                      className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Attachment Menu Popup */}
+                {showAttachMenu && (
+                  <div className="absolute bottom-20 left-4 bg-slate-900 border border-slate-800 rounded-3xl p-3 shadow-2xl z-40 w-48 space-y-1 animate-slide-up">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = "image/*";
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      className="w-full text-left flex items-center space-x-3 px-3.5 py-2.5 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-slate-100 transition-all text-xs font-semibold"
+                    >
+                      <span className="text-emerald-400">📷</span>
+                      <span>Photo / Image</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = "video/mp4";
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      className="w-full text-left flex items-center space-x-3 px-3.5 py-2.5 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-slate-100 transition-all text-xs font-semibold"
+                    >
+                      <span className="text-emerald-400">🎥</span>
+                      <span>Video</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = "audio/*";
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      className="w-full text-left flex items-center space-x-3 px-3.5 py-2.5 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-slate-100 transition-all text-xs font-semibold"
+                    >
+                      <span className="text-emerald-400">🎵</span>
+                      <span>Audio / Voice</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = "*/*";
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      className="w-full text-left flex items-center space-x-3 px-3.5 py-2.5 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-slate-100 transition-all text-xs font-semibold"
+                    >
+                      <span className="text-emerald-400">📄</span>
+                      <span>Document File</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLocationModalOpen(true);
+                        setShowAttachMenu(false);
+                      }}
+                      className="w-full text-left flex items-center space-x-3 px-3.5 py-2.5 hover:bg-slate-800/80 rounded-xl text-slate-300 hover:text-slate-100 transition-all text-xs font-semibold"
+                    >
+                      <span className="text-emerald-400">📍</span>
+                      <span>Share Location</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={(e) => {
+                    const accept = fileInputRef.current?.accept || "";
+                    let type: "image" | "audio" | "video" | "document" = "document";
+                    if (accept.includes("image")) type = "image";
+                    else if (accept.includes("video")) type = "video";
+                    else if (accept.includes("audio")) type = "audio";
+                    handleFileSelect(e, type);
+                  }}
+                />
+
                 <form onSubmit={handleSend} className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAttachMenu(!showAttachMenu)}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 border border-slate-800/80 hover:bg-slate-900 active:scale-95 ${
+                      showAttachMenu ? "bg-slate-900 border-slate-700 text-emerald-400" : "bg-slate-900/40 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <svg className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                  </button>
+
                   <input
                     type="text"
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="Type a message..."
-                    required
+                    placeholder={pendingFile ? "Add an optional caption..." : "Type a message..."}
                     autoComplete="off"
                     className="flex-1 px-5 py-3.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none"
                   />
+                  
                   <button
                     type="submit"
                     disabled={sending}
@@ -590,6 +944,118 @@ export default function InboxPage() {
                 </form>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Location Modal */}
+      {isLocationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative flex flex-col">
+            <button
+              onClick={() => setIsLocationModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+
+            <h2 className="text-xl font-bold mb-4">Share Location</h2>
+
+            <button
+              type="button"
+              onClick={handleShareCurrentLocation}
+              className="w-full py-3 mb-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold rounded-xl border border-emerald-500/20 transition-all text-sm flex items-center justify-center space-x-2"
+            >
+              <span>📍</span>
+              <span>Use Current Geolocation</span>
+            </button>
+
+            <div className="relative flex py-2 items-center shrink-0">
+              <div className="flex-grow border-t border-slate-800"></div>
+              <span className="flex-shrink mx-4 text-slate-500 text-xs font-semibold">OR MANUALLY ENTER</span>
+              <div className="flex-grow border-t border-slate-800"></div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setIsLocationModalOpen(false);
+              }}
+              className="space-y-4 pt-2"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 font-semibold mb-1.5">Latitude</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 31.5204"
+                    required
+                    value={pendingLocation?.latitude || ""}
+                    onChange={(e) => setPendingLocation({
+                      latitude: e.target.value,
+                      longitude: pendingLocation?.longitude || "",
+                      name: pendingLocation?.name || "Shared Location",
+                      address: pendingLocation?.address || "",
+                    })}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 font-semibold mb-1.5">Longitude</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 74.3587"
+                    required
+                    value={pendingLocation?.longitude || ""}
+                    onChange={(e) => setPendingLocation({
+                      latitude: pendingLocation?.latitude || "",
+                      longitude: e.target.value,
+                      name: pendingLocation?.name || "Shared Location",
+                      address: pendingLocation?.address || "",
+                    })}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 font-semibold mb-1.5">Place Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Office / Shop HQ"
+                  value={pendingLocation?.name || ""}
+                  onChange={(e) => setPendingLocation({
+                    latitude: pendingLocation?.latitude || "",
+                    longitude: pendingLocation?.longitude || "",
+                    name: e.target.value,
+                    address: pendingLocation?.address || "",
+                  })}
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 font-semibold mb-1.5">Full Address (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Main Boulevard Road, Lahore"
+                  value={pendingLocation?.address || ""}
+                  onChange={(e) => setPendingLocation({
+                    latitude: pendingLocation?.latitude || "",
+                    longitude: pendingLocation?.longitude || "",
+                    name: pendingLocation?.name || "Shared Location",
+                    address: e.target.value,
+                  })}
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 font-bold rounded-xl shadow-lg transition-all text-sm"
+              >
+                Confirm Location Attachment
+              </button>
+            </form>
           </div>
         </div>
       )}
