@@ -142,6 +142,56 @@ export default function InboxPage() {
     }
   };
 
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          // Downscale if image is extremely large (standard Full HD constraint)
+          const maxDim = 1920;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Export as JPEG with 0.8 quality
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                resolve(file);
+              }
+            },
+            "image/jpeg",
+            0.8
+          );
+        };
+      };
+    });
+  };
+
   // Upload attachment file to API
   const uploadFile = async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -155,7 +205,17 @@ export default function InboxPage() {
       body: formData,
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      if (text.includes("Payload Too Large") || res.status === 413) {
+        throw new Error("File exceeds Vercel's 4.5MB serverless upload limit. Please use a compressed or smaller file.");
+      }
+      throw new Error(text || "Failed to upload file");
+    }
+
     if (!res.ok) {
       throw new Error(data.error || "Failed to upload file to WhatsApp Media server");
     }
@@ -173,10 +233,24 @@ export default function InboxPage() {
     try {
       let mediaId = "";
       let msgType = "text";
+      let fileToUpload = pendingFile;
 
-      // 1. Handle file upload if any
+      // 1. Handle file upload & optional compression
       if (pendingFile) {
-        mediaId = await uploadFile(pendingFile);
+        if (pendingFileType === "image" && pendingFile.size > 4 * 1024 * 1024) {
+          // Compress large images client-side
+          fileToUpload = await compressImage(pendingFile);
+        }
+
+        if (fileToUpload && fileToUpload.size > 4.5 * 1024 * 1024) {
+          alert(`File is too large (${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB). Vercel has a 4.5MB serverless upload limit. Please compress your file or choose a smaller one.`);
+          setSending(false);
+          return;
+        }
+
+        if (fileToUpload) {
+          mediaId = await uploadFile(fileToUpload);
+        }
         msgType = pendingFileType || "document";
       } else if (pendingLocation) {
         msgType = "location";
@@ -195,7 +269,7 @@ export default function InboxPage() {
           contactName: activeChat.name,
           type: msgType,
           mediaId: mediaId || undefined,
-          fileName: pendingFile ? pendingFile.name : undefined,
+          fileName: fileToUpload ? fileToUpload.name : undefined,
           location: pendingLocation ? {
             latitude: parseFloat(pendingLocation.latitude),
             longitude: parseFloat(pendingLocation.longitude),
@@ -212,7 +286,7 @@ export default function InboxPage() {
         if (msgType === "image") displayLogText = "📷 Photo";
         else if (msgType === "audio") displayLogText = "🎵 Audio/Voice Note";
         else if (msgType === "video") displayLogText = "🎥 Video";
-        else if (msgType === "document") displayLogText = pendingFile ? `📄 File: ${pendingFile.name}` : "📄 File";
+        else if (msgType === "document") displayLogText = fileToUpload ? `📄 File: ${fileToUpload.name}` : "📄 File";
         else if (msgType === "location") displayLogText = pendingLocation?.name ? `📍 Location: ${pendingLocation.name}` : "📍 Location";
 
         const newMsg: Message = {
@@ -518,6 +592,7 @@ export default function InboxPage() {
                       if (type === "image") {
                         return (
                           <div className="space-y-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={`/api/media?id=${msg.mediaId}`}
                               alt="WhatsApp attachment"
