@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 
 const accessToken = "EAAa0oH3M7CYBRmNij6bQHxQZBp0OgdYbqedMF9XRQFDEElnilxUi3ygW9qsygpf7YN1Ok3ZAi9T2ZCuV8XuWNq8GxbAMgsNwGEIVQzCytgCEGYWdFbfhZCcHbxZANwIe222pjnVSgedDPxe9NwPZCgb6CfO4hn2Em5Tr5AWWdMEWZBvFRv3QmGhla1QDb98PQZDZD";
-const phoneNumberId = "1242577412261554";
+const phoneNumberId = "1098694096667377";
 
 // 1. GET: Fetch all active chats and message history
 export async function GET(request: NextRequest) {
