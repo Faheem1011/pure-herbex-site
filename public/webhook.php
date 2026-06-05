@@ -3,6 +3,26 @@
 // Placed in the public/ folder of Next.js to bypass static export constraints on Hostinger.
 
 $verify_token = 'pure_herbex_secret_token';
+$db_file = 'whatsapp_db.php';
+
+// Helper function to read the secure PHP-based JSON database
+function read_db($file) {
+    if (!file_exists($file)) {
+        return ['contacts' => []];
+    }
+    $content = file_get_contents($file);
+    // Strip the PHP security header: "<?php http_response_code(403); exit; ?>\n" (39 chars + newline)
+    $json_content = substr($content, 40);
+    $data = json_decode($json_content, true);
+    return $data ? $data : ['contacts' => []];
+}
+
+// Helper function to write to the secure PHP-based JSON database
+function write_db($file, $data) {
+    $header = "<?php http_response_code(403); exit; ?>\n";
+    $content = $header . json_encode($data, JSON_PRETTY_PRINT);
+    file_put_contents($file, $content);
+}
 
 // 1. GET Request: Webhook Verification
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -26,39 +46,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 // 2. POST Request: Receive WhatsApp Events
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Read raw JSON input
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
 
     if ($data) {
-        // Log the payload to a file for review
-        file_put_contents('whatsapp_webhook_log.json', $input . PHP_EOL, FILE_APPEND);
+        // Log raw webhook data for security/debugging
+        file_put_contents('whatsapp_raw_log.log', date('Y-m-d H:i:s') . ' - ' . $input . PHP_EOL, FILE_APPEND);
 
-        // Process message updates or status changes here
         if (isset($data['object']) && $data['object'] === 'whatsapp_business_account') {
             $entry = $data['entry'][0] ?? null;
             $change = $entry['changes'][0] ?? null;
             $value = $change['value'] ?? null;
 
-            // Handle incoming message replies
+            $db = read_db($db_file);
+
+            // Handle incoming message replies from customers
             if (isset($value['messages'])) {
                 $message = $value['messages'][0];
-                $from = $message['from'] ?? '';
-                $text = $message['text']['body'] ?? '';
-                
-                // Write a log of replies
-                $log_line = sprintf("[%s] Reply from %s: %s\n", date('Y-m-d H:i:s'), $from, $text);
-                file_put_contents('whatsapp_replies.log', $log_line, FILE_APPEND);
+                $from = $message['from'] ?? ''; // Sender's phone number
+                $text = $message['text']['body'] ?? '(Media / Non-text message)';
+                $timestamp = $message['timestamp'] ?? time();
+                $msg_id = $message['id'] ?? '';
+
+                // If contact doesn't exist, initialize them
+                if (!isset($db['contacts'][$from])) {
+                    // Try to resolve contact name from metadata
+                    $profile_name = $value['contacts'][0]['profile']['name'] ?? 'WhatsApp Contact';
+                    $db['contacts'][$from] = [
+                        'name' => $profile_name,
+                        'phone' => $from,
+                        'messages' => []
+                    ];
+                }
+
+                // Append the incoming message
+                $db['contacts'][$from]['messages'][] = [
+                    'id' => $msg_id,
+                    'sender' => 'them',
+                    'text' => $text,
+                    'timestamp' => intval($timestamp),
+                    'status' => 'received'
+                ];
+
+                write_db($db_file, $db);
             }
 
-            // Handle message status updates (sent, delivered, read)
+            // Handle status updates for sent messages (sent, delivered, read)
             if (isset($value['statuses'])) {
                 $status = $value['statuses'][0];
                 $recipient_id = $status['recipient_id'] ?? '';
-                $msg_status = $status['status'] ?? '';
+                $msg_id = $status['id'] ?? '';
+                $msg_status = $status['status'] ?? ''; // "sent", "delivered", "read"
 
-                $log_line = sprintf("[%s] Msg to %s: %s\n", date('Y-m-d H:i:s'), $recipient_id, $msg_status);
-                file_put_contents('whatsapp_status.log', $log_line, FILE_APPEND);
+                if (isset($db['contacts'][$recipient_id])) {
+                    foreach ($db['contacts'][$recipient_id]['messages'] as &$msg) {
+                        if ($msg['id'] === $msg_id) {
+                            $msg['status'] = $msg_status;
+                            break;
+                        }
+                    }
+                    write_db($db_file, $db);
+                }
             }
         }
 
