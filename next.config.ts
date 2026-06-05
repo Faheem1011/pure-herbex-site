@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
     ],
     unoptimized: true,
   },
+  output: 'export',
   trailingSlash: true,
   transpilePackages: ['motion'],
   webpack: (config, {dev}) => {
