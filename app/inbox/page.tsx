@@ -26,6 +26,105 @@ interface Contact {
   tag?: "Confirm" | "Potential" | "Important" | "Spam" | null;
   archived?: boolean;
   avatarUrl?: string;
+  unreadCount?: number;
+  hasUnread?: boolean;
+}
+
+// Custom Audio Player Component
+function CustomAudioPlayer({ src, isMe }: { src: string; isMe: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!audioRef.current) return;
+    const t = parseFloat(e.target.value);
+    audioRef.current.currentTime = t;
+    setCurrentTime(t);
+  };
+
+  const fmt = (s: number) => {
+    if (!s || isNaN(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div className={`flex items-center gap-2.5 py-2.5 px-3 rounded-2xl min-w-[220px] max-w-full ${
+      isMe
+        ? "bg-emerald-600/30 border border-emerald-400/20"
+        : "bg-zinc-800/60 border border-zinc-700/40"
+    }`}>
+      <audio
+        ref={audioRef}
+        src={src}
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
+      />
+      {/* Play/Pause */}
+      <button
+        onClick={togglePlay}
+        className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center transition-all active:scale-90 ${
+          isMe
+            ? "bg-zinc-950 text-emerald-400 hover:bg-zinc-900"
+            : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
+        }`}
+      >
+        {isPlaying ? (
+          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        ) : (
+          <svg className="w-4 h-4 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        )}
+      </button>
+      {/* Progress */}
+      <div className="flex-1 min-w-0">
+        <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: isMe ? "rgba(52,211,153,0.2)" : "rgba(63,63,70,0.8)" }}>
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full transition-all ${ isMe ? "bg-emerald-400" : "bg-emerald-500" }`}
+            style={{ width: `${pct}%` }}
+          />
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            value={currentTime}
+            onChange={handleSeek}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </div>
+        <div className={`flex justify-between mt-1 text-[9px] font-semibold ${ isMe ? "text-emerald-200/70" : "text-zinc-400" }`}>
+          <span>{fmt(currentTime)}</span>
+          <span>{fmt(duration)}</span>
+        </div>
+      </div>
+      {/* Waveform decoration (static bars) */}
+      <div className={`flex items-center gap-[2px] ${ isMe ? "text-emerald-300/60" : "text-zinc-400/60" }`}>
+        {[3, 6, 4, 7, 3, 5, 4].map((h, i) => (
+          <span
+            key={i}
+            className={`w-[2px] rounded-full bg-current ${ isPlaying ? "animate-pulse" : "" }`}
+            style={{ height: `${h}px`, animationDelay: `${i * 80}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 const ACCESS_PASSWORD = "PureHerbex2026!";
@@ -124,23 +223,13 @@ export default function InboxPage() {
     return () => window.removeEventListener("click", handleWindowClick);
   }, []);
 
-  // Initialize mic-recorder-to-mp3 on client-side mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      import("mic-recorder-to-mp3").then((MicRecorderModule) => {
-        const recorderInstance = new MicRecorderModule.default({ bitRate: 128 });
-        setMp3Recorder(recorderInstance);
-      }).catch((err) => console.error("Failed to load mic-recorder-to-mp3", err));
-    }
-  }, []);
-
+  // Load mic-recorder-to-mp3 module but create a FRESH instance per recording
   const startRecording = async () => {
-    if (!mp3Recorder) {
-      alert("Microphone recorder is loading, please try again in a moment.");
-      return;
-    }
     try {
-      await mp3Recorder.start();
+      const MicRecorderModule = await import("mic-recorder-to-mp3");
+      const freshRecorder = new MicRecorderModule.default({ bitRate: 128 });
+      setMp3Recorder(freshRecorder);
+      await freshRecorder.start();
       setIsRecording(true);
       setRecordingDuration(0);
 
@@ -304,6 +393,22 @@ export default function InboxPage() {
     }
   };
 
+  // Mark a chat as read (clear unread indicators)
+  const markChatRead = async (phone: string) => {
+    setContacts((prev) =>
+      prev.map((c) =>
+        c.phone === phone ? { ...c, hasUnread: false, unreadCount: 0 } : c
+      )
+    );
+    try {
+      await fetch("/api/messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${ACCESS_PASSWORD}` },
+        body: JSON.stringify({ phone, markRead: true }),
+      });
+    } catch (e) {}
+  };
+
   // Load directory contacts
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -338,14 +443,41 @@ export default function InboxPage() {
           const emptyChats = prev.filter(
             (p) => p.messages.length === 0 && !sorted.some((s: Contact) => s.phone === p.phone)
           );
-          
-          // Re-apply any tags present in state to the incoming data (in case tag write is pending)
-          const merged = [...emptyChats, ...sorted].map((c) => {
+
+          // Re-apply tags & detect new unread messages
+          const merged = [...emptyChats, ...sorted].map((c: Contact) => {
             const localContact = prev.find((p) => p.phone === c.phone);
+            // Preserve tag
             if (localContact?.tag && !c.tag) {
               c.tag = localContact.tag;
             }
-            return c;
+
+            // Compute unread: count new "them" messages since last time
+            const isOpen = activeChatRef.current?.phone === c.phone;
+            if (isOpen) {
+              // Chat is open — treat as read
+              return { ...c, hasUnread: false, unreadCount: 0 };
+            }
+
+            const prevThemCount = (localContact?.messages || []).filter(
+              (m) => m.sender === "them"
+            ).length;
+            const newThemCount = c.messages.filter((m: Message) => m.sender === "them").length;
+            const newCount = Math.max(0, newThemCount - prevThemCount);
+
+            if (newCount > 0) {
+              return {
+                ...c,
+                hasUnread: true,
+                unreadCount: (localContact?.unreadCount || 0) + newCount,
+              };
+            }
+            // Preserve existing unread state if no new messages
+            return {
+              ...c,
+              hasUnread: localContact?.hasUnread || false,
+              unreadCount: localContact?.unreadCount || 0,
+            };
           });
           return merged;
         });
@@ -355,7 +487,7 @@ export default function InboxPage() {
         if (currentActive) {
           const updatedActive = sorted.find((c: Contact) => c.phone === currentActive.phone);
           if (updatedActive) {
-            setActiveChat(updatedActive);
+            setActiveChat({ ...updatedActive, hasUnread: false, unreadCount: 0 });
           }
         }
       }
@@ -367,6 +499,7 @@ export default function InboxPage() {
       }
     }
   };
+
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -933,7 +1066,7 @@ export default function InboxPage() {
               return (
                 <div
                   key={c.phone}
-                  onClick={() => setActiveChat(c)}
+                  onClick={() => { setActiveChat(c); if (c.hasUnread) markChatRead(c.phone); }}
                   className={`group w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-all border cursor-pointer relative ${
                     isActive
                       ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-sm"
@@ -950,21 +1083,33 @@ export default function InboxPage() {
                     {c.tag && (
                       <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-zinc-950 ${contactTag?.color}`}></span>
                     )}
+                    {/* Unread dot on avatar */}
+                    {c.hasUnread && (
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-emerald-500 border-2 border-zinc-950 rounded-full flex items-center justify-center">
+                        <span className="text-[8px] font-black text-zinc-950">{(c.unreadCount || 0) > 9 ? "9+" : (c.unreadCount || 1)}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline">
-                      <h3 className="font-semibold text-sm truncate text-zinc-200">
+                    <div className="flex justify-between items-center">
+                      <h3 className={`font-semibold text-sm truncate ${ c.hasUnread ? "text-zinc-100" : "text-zinc-200" }`}>
                         {c.name}
                       </h3>
-                      <span className="text-[10px] text-zinc-500 ml-1 shrink-0 group-hover:opacity-0 transition-opacity duration-200">
-                        {latestTime}
-                      </span>
+                      <div className="flex items-center gap-1 ml-1 shrink-0">
+                        {c.hasUnread && (
+                          <span className="text-emerald-400">
+                            <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M18 6.41L16.59 5 12 9.58 7.41 5 6 6.41l6 6z"/><path d="M18 13l-1.41-1.41L12 16.17l-4.59-4.58L6 13l6 6z"/></svg>
+                          </span>
+                        )}
+                        <span className="text-[10px] text-zinc-500 group-hover:opacity-0 transition-opacity duration-200">
+                          {latestTime}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-xs truncate mt-1 leading-normal pr-8">{latestText}</p>
-                    
-                    {/* Render color tag pills in list */}
+                    <p className={`text-xs truncate mt-0.5 leading-normal pr-8 ${ c.hasUnread ? "text-zinc-300 font-medium" : "" }`}>{latestText}</p>
+                    {/* Tag pill */}
                     {contactTag && (
-                      <span className={`inline-flex items-center px-2 py-0.5 mt-2 rounded-md text-[9px] font-semibold border ${contactTag.text} ${contactTag.border} ${contactTag.bg}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 mt-1.5 rounded-md text-[9px] font-semibold border ${contactTag.text} ${contactTag.border} ${contactTag.bg}`}>
                         {contactTag.label}
                       </span>
                     )}
@@ -1037,50 +1182,43 @@ export default function InboxPage() {
                 </div>
               </div>
 
-              {/* Header Actions & Tags Selector */}
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 border-r border-zinc-800/80 pr-3">
-                  <button
-                    onClick={() => archiveContact(activeChat.phone, !activeChat.archived)}
-                    className="p-2 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all flex items-center space-x-1.5 text-xs font-semibold"
-                    title={activeChat.archived ? "Unarchive Chat" : "Archive Chat"}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {activeChat.archived ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                      )}
-                    </svg>
-                    <span>{activeChat.archived ? "Unarchive" : "Archive"}</span>
-                  </button>
-                  <button
-                    onClick={() => deleteContact(activeChat.phone)}
-                    className="p-2 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-900/40 rounded-xl text-zinc-500 hover:text-rose-400 transition-all flex items-center space-x-1.5 text-xs font-semibold"
-                    title="Delete Chat"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <span>Delete</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mr-1">Tag As:</label>
-                  <select
-                    value={activeChat.tag || ""}
-                    onChange={(e) => updateContactTag(activeChat.phone, (e.target.value as any) || null)}
-                    className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer"
-                  >
-                    <option value="">No Tag</option>
-                    {TAGS.map((tag) => (
-                      <option key={tag.id} value={tag.id}>
-                        {tag.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Header Actions & Tags Selector — icon-only on mobile */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => archiveContact(activeChat.phone, !activeChat.archived)}
+                  className="p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                  title={activeChat.archived ? "Unarchive Chat" : "Archive Chat"}
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {activeChat.archived ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    )}
+                  </svg>
+                  <span className="hidden sm:inline">{activeChat.archived ? "Unarchive" : "Archive"}</span>
+                </button>
+                <button
+                  onClick={() => deleteContact(activeChat.phone)}
+                  className="p-2 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-800/40 rounded-xl text-zinc-500 hover:text-rose-400 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                  title="Delete Chat"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+                <select
+                  value={activeChat.tag || ""}
+                  onChange={(e) => updateContactTag(activeChat.phone, (e.target.value as any) || null)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-2 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer max-w-[110px] sm:max-w-none"
+                  title="Tag Conversation"
+                >
+                  <option value="">No Tag</option>
+                  {TAGS.map((tag) => (
+                    <option key={tag.id} value={tag.id}>{tag.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -1129,11 +1267,10 @@ export default function InboxPage() {
                     
                     if (type === "audio" || type === "voice") {
                       return (
-                        <div className="pt-1 min-w-[240px]">
-                          <audio
-                            controls
+                        <div className="pt-0.5">
+                          <CustomAudioPlayer
                             src={`/api/media?id=${msg.mediaId}`}
-                            className="w-full h-10 mt-1 focus:outline-none"
+                            isMe={isMe}
                           />
                         </div>
                       );
@@ -1226,14 +1363,35 @@ export default function InboxPage() {
                         {renderBubbleContent()}
                         
                         <div
-                          className={`flex items-center justify-end space-x-1 mt-1.5 text-[9px] ${
-                            isMe ? "text-zinc-800/80" : "text-zinc-500"
+                          className={`flex items-center justify-end gap-1 mt-1.5 text-[9px] ${
+                            isMe ? "text-emerald-950/70" : "text-zinc-500"
                           }`}
                         >
                           <span>{msgTime}</span>
-                          {isMe && (
-                            <span className="capitalize font-semibold">({msg.status || "sent"})</span>
-                          )}
+                          {isMe && (() => {
+                            const s = msg.status || "sent";
+                            if (s === "failed") return (
+                              <span className="text-rose-500" title="Failed">
+                                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                              </span>
+                            );
+                            if (s === "read") return (
+                              <span className="text-emerald-400" title="Read">
+                                <svg className="w-4 h-3 fill-current" viewBox="0 0 24 16"><path d="M0 8.5L5.5 14 18 1.5 16.5 0 5.5 11 1.5 7z"/><path d="M6 8.5L11.5 14 24 1.5 22.5 0 11.5 11 7.5 7z" opacity="0.5"/></svg>
+                              </span>
+                            );
+                            if (s === "delivered") return (
+                              <span className="text-zinc-800" title="Delivered">
+                                <svg className="w-4 h-3 fill-current" viewBox="0 0 24 16"><path d="M0 8.5L5.5 14 18 1.5 16.5 0 5.5 11 1.5 7z"/><path d="M6 8.5L11.5 14 24 1.5 22.5 0 11.5 11 7.5 7z" opacity="0.5"/></svg>
+                              </span>
+                            );
+                            // sent
+                            return (
+                              <span className="text-zinc-800" title="Sent">
+                                <svg className="w-3 h-3 fill-current" viewBox="0 0 24 16"><path d="M0 8.5L5.5 14 18 1.5 16.5 0 5.5 11 1.5 7z"/></svg>
+                              </span>
+                            );
+                          })()}
                         </div>
 
                         {activeMenuMessageId === msg.id && (
