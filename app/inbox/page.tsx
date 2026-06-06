@@ -182,6 +182,17 @@ export default function InboxPage() {
   const [customName, setCustomName] = useState("");
   const [customPhone, setCustomPhone] = useState("");
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingFileType, setPendingFileType] = useState<"image" | "audio" | "video" | "document" | null>(null);
@@ -973,8 +984,151 @@ export default function InboxPage() {
 
   // Dashboard Screen
   return (
-    <div className="bg-zinc-950 text-zinc-200 min-h-screen flex h-screen overflow-hidden font-sans">
+    <div className="bg-zinc-950 text-zinc-200 min-h-screen flex h-screen overflow-hidden font-sans fixed inset-0">
       
+      {/* Mobile-only: Full screen chat overlay when active */}
+      {isMobile && activeChat && (
+        <div className="fixed inset-0 z-50 bg-[#0b141a] flex flex-col h-full overflow-hidden">
+          {/* Mobile Header */}
+          <div className="h-16 bg-[#202c33] flex items-center px-3 shrink-0 border-b border-white/5 shadow-lg">
+            <button 
+              onClick={() => setActiveChat(null)}
+              className="p-2 mr-1 hover:bg-white/10 rounded-full transition-colors active:scale-95"
+            >
+              <svg className="w-6 h-6 text-[#aebac1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <div className="flex items-center flex-1 min-w-0">
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 shrink-0">
+                <img 
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(activeChat.name)}&radius=50&backgroundColor=0d9488,0f766e,115e59,134e4a,0f172a`} 
+                  alt={activeChat.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="ml-3 min-w-0">
+                <h2 className="font-bold text-[15px] truncate text-[#e9edef] leading-tight">{activeChat.name}</h2>
+                <p className="text-[11px] text-[#8696a0] truncate leading-tight">+{activeChat.phone}</p>
+              </div>
+            </div>
+            
+            {/* Mobile Header Actions */}
+            <div className="flex items-center space-x-1 ml-auto">
+              <button 
+                onClick={() => archiveContact(activeChat.phone, !activeChat.archived)}
+                className={`p-2 rounded-full transition-colors ${activeChat.archived ? 'text-emerald-400' : 'text-[#aebac1] hover:bg-white/10'}`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                </svg>
+              </button>
+              <button 
+                onClick={() => deleteContact(activeChat.phone)}
+                className="p-2 text-[#aebac1] hover:bg-rose-500/10 hover:text-rose-400 rounded-full transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Chat Area - ensuring full height and scrollability */}
+          <div 
+            className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0b141a]"
+            style={{ 
+              backgroundImage: `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`,
+              backgroundBlendMode: 'overlay',
+              backgroundOpacity: 0.05
+            }}
+          >
+            {activeChat.messages.map((msg) => {
+              const isMe = msg.sender === "me";
+              const msgTime = new Date(msg.timestamp * 1000).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              return (
+                <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                  <div 
+                    onClick={() => setActiveMenuMessageId(activeMenuMessageId === msg.id ? null : msg.id)}
+                    className={`max-w-[85%] rounded-2xl px-3 py-2 text-[14.5px] relative shadow-sm ${
+                      isMe 
+                        ? "bg-[#005c4b] text-[#e9edef] rounded-tr-none" 
+                        : "bg-[#202c33] text-[#e9edef] rounded-tl-none border border-white/5"
+                    }`}
+                  >
+                    {renderBubbleContent(msg)}
+                    <div className="flex items-center justify-end space-x-1 mt-1">
+                      <span className="text-[10px] text-[#8696a0]">{msgTime}</span>
+                      {isMe && (
+                        <span className={msg.status === "read" ? "text-[#53bdeb]" : "text-[#8696a0]"}>
+                          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 16"><path d="M0 8.5L5.5 14 18 1.5 16.5 0 5.5 11 1.5 7z"/><path d="M6 8.5L11.5 14 24 1.5 22.5 0 11.5 11 7.5 7z" opacity="0.5"/></svg>
+                        </span>
+                      )}
+                    </div>
+
+                    {activeMenuMessageId === msg.id && (
+                      <div className={`absolute z-[60] mt-1 w-32 bg-[#233138] rounded-xl shadow-2xl border border-white/10 py-1 ${isMe ? "right-0" : "left-0"}`}>
+                        <button onClick={() => { setReplyingTo(msg); setActiveMenuMessageId(null); }} className="w-full text-left px-3 py-2 hover:bg-white/5 text-xs flex items-center space-x-2">
+                          <span>💬</span> <span>Reply</span>
+                        </button>
+                        <button onClick={() => { setForwardMessage(msg); setIsForwardModalOpen(true); setActiveMenuMessageId(null); }} className="w-full text-left px-3 py-2 hover:bg-white/5 text-xs flex items-center space-x-2">
+                          <span>➡️</span> <span>Forward</span>
+                        </button>
+                        <button onClick={() => { deleteMessage(msg.id); setActiveMenuMessageId(null); }} className="w-full text-left px-3 py-2 hover:bg-rose-500/10 text-rose-400 text-xs flex items-center space-x-2">
+                          <span>🗑️</span> <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Mobile Input Area - Fixed at bottom */}
+          <div className="bg-[#202c33] border-t border-white/5 p-2 shrink-0">
+            {replyingTo && (
+              <div className="mb-2 p-2 bg-white/5 border-l-4 border-emerald-500 rounded-r-xl flex items-center justify-between">
+                <div className="flex-1 min-w-0 pr-4">
+                  <div className="text-emerald-400 text-[10px] font-bold uppercase truncate">
+                    Replying to {replyingTo.sender === "me" ? "yourself" : activeChat.name}
+                  </div>
+                  <div className="text-[#8696a0] text-xs truncate">
+                    {replyingTo.text}
+                  </div>
+                </div>
+                <button onClick={() => setReplyingTo(null)} className="p-1 text-[#8696a0]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            )}
+            
+            <form onSubmit={handleSend} className="flex items-center space-x-2">
+              <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-[#aebac1]">
+                <span className="text-xl">😀</span>
+              </button>
+              <button type="button" onClick={() => setShowAttachMenu(!showAttachMenu)} className="p-2 text-[#aebac1]">
+                <svg className="w-6 h-6 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+              </button>
+              <input
+                type="text"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 bg-[#2a3942] border-none focus:ring-0 rounded-xl text-sm text-[#e9edef] py-2 px-4"
+              />
+              <button type="submit" className="p-2 bg-emerald-500 rounded-full text-white">
+                <svg className="w-6 h-6 rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* 1. LEFT SIDEBAR: Navigation / Utility Icons (Linear style) */}
       <aside className="hidden md:flex w-16 bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-6 justify-between shrink-0">
         <div className="flex flex-col items-center space-y-8 w-full">
