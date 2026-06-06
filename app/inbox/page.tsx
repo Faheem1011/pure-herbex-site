@@ -1035,10 +1035,13 @@ export default function InboxPage() {
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl"></div>
           
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl mb-4 border border-emerald-500/20">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-              </svg>
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 rounded-2xl mb-4 border border-emerald-500/20 overflow-hidden shadow-lg shadow-emerald-500/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src="/logo.png" 
+                alt="Pure Herbex Logo" 
+                className="w-full h-full object-cover" 
+              />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Pure Herbex Inbox</h1>
             <p className="text-zinc-400 text-sm mt-1">Unlock WhatsApp conversations</p>
@@ -1224,8 +1227,13 @@ export default function InboxPage() {
       <aside className="hidden md:flex w-16 bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-6 justify-between shrink-0">
         <div className="flex flex-col items-center space-y-8 w-full">
           {/* Logo Brand */}
-          <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center border border-emerald-500/20 font-black text-sm shadow-lg shadow-emerald-500/5 cursor-pointer">
-            PH
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden cursor-pointer group">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src="/logo.png" 
+              alt="Pure Herbex Logo" 
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
+            />
           </div>
           {/* Navigation Links */}
           <nav className="flex flex-col items-center space-y-4 w-full">

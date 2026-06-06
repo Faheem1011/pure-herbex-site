@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   verification: {
     google: 'r6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU',
   },
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/icon.png',
+    apple: '/apple-icon.png',
+  },
   openGraph: {
     title: 'Pure Herbex Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
     description: 'Pakistan\'s premium medical-grade herbal formula for sexual enhancement, natural stamina, and genital health. 100% Herbal. Rs. 3,000. Cash on Delivery Available.',
