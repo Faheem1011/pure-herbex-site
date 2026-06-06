@@ -55,6 +55,21 @@ export default function InboxPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived">("all");
   
+  // Forwarding feature states
+  const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [forwardSearchQuery, setForwardSearchQuery] = useState("");
+  const [selectedForwardContacts, setSelectedForwardContacts] = useState<string[]>([]);
+  const [isForwarding, setIsForwarding] = useState(false);
+  const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
+
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Media & Location features
   const [directoryContacts, setDirectoryContacts] = useState<{ name: string; phone: string }[]>([]);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -77,6 +92,208 @@ export default function InboxPage() {
   useEffect(() => {
     activeChatRef.current = activeChat;
   }, [activeChat]);
+
+  // Android back button integration
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).handleAndroidBack = () => {
+        setActiveChat(null);
+      };
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        delete (window as any).handleAndroidBack;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const android = (window as any).Android;
+      if (android && typeof android.setChatOpen === "function") {
+        android.setChatOpen(activeChat !== null);
+      }
+    }
+  }, [activeChat]);
+
+  // Click outside listener to close custom message context menus
+  useEffect(() => {
+    const handleWindowClick = () => {
+      setActiveMenuMessageId(null);
+    };
+    window.addEventListener("click", handleWindowClick);
+    return () => window.removeEventListener("click", handleWindowClick);
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const file = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: "audio/webm" });
+        
+        setSending(true);
+        try {
+          const mediaId = await uploadFile(file);
+          const res = await fetch("/api/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${ACCESS_PASSWORD}`,
+            },
+            body: JSON.stringify({
+              toPhone: activeChat?.phone,
+              contactName: activeChat?.name,
+              type: "audio",
+              mediaId: mediaId,
+            }),
+          });
+
+          const data = await res.json();
+          if (res.ok && data.status === "success") {
+            const newMsg: Message = {
+              id: data.msgId,
+              sender: "me",
+              text: "🎵 Audio/Voice Note",
+              timestamp: getEpochTime(),
+              status: "sent",
+              type: "audio",
+              mediaId: mediaId,
+            };
+
+            if (activeChat) {
+              const updatedChat = {
+                ...activeChat,
+                messages: [...activeChat.messages, newMsg],
+              };
+              setActiveChat(updatedChat);
+              setContacts((prev) =>
+                prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
+              );
+            }
+          } else {
+            alert("Failed to send voice note: " + (data.error || "Unknown error"));
+          }
+        } catch (err: any) {
+          alert("Error sending voice note: " + err.message);
+        } finally {
+          setSending(false);
+        }
+
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+
+    } catch (err: any) {
+      alert("Could not access microphone. Please allow microphone access.");
+      console.error(err);
+    }
+  };
+
+  const stopAndSendRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      alert("Voice recording cancelled.");
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const handleForward = async () => {
+    if (!forwardMessage || selectedForwardContacts.length === 0) return;
+    setIsForwarding(true);
+    try {
+      for (const phone of selectedForwardContacts) {
+        const targetContact = contacts.find(c => c.phone === phone);
+        const res = await fetch("/api/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          },
+          body: JSON.stringify({
+            toPhone: phone,
+            replyText: forwardMessage.type === "text" || !forwardMessage.type ? forwardMessage.text : undefined,
+            contactName: targetContact?.name || "WhatsApp Contact",
+            type: forwardMessage.type || "text",
+            mediaId: forwardMessage.mediaId || undefined,
+            fileName: forwardMessage.fileName || undefined,
+            location: forwardMessage.location || undefined,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setContacts((prev) => {
+            return prev.map((c) => {
+              if (c.phone === phone) {
+                const newMsg: Message = {
+                  id: data.msgId,
+                  sender: "me",
+                  text: forwardMessage.text,
+                  timestamp: getEpochTime(),
+                  status: "sent",
+                  type: forwardMessage.type || "text",
+                  mediaId: forwardMessage.mediaId || undefined,
+                  fileName: forwardMessage.fileName || undefined,
+                  location: forwardMessage.location || undefined,
+                };
+                return {
+                  ...c,
+                  messages: [...c.messages, newMsg],
+                };
+              }
+              return c;
+            });
+          });
+        }
+      }
+      setIsForwardModalOpen(false);
+      setForwardMessage(null);
+      setSelectedForwardContacts([]);
+      alert("Message forwarded successfully!");
+    } catch (err: any) {
+      alert("Error forwarding message: " + err.message);
+    } finally {
+      setIsForwarding(false);
+    }
+  };
 
   // Load directory contacts
   useEffect(() => {
@@ -746,7 +963,7 @@ export default function InboxPage() {
 
                   {/* Hover Actions Panel */}
                   <div 
-                    className="absolute right-4 top-3.5 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    className="absolute right-4 top-3.5 hidden md:flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
@@ -982,9 +1199,18 @@ export default function InboxPage() {
                       className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm relative ${
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setActiveMenuMessageId(msg.id);
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuMessageId(activeMenuMessageId === msg.id ? null : msg.id);
+                        }}
+                        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm relative cursor-pointer select-none ${
                           isMe
-                            ? "bg-emerald-500 text-zinc-950 font-medium rounded-tr-none shadow-md shadow-emerald-500/10"
+                            ? "bg-emerald-500 text-zinc-955 font-medium rounded-tr-none shadow-md shadow-emerald-500/10"
                             : "bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-none shadow-md"
                         }`}
                       >
@@ -1000,6 +1226,43 @@ export default function InboxPage() {
                             <span className="capitalize font-semibold">({msg.status || "sent"})</span>
                           )}
                         </div>
+
+                        {activeMenuMessageId === msg.id && (
+                          <div 
+                            className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl py-1 shadow-2xl z-50 w-36 text-zinc-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setForwardMessage(msg);
+                                setSelectedForwardContacts([]);
+                                setIsForwardModalOpen(true);
+                                setActiveMenuMessageId(null);
+                              }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 rounded-t-xl text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
+                            >
+                              <span>➡️</span>
+                              <span>Forward</span>
+                            </button>
+                            {msg.text && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(msg.text);
+                                  setActiveMenuMessageId(null);
+                                  alert("Copied to clipboard!");
+                                }}
+                                className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 rounded-b-xl text-xs font-semibold flex items-center space-x-2"
+                              >
+                                <span>📋</span>
+                                <span>Copy Text</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -1142,36 +1405,78 @@ export default function InboxPage() {
                 }}
               />
 
-              <form onSubmit={handleSend} className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAttachMenu(!showAttachMenu)}
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 border border-zinc-800/80 hover:bg-zinc-900 active:scale-95 ${
-                    showAttachMenu ? "bg-zinc-900 border-zinc-700 text-emerald-400" : "bg-zinc-900/40 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  <svg className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                </button>
+              {isRecording ? (
+                <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex-1 animate-pulse">
+                  <div className="flex items-center space-x-3">
+                    <span className="w-3.5 h-3.5 rounded-full bg-rose-500 animate-ping"></span>
+                    <span className="text-zinc-300 text-sm font-semibold">Recording: {formatDuration(recordingDuration)}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={cancelRecording}
+                      className="w-10 h-10 hover:bg-zinc-800 rounded-lg text-rose-400 hover:text-rose-300 flex items-center justify-center transition-all active:scale-90"
+                      title="Cancel Recording"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopAndSendRecording}
+                      className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-zinc-955 flex items-center justify-center transition-all active:scale-90"
+                      title="Send Voice Note"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSend} className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAttachMenu(!showAttachMenu)}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 border border-zinc-800/80 hover:bg-zinc-900 active:scale-95 ${
+                      showAttachMenu ? "bg-zinc-900 border-zinc-700 text-emerald-400" : "bg-zinc-900/40 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <svg className="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                  </button>
 
-                <input
-                  type="text"
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder={pendingFile ? "Add an optional caption..." : "Type a message..."}
-                  autoComplete="off"
-                  className="flex-1 px-5 py-3.5 bg-zinc-900 border border-zinc-800 focus:border-emerald-500 rounded-xl text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none"
-                />
-                
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className="px-5 py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-zinc-955 font-bold rounded-xl text-sm transition-all flex items-center justify-center disabled:opacity-55"
-                >
-                  {sending ? "Sending..." : "Send"}
-                </button>
-              </form>
+                  <input
+                    type="text"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder={pendingFile ? "Add an optional caption..." : "Type a message..."}
+                    autoComplete="off"
+                    className="flex-1 px-5 py-3.5 bg-zinc-900 border border-zinc-800 focus:border-emerald-500 rounded-xl text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none"
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    className="w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 border border-zinc-800/80 hover:bg-zinc-900 active:scale-95 bg-zinc-900/40 text-zinc-400 hover:text-emerald-400"
+                    title="Record Voice Note"
+                  >
+                    <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={sending}
+                    className="px-5 py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-zinc-955 font-bold rounded-xl text-sm transition-all flex items-center justify-center disabled:opacity-55 animate-fade-in"
+                  >
+                    {sending ? "Sending..." : "Send"}
+                  </button>
+                </form>
+              )}
             </div>
           </>
         ) : (
@@ -1469,6 +1774,99 @@ export default function InboxPage() {
             <span className="text-[9px] font-bold">Archived</span>
           </button>
         </nav>
+      )}
+
+      {/* Forward Message Modal */}
+      {isForwardModalOpen && forwardMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl relative flex flex-col max-h-[85vh]">
+            <button
+              onClick={() => {
+                setIsForwardModalOpen(false);
+                setForwardMessage(null);
+                setSelectedForwardContacts([]);
+              }}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-200 p-1"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+
+            <h2 className="text-xl font-bold mb-2 pr-8 text-zinc-100">Forward Message</h2>
+            
+            {/* Message preview snippet */}
+            <div className="bg-zinc-950 p-3.5 rounded-2xl border border-zinc-800/80 mb-4 text-zinc-400 text-xs truncate max-w-full">
+              <span className="font-bold text-zinc-300 block mb-1">Message Preview:</span>
+              {forwardMessage.type === "image" ? "📷 Image Attachment" :
+               forwardMessage.type === "audio" || forwardMessage.type === "voice" ? "🎵 Voice Note" :
+               forwardMessage.type === "video" ? "🎥 Video Attachment" :
+               forwardMessage.type === "document" ? `📄 Document: ${forwardMessage.fileName}` :
+               forwardMessage.type === "location" ? "📍 Location Share" :
+               forwardMessage.text || ""}
+            </div>
+
+            <input
+              type="text"
+              placeholder="Search contacts..."
+              value={forwardSearchQuery}
+              onChange={(e) => setForwardSearchQuery(e.target.value)}
+              className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 mb-4 shrink-0"
+            />
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 mb-4">
+              {contacts
+                .filter(
+                  (c) =>
+                    c.name.toLowerCase().includes(forwardSearchQuery.toLowerCase()) ||
+                    c.phone.includes(forwardSearchQuery)
+                )
+                .map((c) => {
+                  const isChecked = selectedForwardContacts.includes(c.phone);
+                  return (
+                    <div
+                      key={c.phone}
+                      onClick={() => {
+                        setSelectedForwardContacts(prev =>
+                          isChecked ? prev.filter(p => p !== c.phone) : [...prev, c.phone]
+                        );
+                      }}
+                      className="w-full text-left flex justify-between items-center px-4 py-3 bg-zinc-950/40 hover:bg-zinc-800/30 border border-zinc-800/40 rounded-2xl transition-all cursor-pointer select-none"
+                    >
+                      <div>
+                        <div className="text-sm font-semibold text-zinc-200">{c.name}</div>
+                        <div className="text-[10px] text-zinc-500 mt-0.5">+{c.phone}</div>
+                      </div>
+                      <div className={`w-5.5 h-5.5 rounded-lg border flex items-center justify-center transition-all ${
+                        isChecked 
+                          ? "bg-emerald-500 border-emerald-500 text-zinc-955" 
+                          : "border-zinc-700 bg-zinc-900 text-transparent"
+                      }`}>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  );
+                })}
+              {contacts.filter(
+                (c) =>
+                  c.name.toLowerCase().includes(forwardSearchQuery.toLowerCase()) ||
+                  c.phone.includes(forwardSearchQuery)
+              ).length === 0 && (
+                <p className="text-center text-zinc-500 text-xs py-8">No contacts found.</p>
+              )}
+            </div>
+
+            <button
+              onClick={handleForward}
+              disabled={isForwarding || selectedForwardContacts.length === 0}
+              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed active:scale-95 text-zinc-955 font-bold rounded-2xl shadow-lg transition-all text-sm flex items-center justify-center space-x-2"
+            >
+              <span>{isForwarding ? "Forwarding..." : `Forward to ${selectedForwardContacts.length} Contacts`}</span>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
