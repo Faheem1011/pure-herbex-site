@@ -128,7 +128,38 @@ export default function InboxPage() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      // Select best MIME type supported by browser and WhatsApp API
+      let options = {};
+      let mimeType = "audio/mp4";
+      let extension = "mp4";
+
+      if (typeof MediaRecorder !== "undefined") {
+        if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          options = { mimeType: "audio/mp4" };
+          mimeType = "audio/mp4";
+          extension = "mp4";
+        } else if (MediaRecorder.isTypeSupported("audio/aac")) {
+          options = { mimeType: "audio/aac" };
+          mimeType = "audio/aac";
+          extension = "aac";
+        } else if (MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
+          options = { mimeType: "audio/ogg;codecs=opus" };
+          mimeType = "audio/ogg";
+          extension = "ogg";
+        } else if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          options = { mimeType: "audio/webm;codecs=opus" };
+          // Record as webm but upload as audio/mp4 to bypass WhatsApp API restriction
+          mimeType = "audio/mp4";
+          extension = "mp4";
+        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+          options = { mimeType: "audio/webm" };
+          mimeType = "audio/mp4";
+          extension = "mp4";
+        }
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -139,8 +170,8 @@ export default function InboxPage() {
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const file = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: "audio/webm" });
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const file = new File([audioBlob], `voice-note-${Date.now()}.${extension}`, { type: mimeType });
         
         setSending(true);
         try {
