@@ -66,8 +66,7 @@ export default function InboxPage() {
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const [mp3Recorder, setMp3Recorder] = useState<any>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Media & Location features
@@ -125,113 +124,29 @@ export default function InboxPage() {
     return () => window.removeEventListener("click", handleWindowClick);
   }, []);
 
+  // Initialize mic-recorder-to-mp3 on client-side mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      import("mic-recorder-to-mp3").then((MicRecorderModule) => {
+        const recorderInstance = new MicRecorderModule.default({ bitRate: 128 });
+        setMp3Recorder(recorderInstance);
+      }).catch((err) => console.error("Failed to load mic-recorder-to-mp3", err));
+    }
+  }, []);
+
   const startRecording = async () => {
+    if (!mp3Recorder) {
+      alert("Microphone recorder is loading, please try again in a moment.");
+      return;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Select best MIME type supported by browser and WhatsApp API
-      let options = {};
-      let mimeType = "audio/mp4";
-      let extension = "mp4";
-
-      if (typeof MediaRecorder !== "undefined") {
-        if (MediaRecorder.isTypeSupported("audio/mp4")) {
-          options = { mimeType: "audio/mp4" };
-          mimeType = "audio/mp4";
-          extension = "mp4";
-        } else if (MediaRecorder.isTypeSupported("audio/aac")) {
-          options = { mimeType: "audio/aac" };
-          mimeType = "audio/aac";
-          extension = "aac";
-        } else if (MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
-          options = { mimeType: "audio/ogg;codecs=opus" };
-          mimeType = "audio/ogg";
-          extension = "ogg";
-        } else if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-          options = { mimeType: "audio/webm;codecs=opus" };
-          // Record as webm but upload as audio/mp4 to bypass WhatsApp API restriction
-          mimeType = "audio/mp4";
-          extension = "mp4";
-        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-          options = { mimeType: "audio/webm" };
-          mimeType = "audio/mp4";
-          extension = "mp4";
-        }
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        const file = new File([audioBlob], `voice-note-${Date.now()}.${extension}`, { type: mimeType });
-        
-        setSending(true);
-        try {
-          const mediaId = await uploadFile(file);
-          const res = await fetch("/api/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${ACCESS_PASSWORD}`,
-            },
-            body: JSON.stringify({
-              toPhone: activeChat?.phone,
-              contactName: activeChat?.name,
-              type: "audio",
-              mediaId: mediaId,
-            }),
-          });
-
-          const data = await res.json();
-          if (res.ok && data.status === "success") {
-            const newMsg: Message = {
-              id: data.msgId,
-              sender: "me",
-              text: "🎵 Audio/Voice Note",
-              timestamp: getEpochTime(),
-              status: "sent",
-              type: "audio",
-              mediaId: mediaId,
-            };
-
-            if (activeChat) {
-              const updatedChat = {
-                ...activeChat,
-                messages: [...activeChat.messages, newMsg],
-              };
-              setActiveChat(updatedChat);
-              setContacts((prev) =>
-                prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
-              );
-            }
-          } else {
-            alert("Failed to send voice note: " + (data.error || "Unknown error"));
-          }
-        } catch (err: any) {
-          alert("Error sending voice note: " + err.message);
-        } finally {
-          setSending(false);
-        }
-
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
+      await mp3Recorder.start();
       setIsRecording(true);
       setRecordingDuration(0);
 
       recordingIntervalRef.current = setInterval(() => {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);
-
     } catch (err: any) {
       alert("Could not access microphone. Please allow microphone access.");
       console.error(err);
@@ -239,24 +154,85 @@ export default function InboxPage() {
   };
 
   const stopAndSendRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+    if (mp3Recorder && isRecording) {
       setIsRecording(false);
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
       }
+
+      mp3Recorder
+        .stop()
+        .getMp3()
+        .then(async ([buffer, blob]: [any, any]) => {
+          const file = new File(buffer, `voice-note-${Date.now()}.mp3`, {
+            type: "audio/mp3",
+            lastModified: Date.now(),
+          });
+
+          setSending(true);
+          try {
+            const mediaId = await uploadFile(file);
+            const res = await fetch("/api/messages", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${ACCESS_PASSWORD}`,
+              },
+              body: JSON.stringify({
+                toPhone: activeChat?.phone,
+                contactName: activeChat?.name,
+                type: "audio",
+                mediaId: mediaId,
+              }),
+            });
+
+            const data = await res.json();
+            if (res.ok && data.status === "success") {
+              const newMsg: Message = {
+                id: data.msgId,
+                sender: "me",
+                text: "🎵 Audio/Voice Note",
+                timestamp: getEpochTime(),
+                status: "sent",
+                type: "audio",
+                mediaId: mediaId,
+              };
+
+              if (activeChat) {
+                const updatedChat = {
+                  ...activeChat,
+                  messages: [...activeChat.messages, newMsg],
+                };
+                setActiveChat(updatedChat);
+                setContacts((prev) =>
+                  prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
+                );
+              }
+            } else {
+              alert("Failed to send voice note: " + (data.error || "Unknown error"));
+            }
+          } catch (err: any) {
+            alert("Error sending voice note: " + err.message);
+          } finally {
+            setSending(false);
+          }
+        })
+        .catch((e: any) => {
+          alert("Error processing MP3: " + e.message);
+          console.error(e);
+        });
     }
   };
 
   const cancelRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.onstop = null;
-      mediaRecorderRef.current.stop();
+    if (mp3Recorder && isRecording) {
       setIsRecording(false);
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
       }
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      try {
+        mp3Recorder.stop();
+      } catch (e) {}
       alert("Voice recording cancelled.");
     }
   };
