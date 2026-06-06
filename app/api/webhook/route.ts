@@ -81,23 +81,30 @@ export async function POST(request: NextRequest) {
           };
         }
 
-        // Add message
-        contact.messages.push({
-          id: msgId,
-          sender: "them",
-          text: text,
-          timestamp: parseInt(timestamp),
-          status: "received",
-          type: msgType,
-          mediaId: mediaId || undefined,
-          fileName: fileName || undefined,
-          location: location || undefined
-        });
+        // Add message if it doesn't already exist
+        const isDuplicate = contact.messages.some((m: any) => m.id === msgId);
+        if (!isDuplicate) {
+          contact.messages.push({
+            id: msgId,
+            sender: "them",
+            text: text,
+            timestamp: parseInt(timestamp),
+            status: "received",
+            type: msgType,
+            mediaId: mediaId || undefined,
+            fileName: fileName || undefined,
+            location: location || undefined
+          });
 
-        // Save back to KV
-        await kv.set(`whatsapp:contact:${from}`, contact);
-        // Track list of active contacts
-        await kv.sadd("whatsapp:active_contacts", from);
+          // Set unread states only for new messages
+          contact.unreadCount = (contact.unreadCount || 0) + 1;
+          contact.hasUnread = true;
+
+          // Save back to KV
+          await kv.set(`whatsapp:contact:${from}`, contact);
+          // Track list of active contacts
+          await kv.sadd("whatsapp:active_contacts", from);
+        }
       }
 
       // Handle status updates (sent, delivered, read)

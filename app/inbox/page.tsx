@@ -11,6 +11,8 @@ interface Message {
   type?: string; // "text" | "image" | "audio" | "voice" | "video" | "document" | "location"
   mediaId?: string;
   fileName?: string;
+  replyTo?: string; // ID of the message being replied to
+  isDeleted?: boolean;
   location?: {
     latitude: number;
     longitude: number;
@@ -141,7 +143,7 @@ export default function InboxPage() {
   const [password, setPassword] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== "undefined") {
-      return sessionStorage.getItem("inbox_password") === ACCESS_PASSWORD;
+      return localStorage.getItem("inbox_password") === ACCESS_PASSWORD;
     }
     return false;
   });
@@ -154,13 +156,17 @@ export default function InboxPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived">("all");
   
+  // Message features states
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  
   // Forwarding feature states
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [forwardSearchQuery, setForwardSearchQuery] = useState("");
   const [selectedForwardContacts, setSelectedForwardContacts] = useState<string[]>([]);
   const [isForwarding, setIsForwarding] = useState(false);
-  const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
 
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -431,53 +437,37 @@ export default function InboxPage() {
       });
       const data = await res.json();
       if (data.contacts) {
-        // Sort contacts by latest message
+        // Sort contacts by latest message timestamp
         const sorted = data.contacts.sort((a: Contact, b: Contact) => {
-          const timeA = a.messages[a.messages.length - 1]?.timestamp || 0;
-          const timeB = b.messages[b.messages.length - 1]?.timestamp || 0;
+          const timeA = a.messages && a.messages.length > 0 ? a.messages[a.messages.length - 1].timestamp : 0;
+          const timeB = b.messages && b.messages.length > 0 ? b.messages[b.messages.length - 1].timestamp : 0;
           return timeB - timeA;
         });
 
         // Preserve any newly started empty chats that haven't received a message yet
         setContacts((prev) => {
           const emptyChats = prev.filter(
-            (p) => p.messages.length === 0 && !sorted.some((s: Contact) => s.phone === p.phone)
+            (p) => (!p.messages || p.messages.length === 0) && !sorted.some((s: Contact) => s.phone === p.phone)
           );
 
-          // Re-apply tags & detect new unread messages
+          // Re-apply tags & use server-side unread states
           const merged = [...emptyChats, ...sorted].map((c: Contact) => {
             const localContact = prev.find((p) => p.phone === c.phone);
-            // Preserve tag
+            
+            // Preserve tag from local state if server doesn't have it (fallback)
             if (localContact?.tag && !c.tag) {
               c.tag = localContact.tag;
             }
 
-            // Compute unread: count new "them" messages since last time
+            // If the chat is currently open, mark it as read immediately
             const isOpen = activeChatRef.current?.phone === c.phone;
-            if (isOpen) {
-              // Chat is open — treat as read
+            if (isOpen && (c.hasUnread || (c.unreadCount || 0) > 0)) {
+              markChatRead(c.phone);
               return { ...c, hasUnread: false, unreadCount: 0 };
             }
 
-            const prevThemCount = (localContact?.messages || []).filter(
-              (m) => m.sender === "them"
-            ).length;
-            const newThemCount = c.messages.filter((m: Message) => m.sender === "them").length;
-            const newCount = Math.max(0, newThemCount - prevThemCount);
-
-            if (newCount > 0) {
-              return {
-                ...c,
-                hasUnread: true,
-                unreadCount: (localContact?.unreadCount || 0) + newCount,
-              };
-            }
-            // Preserve existing unread state if no new messages
-            return {
-              ...c,
-              hasUnread: localContact?.hasUnread || false,
-              unreadCount: localContact?.unreadCount || 0,
-            };
+            // Otherwise, trust the server-side unread state
+            return c;
           });
           return merged;
         });
@@ -521,7 +511,7 @@ export default function InboxPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === ACCESS_PASSWORD) {
-      sessionStorage.setItem("inbox_password", password);
+      localStorage.setItem("inbox_password", password);
       setIsLoggedIn(true);
       setLoginError("");
     } else {
@@ -605,6 +595,7 @@ export default function InboxPage() {
           contactName: activeChat.name,
           type: msgType,
           mediaId: mediaId || undefined,
+          replyTo: replyingTo?.id || undefined,
           fileName: fileToUpload ? fileToUpload.name : undefined,
           location: pendingLocation ? {
             latitude: parseFloat(pendingLocation.latitude),
@@ -633,6 +624,7 @@ export default function InboxPage() {
           status: "sent",
           type: msgType,
           mediaId: mediaId || undefined,
+          replyTo: replyingTo?.id || undefined,
           fileName: fileToUpload ? fileToUpload.name : undefined,
           location: pendingLocation ? {
             latitude: parseFloat(pendingLocation.latitude),
@@ -658,6 +650,7 @@ export default function InboxPage() {
         setPendingFile(null);
         setPendingFileType(null);
         setPendingLocation(null);
+        setReplyingTo(null);
       } else {
         alert("Failed to send message: " + (data.error || "Unknown error"));
       }
@@ -758,6 +751,38 @@ export default function InboxPage() {
     }
   };
 
+  const deleteMessage = async (messageId: string) => {
+    if (!activeChat) return;
+    // For now, we'll implement local deletion. In a real app, you'd call an API to delete on WhatsApp.
+    if (!confirm("Delete this message?")) return;
+    
+    setContacts((prev) =>
+      prev.map((c) => {
+        if (c.phone === activeChat.phone) {
+          return {
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === messageId ? { ...m, isDeleted: true, text: "🚫 This message was deleted" } : m
+            ),
+          };
+        }
+        return c;
+      })
+    );
+
+    if (activeChat.phone) {
+      setActiveChat((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: prev.messages.map((m) =>
+            m.id === messageId ? { ...m, isDeleted: true, text: "🚫 This message was deleted" } : m
+          ),
+        };
+      });
+    }
+  };
+
   const startChat = (phone: string, name: string) => {
     const cleanPhone = phone.replace(/\D/g, "");
     if (!cleanPhone) {
@@ -785,7 +810,7 @@ export default function InboxPage() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem("inbox_password");
+    localStorage.removeItem("inbox_password");
     setIsLoggedIn(false);
   };
 
@@ -798,6 +823,13 @@ export default function InboxPage() {
       setShowAttachMenu(false);
     }
   };
+
+  const insertEmoji = (emoji: string) => {
+    setReplyText((prev) => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const COMMON_EMOJIS = ["😀", "😂", "😍", "😊", "🙏", "👍", "🔥", "✨", "💯", "✅", "📍", "📞", "🌿", "💊", "💪", "❤️"];
 
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
@@ -1246,11 +1278,39 @@ export default function InboxPage() {
 
                   // Render different bubble contents depending on message type
                   const renderBubbleContent = () => {
+                    if (msg.isDeleted) {
+                      return <p className="italic text-zinc-500 text-xs">🚫 This message was deleted</p>;
+                    }
+
                     const type = msg.type || "text";
+
+                    // Quoted message preview
+                    const renderQuotedMessage = () => {
+                      if (!msg.replyTo) return null;
+                      const quotedMsg = activeChat.messages.find(m => m.id === msg.replyTo);
+                      if (!quotedMsg) return null;
+
+                      return (
+                        <div className={`mb-2 p-2 rounded-lg border-l-4 text-xs truncate max-w-full bg-black/20 ${
+                          isMe ? "border-emerald-400 text-emerald-100" : "border-emerald-500 text-zinc-300"
+                        }`}>
+                          <div className="font-bold text-[10px] mb-0.5">
+                            {quotedMsg.sender === "me" ? "You" : activeChat.name}
+                          </div>
+                          <div className="truncate opacity-80">
+                            {quotedMsg.isDeleted ? "🚫 Deleted" : 
+                             quotedMsg.type === "image" ? "📷 Photo" :
+                             quotedMsg.type === "audio" || quotedMsg.type === "voice" ? "🎵 Voice Note" :
+                             quotedMsg.text}
+                          </div>
+                        </div>
+                      );
+                    };
                     
                     if (type === "image") {
                       return (
                         <div className="space-y-2">
+                          {renderQuotedMessage()}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={`/api/media?id=${msg.mediaId}`}
@@ -1268,6 +1328,7 @@ export default function InboxPage() {
                     if (type === "audio" || type === "voice") {
                       return (
                         <div className="pt-0.5">
+                          {renderQuotedMessage()}
                           <CustomAudioPlayer
                             src={`/api/media?id=${msg.mediaId}`}
                             isMe={isMe}
@@ -1279,6 +1340,7 @@ export default function InboxPage() {
                     if (type === "video") {
                       return (
                         <div className="space-y-2">
+                          {renderQuotedMessage()}
                           <video
                             controls
                             src={`/api/media?id=${msg.mediaId}`}
@@ -1293,50 +1355,61 @@ export default function InboxPage() {
 
                     if (type === "document") {
                       return (
-                        <a
-                          href={`/api/media?id=${msg.mediaId}`}
-                          download={msg.fileName || "document"}
-                          className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
-                        >
-                          <div className="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center shrink-0 border border-rose-500/20">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <span className="font-semibold text-xs block truncate text-zinc-200">{msg.fileName || "Document"}</span>
-                            <span className="text-[9px] text-zinc-500 block">Download Attachment</span>
-                          </div>
-                        </a>
+                        <div className="space-y-2">
+                          {renderQuotedMessage()}
+                          <a
+                            href={`/api/media?id=${msg.mediaId}`}
+                            download={msg.fileName || "document"}
+                            className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
+                          >
+                            <div className="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center shrink-0 border border-rose-500/20">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                              </svg>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="font-semibold text-xs block truncate text-zinc-200">{msg.fileName || "Document"}</span>
+                              <span className="text-[9px] text-zinc-500 block">Download Attachment</span>
+                            </div>
+                          </a>
+                        </div>
                       );
                     }
 
                     if (type === "location" && msg.location) {
                       return (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${msg.location.latitude},${msg.location.longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
-                        >
-                          <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-lg flex items-center justify-center shrink-0 border border-emerald-500/20">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <span className="font-semibold text-xs block truncate text-zinc-200">{msg.location.name || "Shared Location"}</span>
-                            {msg.location.address && (
-                              <span className="text-[9px] text-zinc-500 block truncate">{msg.location.address}</span>
-                            )}
-                            <span className="text-[9px] text-emerald-400 block mt-0.5 font-bold">Open in Google Maps</span>
-                          </div>
-                        </a>
+                        <div className="space-y-2">
+                          {renderQuotedMessage()}
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${msg.location.latitude},${msg.location.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
+                          >
+                            <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-lg flex items-center justify-center shrink-0 border border-emerald-500/20">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                              </svg>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="font-semibold text-xs block truncate text-zinc-200">{msg.location.name || "Shared Location"}</span>
+                              {msg.location.address && (
+                                <span className="text-[9px] text-zinc-500 block truncate">{msg.location.address}</span>
+                              )}
+                              <span className="text-[9px] text-emerald-400 block mt-0.5 font-bold">Open in Google Maps</span>
+                            </div>
+                          </a>
+                        </div>
                       );
                     }
 
-                    return <p className="leading-relaxed whitespace-pre-wrap text-sm">{msg.text}</p>;
+                    return (
+                      <div className="space-y-1">
+                        {renderQuotedMessage()}
+                        <p className="leading-relaxed whitespace-pre-wrap text-sm">{msg.text}</p>
+                      </div>
+                    );
                   };
 
                   return (
@@ -1403,12 +1476,24 @@ export default function InboxPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setReplyingTo(msg);
+                                setActiveMenuMessageId(null);
+                              }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
+                            >
+                              <span>💬</span>
+                              <span>Reply</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setForwardMessage(msg);
                                 setSelectedForwardContacts([]);
                                 setIsForwardModalOpen(true);
                                 setActiveMenuMessageId(null);
                               }}
-                              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 rounded-t-xl text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
+                              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
                             >
                               <span>➡️</span>
                               <span>Forward</span>
@@ -1422,12 +1507,24 @@ export default function InboxPage() {
                                   setActiveMenuMessageId(null);
                                   alert("Copied to clipboard!");
                                 }}
-                                className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 rounded-b-xl text-xs font-semibold flex items-center space-x-2"
+                                className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
                               >
                                 <span>📋</span>
                                 <span>Copy Text</span>
                               </button>
                             )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteMessage(msg.id);
+                                setActiveMenuMessageId(null);
+                              }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-rose-900/40 text-rose-400 text-xs font-semibold flex items-center space-x-2 rounded-b-xl"
+                            >
+                              <span>🗑️</span>
+                              <span>Delete</span>
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1441,6 +1538,30 @@ export default function InboxPage() {
             {/* Chat Input Area */}
             <div className="p-4 border-t border-zinc-800/80 bg-zinc-900/10 shrink-0 relative">
               
+              {/* Reply Preview */}
+              {replyingTo && (
+                <div className="mb-3 p-3 bg-zinc-900 border-l-4 border-emerald-500 rounded-r-2xl flex items-center justify-between animate-slide-up">
+                  <div className="flex-1 min-w-0 pr-4">
+                    <div className="text-emerald-400 text-[10px] font-bold uppercase mb-0.5">
+                      Replying to {replyingTo.sender === "me" ? "yourself" : activeChat.name}
+                    </div>
+                    <div className="text-zinc-400 text-xs truncate">
+                      {replyingTo.type === "image" ? "📷 Photo" :
+                       replyingTo.type === "audio" || replyingTo.type === "voice" ? "🎵 Voice Note" :
+                       replyingTo.text}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setReplyingTo(null)}
+                    className="p-1 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-200 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              )}
+
               {/* Previews of pending files/locations */}
               {pendingFile && (
                 <div className="mb-3 p-3 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-between animate-fade-in">
@@ -1485,6 +1606,24 @@ export default function InboxPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                   </button>
+                </div>
+              )}
+
+              {/* Emoji Picker Popover */}
+              {showEmojiPicker && (
+                <div className="absolute bottom-20 left-4 bg-zinc-900 border border-zinc-800 rounded-3xl p-4 shadow-2xl z-40 w-64 animate-slide-up">
+                  <div className="grid grid-cols-4 gap-2">
+                    {COMMON_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => insertEmoji(emoji)}
+                        className="text-2xl hover:bg-zinc-800 p-2 rounded-xl transition-all active:scale-90"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1605,7 +1744,17 @@ export default function InboxPage() {
                 <form onSubmit={handleSend} className="flex items-center space-x-2">
                   <button
                     type="button"
-                    onClick={() => setShowAttachMenu(!showAttachMenu)}
+                    onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowAttachMenu(false); }}
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 border border-zinc-800/80 hover:bg-zinc-900 active:scale-95 ${
+                      showEmojiPicker ? "bg-zinc-900 border-zinc-700 text-emerald-400" : "bg-zinc-900/40 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <span className="text-xl">😀</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowAttachMenu(!showAttachMenu); setShowEmojiPicker(false); }}
                     className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 border border-zinc-800/80 hover:bg-zinc-900 active:scale-95 ${
                       showAttachMenu ? "bg-zinc-900 border-zinc-700 text-emerald-400" : "bg-zinc-900/40 text-zinc-400 hover:text-zinc-200"
                     }`}

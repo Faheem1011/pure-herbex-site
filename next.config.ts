@@ -18,9 +18,7 @@ const nextConfig: NextConfig = {
         pathname: '/**', // This allows any path under the hostname
       },
     ],
-    unoptimized: true,
   },
-  output: process.env.VERCEL ? undefined : 'export',
   trailingSlash: true,
   transpilePackages: ['motion'],
   webpack: (config, {dev}) => {

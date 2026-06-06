@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const accessToken = "EAAa0oH3M7CYBRmNij6bQHxQZBp0OgdYbqedMF9XRQFDEElnilxUi3ygW9qsygpf7YN1Ok3ZAi9T2ZCuV8XuWNq8GxbAMgsNwGEIVQzCytgCEGYWdFbfhZCcHbxZANwIe222pjnVSgedDPxe9NwPZCgb6CfO4hn2Em5Tr5AWWdMEWZBvFRv3QmGhla1QDb98PQZDZD";
-const phoneNumberId = "1098694096667377";
+const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || "EAAa0oH3M7CYBRmNij6bQHxQZBp0OgdYbqedMF9XRQFDEElnilxUi3ygW9qsygpf7YN1Ok3ZAi9T2ZCuV8XuWNq8GxbAMgsNwGEIVQzCytgCEGYWdFbfhZCcHbxZANwIe222pjnVSgedDPxe9NwPZCgb6CfO4hn2Em5Tr5AWWdMEWZBvFRv3QmGhla1QDb98PQZDZD";
+const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || "1098694096667377";
 
 // 1. GET: Fetch media from Meta and proxy it to bypass authentication and CORS
 export async function GET(request: NextRequest) {
@@ -80,11 +80,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
+    // Extract category from mime type for Meta's 'type' parameter
+    // Meta expects categories: 'audio', 'document', 'image', 'sticker', 'video'
+    const mimeType = file.type || "";
+    let category = "document";
+    if (mimeType.startsWith("image/")) category = "image";
+    else if (mimeType.startsWith("audio/")) category = "audio";
+    else if (mimeType.startsWith("video/")) category = "video";
+    else if (mimeType.includes("sticker")) category = "sticker";
+
     // Prepare Multipart form-data for Meta
     const metaFormData = new FormData();
     metaFormData.append("messaging_product", "whatsapp");
     metaFormData.append("file", file, file.name);
-    metaFormData.append("type", file.type);
+    metaFormData.append("type", category);
 
     const uploadUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/media`;
     const response = await fetch(uploadUrl, {
