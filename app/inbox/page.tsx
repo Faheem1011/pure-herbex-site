@@ -781,6 +781,14 @@ export default function InboxPage() {
         };
       });
     }
+
+    try {
+      await fetch("/api/messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${ACCESS_PASSWORD}` },
+        body: JSON.stringify({ phone: activeChat.phone, deleteMessageId: messageId }),
+      });
+    } catch (e) {}
   };
 
   const startChat = (phone: string, name: string) => {

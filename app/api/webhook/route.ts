@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
           mediaId = message.image?.id || "";
           text = message.image?.caption || "📷 Photo";
         } else if (msgType === "audio" || msgType === "voice") {
-          mediaId = message.audio?.id || message.voice?.id || "";
+          // WhatsApp voice notes can come as 'audio' or 'voice' type
+          mediaId = message.voice?.id || message.audio?.id || "";
           text = "🎵 Audio/Voice Note";
         } else if (msgType === "video") {
           mediaId = message.video?.id || "";
@@ -84,6 +85,12 @@ export async function POST(request: NextRequest) {
         // Add message if it doesn't already exist
         const isDuplicate = contact.messages.some((m: any) => m.id === msgId);
         if (!isDuplicate) {
+          // Handle quoted messages in webhook
+          let replyToId = undefined;
+          if (message.context?.id) {
+            replyToId = message.context.id;
+          }
+
           contact.messages.push({
             id: msgId,
             sender: "them",
@@ -92,6 +99,7 @@ export async function POST(request: NextRequest) {
             status: "received",
             type: msgType,
             mediaId: mediaId || undefined,
+            replyTo: replyToId,
             fileName: fileName || undefined,
             location: location || undefined
           });

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { toPhone, replyText, contactName, type, mediaId, location, fileName } = await request.json();
+    const { toPhone, replyText, contactName, type, mediaId, location, fileName, replyTo } = await request.json();
 
     if (!toPhone) {
       return NextResponse.json({ error: "Missing recipient phone number" }, { status: 400 });
@@ -70,6 +70,11 @@ export async function POST(request: NextRequest) {
       to: toPhone,
       type: msgType,
     };
+
+    // Handle quoted messages
+    if (replyTo) {
+      messagePayload.context = { message_id: replyTo };
+    }
 
     if (msgType === "text") {
       messagePayload.text = { preview_url: false, body: replyText };
@@ -133,6 +138,7 @@ export async function POST(request: NextRequest) {
         status: "sent",
         type: msgType,
         mediaId: mediaId || undefined,
+        replyTo: replyTo || undefined,
         location: location || undefined,
         fileName: fileName || undefined
       });
@@ -184,7 +190,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { phone, archived, markRead } = await request.json();
+    const { phone, archived, markRead, deleteMessageId } = await request.json();
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
@@ -197,6 +203,13 @@ export async function PATCH(request: NextRequest) {
       if (markRead) {
         contact.unreadCount = 0;
         contact.hasUnread = false;
+      }
+      if (deleteMessageId) {
+        if (contact.messages) {
+          contact.messages = contact.messages.map((m: any) => 
+            m.id === deleteMessageId ? { ...m, isDeleted: true, text: "🚫 This message was deleted" } : m
+          );
+        }
       }
       await kv.set(`whatsapp:contact:${phone}`, contact);
     }
