@@ -147,3 +147,55 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// 3. DELETE: Delete a conversation completely
+export async function DELETE(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("Authorization");
+    const sessionToken = authHeader?.split(" ")[1];
+
+    if (sessionToken !== "PureHerbex2026!") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { phone } = await request.json();
+    if (!phone) {
+      return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
+    }
+
+    await kv.srem("whatsapp:active_contacts", phone);
+    await kv.del(`whatsapp:contact:${phone}`);
+
+    return NextResponse.json({ status: "success" });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// 4. PATCH: Archive/Unarchive a conversation
+export async function PATCH(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("Authorization");
+    const sessionToken = authHeader?.split(" ")[1];
+
+    if (sessionToken !== "PureHerbex2026!") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { phone, archived } = await request.json();
+    if (!phone) {
+      return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
+    }
+
+    const contact: any = await kv.get(`whatsapp:contact:${phone}`);
+    if (contact) {
+      contact.archived = !!archived;
+      await kv.set(`whatsapp:contact:${phone}`, contact);
+    }
+
+    return NextResponse.json({ status: "success" });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+

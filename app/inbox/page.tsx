@@ -24,6 +24,8 @@ interface Contact {
   phone: string;
   messages: Message[];
   tag?: "Confirm" | "Potential" | "Important" | "Spam" | null;
+  archived?: boolean;
+  avatarUrl?: string;
 }
 
 const ACCESS_PASSWORD = "PureHerbex2026!";
@@ -51,7 +53,7 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived">("all");
   
   // Media & Location features
   const [directoryContacts, setDirectoryContacts] = useState<{ name: string; phone: string }[]>([]);
@@ -340,6 +342,63 @@ export default function InboxPage() {
     }
   };
 
+  const archiveContact = async (phone: string, archived: boolean) => {
+    try {
+      // Optimistic update in state
+      setContacts((prev) =>
+        prev.map((c) => {
+          if (c.phone === phone) {
+            const updated = { ...c, archived };
+            if (activeChat?.phone === phone) {
+              setActiveChat(updated.archived ? null : updated);
+            }
+            return updated;
+          }
+          return c;
+        })
+      );
+
+      const res = await fetch("/api/messages", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+        },
+        body: JSON.stringify({ phone, archived }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to sync archive status");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteContact = async (phone: string) => {
+    if (!confirm("Are you sure you want to permanently delete this chat? This action cannot be undone.")) return;
+    try {
+      // Optimistic update in state
+      setContacts((prev) => prev.filter((c) => c.phone !== phone));
+      if (activeChat?.phone === phone) {
+        setActiveChat(null);
+      }
+
+      const res = await fetch("/api/messages", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+        },
+        body: JSON.stringify({ phone }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete chat");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const startChat = (phone: string, name: string) => {
     const cleanPhone = phone.replace(/\D/g, "");
     if (!cleanPhone) {
@@ -454,6 +513,14 @@ export default function InboxPage() {
   // Filter contacts by search query AND active category tab
   const filteredContacts = contacts.filter((c) => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery);
+    
+    if (activeTab === "archived") {
+      return matchesSearch && c.archived;
+    }
+    
+    // Hide archived chats from standard tabs
+    if (c.archived) return false;
+    
     const matchesTab = activeTab === "all" ? true : c.tag === activeTab;
     return matchesSearch && matchesTab;
   });
@@ -516,7 +583,6 @@ export default function InboxPage() {
           <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center border border-emerald-500/20 font-black text-sm shadow-lg shadow-emerald-500/5 cursor-pointer">
             PH
           </div>
-
           {/* Navigation Links */}
           <nav className="flex flex-col items-center space-y-4 w-full">
             <button
@@ -547,10 +613,23 @@ export default function InboxPage() {
                 <span className={`w-2 h-2 rounded-full ${tag.color}`}></span>
               </button>
             ))}
+
+            <button
+              onClick={() => setActiveTab("archived")}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                activeTab === "archived"
+                  ? "bg-zinc-800 text-zinc-100"
+                  : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
+              }`}
+              title="Archived Chats"
+            >
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            </button>
           </nav>
         </div>
 
-        {/* Bottom actions */}
         <div className="flex flex-col items-center space-y-4">
           <button
             onClick={handleLogout}
@@ -626,19 +705,24 @@ export default function InboxPage() {
               const contactTag = TAGS.find((t) => t.id === c.tag);
 
               return (
-                <button
+                <div
                   key={c.phone}
                   onClick={() => setActiveChat(c)}
-                  className={`w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-all border ${
+                  className={`group w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-all border cursor-pointer relative ${
                     isActive
                       ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-sm"
                       : "border-transparent hover:bg-zinc-900/30 text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  <div className="w-10 h-10 bg-zinc-800 text-zinc-300 rounded-full flex items-center justify-center font-bold shrink-0 relative mt-0.5">
-                    {c.name.substring(0, 1).toUpperCase()}
+                  <div className="w-10 h-10 rounded-full shrink-0 relative mt-0.5 overflow-hidden bg-zinc-800">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(c.name)}&radius=50&backgroundColor=0d9488,0f766e,115e59,134e4a,0f172a`} 
+                      alt={c.name}
+                      className="w-full h-full object-cover"
+                    />
                     {c.tag && (
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-zinc-950 ${contactTag?.color}`}></span>
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-zinc-950 ${contactTag?.color}`}></span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -646,11 +730,11 @@ export default function InboxPage() {
                       <h3 className="font-semibold text-sm truncate text-zinc-200">
                         {c.name}
                       </h3>
-                      <span className="text-[10px] text-zinc-500 ml-1 shrink-0">
+                      <span className="text-[10px] text-zinc-500 ml-1 shrink-0 group-hover:opacity-0 transition-opacity duration-200">
                         {latestTime}
                       </span>
                     </div>
-                    <p className="text-xs truncate mt-1 leading-normal">{latestText}</p>
+                    <p className="text-xs truncate mt-1 leading-normal pr-8">{latestText}</p>
                     
                     {/* Render color tag pills in list */}
                     {contactTag && (
@@ -659,7 +743,36 @@ export default function InboxPage() {
                       </span>
                     )}
                   </div>
-                </button>
+
+                  {/* Hover Actions Panel */}
+                  <div 
+                    className="absolute right-4 top-3.5 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => archiveContact(c.phone, !c.archived)}
+                      className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-250 transition-colors"
+                      title={c.archived ? "Unarchive Chat" : "Archive Chat"}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {c.archived ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        )}
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => deleteContact(c.phone)}
+                      className="p-1.5 hover:bg-rose-955 rounded-lg text-zinc-505 hover:text-rose-455 transition-colors"
+                      title="Delete Chat"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               );
             })
           )}
@@ -673,8 +786,13 @@ export default function InboxPage() {
             {/* Chat Info Header */}
             <div className="bg-zinc-900/40 border-b border-zinc-800/80 px-6 py-4 flex items-center justify-between shrink-0 backdrop-blur-md">
               <div className="flex items-center">
-                <div className="w-10 h-10 bg-zinc-800 text-zinc-200 rounded-full flex items-center justify-center font-bold">
-                  {activeChat.name.substring(0, 1).toUpperCase()}
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(activeChat.name)}&radius=50&backgroundColor=0d9488,0f766e,115e59,134e4a,0f172a`} 
+                    alt={activeChat.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="ml-3">
                   <h2 className="font-bold text-sm leading-none text-zinc-100">{activeChat.name}</h2>
@@ -684,21 +802,50 @@ export default function InboxPage() {
                 </div>
               </div>
 
-              {/* Tags Selector Dropdown */}
-              <div className="flex items-center space-x-2">
-                <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mr-1">Tag As:</label>
-                <select
-                  value={activeChat.tag || ""}
-                  onChange={(e) => updateContactTag(activeChat.phone, (e.target.value as any) || null)}
-                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer"
-                >
-                  <option value="">No Tag</option>
-                  {TAGS.map((tag) => (
-                    <option key={tag.id} value={tag.id}>
-                      {tag.label}
-                    </option>
-                  ))}
-                </select>
+              {/* Header Actions & Tags Selector */}
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 border-r border-zinc-800/80 pr-3">
+                  <button
+                    onClick={() => archiveContact(activeChat.phone, !activeChat.archived)}
+                    className="p-2 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all flex items-center space-x-1.5 text-xs font-semibold"
+                    title={activeChat.archived ? "Unarchive Chat" : "Archive Chat"}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {activeChat.archived ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      )}
+                    </svg>
+                    <span>{activeChat.archived ? "Unarchive" : "Archive"}</span>
+                  </button>
+                  <button
+                    onClick={() => deleteContact(activeChat.phone)}
+                    className="p-2 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-900/40 rounded-xl text-zinc-500 hover:text-rose-400 transition-all flex items-center space-x-1.5 text-xs font-semibold"
+                    title="Delete Chat"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span>Delete</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mr-1">Tag As:</label>
+                  <select
+                    value={activeChat.tag || ""}
+                    onChange={(e) => updateContactTag(activeChat.phone, (e.target.value as any) || null)}
+                    className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer"
+                  >
+                    <option value="">No Tag</option>
+                    {TAGS.map((tag) => (
+                      <option key={tag.id} value={tag.id}>
+                        {tag.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
