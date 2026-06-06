@@ -149,6 +149,11 @@ export default function InboxPage() {
   });
   const [loginError, setLoginError] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const contactsRef = useRef<Contact[]>([]);
+  useEffect(() => {
+    contactsRef.current = contacts;
+  }, [contacts]);
+
   const [activeChat, setActiveChat] = useState<Contact | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
@@ -212,6 +217,10 @@ export default function InboxPage() {
   const activeChatRef = useRef<Contact | null>(null);
   useEffect(() => {
     activeChatRef.current = activeChat;
+    // Mark as read when opening a chat
+    if (activeChat && (activeChat.hasUnread || (activeChat.unreadCount || 0) > 0)) {
+      markChatRead(activeChat.phone);
+    }
   }, [activeChat]);
 
   // Android back button integration
@@ -517,6 +526,22 @@ export default function InboxPage() {
     } catch (e) {}
   };
 
+  const playNotificationSound = () => {
+    if (notificationSound) {
+      notificationSound.currentTime = 0;
+      notificationSound.play().catch(e => console.error("Error playing sound:", e));
+    }
+  };
+
+  const showBrowserNotification = (name: string, text: string) => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(`New message from ${name}`, {
+        body: text,
+        icon: "/logo.png"
+      });
+    }
+  };
+
   // Load directory contacts
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -539,6 +564,27 @@ export default function InboxPage() {
       });
       const data = await res.json();
       if (data.contacts) {
+        // Handle notifications for new messages
+        const prevContacts = contactsRef.current;
+        data.contacts.forEach((newContact: Contact) => {
+          const oldContact = prevContacts.find(c => c.phone === newContact.phone);
+          
+          // Only notify if we already had this contact in memory (prevents notification on first load)
+          if (oldContact) {
+            const newMessages = newContact.messages || [];
+            const oldMessages = oldContact.messages || [];
+            
+            // Detect new incoming messages
+            if (newMessages.length > oldMessages.length) {
+              const lastMsg = newMessages[newMessages.length - 1];
+              if (lastMsg.sender === "them") {
+                playNotificationSound();
+                showBrowserNotification(newContact.name, lastMsg.text);
+              }
+            }
+          }
+        });
+
         // Sort contacts by latest message timestamp
         const sorted = data.contacts.sort((a: Contact, b: Contact) => {
           const timeA = a.messages && a.messages.length > 0 ? a.messages[a.messages.length - 1].timestamp : 0;
@@ -1148,14 +1194,18 @@ export default function InboxPage() {
 
           {/* Chat Area - ensuring full height and scrollability */}
           <div 
-            className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0b141a]"
-            style={{ 
-              backgroundImage: `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`,
-              backgroundBlendMode: 'overlay',
-              backgroundOpacity: 0.05
-            }}
+            className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#0b141a] relative"
           >
-            {activeChat.messages.map((msg) => {
+            <div 
+              className="absolute inset-0 opacity-[0.05] pointer-events-none"
+              style={{ 
+                backgroundImage: `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`,
+                backgroundRepeat: 'repeat',
+                backgroundSize: '400px'
+              }}
+            />
+            <div className="relative z-10 space-y-4">
+              {activeChat.messages.map((msg) => {
               const isMe = msg.sender === "me";
               const msgTime = new Date(msg.timestamp * 1000).toLocaleTimeString([], {
                 hour: "2-digit",
