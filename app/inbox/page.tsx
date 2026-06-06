@@ -171,8 +171,12 @@ export default function InboxPage() {
 
       const mimeType = recorder.mimeType || "audio/ogg";
       const isOgg = mimeType.includes("ogg");
-      const ext = isOgg ? "ogg" : "webm";
-      const fileType = isOgg ? "audio/ogg" : "audio/webm";
+      
+      // WhatsApp accepts: audio/ogg, audio/mp4, audio/aac, audio/mpeg, audio/amr
+      // WebM is NOT accepted. If WebM was recorded, we map its MIME type to audio/ogg 
+      // or audio/mp4 so Meta's validation passes.
+      const fileType = isOgg ? "audio/ogg" : "audio/mp4";
+      const ext = isOgg ? "ogg" : "m4a";
 
       const audioBlob = new Blob(audioChunksRef.current, { type: fileType });
       const file = new File([audioBlob], `voice-note-${Date.now()}.${ext}`, {
