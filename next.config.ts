@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '16mb',
+    },
+  },
   trailingSlash: true,
   transpilePackages: ['motion'],
   webpack: (config, {dev}) => {

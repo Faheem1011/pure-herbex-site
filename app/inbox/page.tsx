@@ -626,29 +626,43 @@ export default function InboxPage() {
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch("/api/media", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${ACCESS_PASSWORD}`,
-      },
-      body: formData,
-    });
+    // Create an AbortController to handle timeouts
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-    const text = await res.text();
-    let data;
     try {
-      data = JSON.parse(text);
-    } catch (e) {
-      if (text.includes("Payload Too Large") || res.status === 413) {
-        throw new Error("File exceeds Vercel's 4.5MB serverless upload limit. Please use a compressed or smaller file.");
-      }
-      throw new Error(text || "Failed to upload file");
-    }
+      const res = await fetch("/api/media", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+        },
+        body: formData,
+        signal: controller.signal
+      });
 
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to upload file to WhatsApp Media server");
+      clearTimeout(timeoutId);
+
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        if (text.includes("Payload Too Large") || res.status === 413) {
+          throw new Error("File exceeds serverless upload limits. Please use a compressed or smaller file.");
+        }
+        throw new Error(text || "Failed to upload file");
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to upload file to WhatsApp Media server");
+      }
+      return data.mediaId;
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error("Upload timed out. The file might be too large for your current connection or the server is busy.");
+      }
+      throw err;
     }
-    return data.mediaId;
   };
 
   const handleSend = async (e: React.FormEvent) => {
@@ -668,12 +682,6 @@ export default function InboxPage() {
       if (pendingFile) {
         if (pendingFileType === "image" && pendingFile.size > 4 * 1024 * 1024) {
           fileToUpload = await compressImage(pendingFile);
-        }
-
-        if (fileToUpload && fileToUpload.size > 4.5 * 1024 * 1024) {
-          alert(`File is too large (${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB). Vercel has a 4.5MB serverless upload limit. Please compress your file or choose a smaller one.`);
-          setSending(false);
-          return;
         }
 
         if (fileToUpload) {
@@ -927,6 +935,16 @@ export default function InboxPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "audio" | "video" | "document") => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size limits early
+      if (type === "video" && file.size > 16 * 1024 * 1024) {
+        alert("Video file is too large. WhatsApp limits videos to 16MB. Please choose a smaller or compressed video.");
+        return;
+      }
+      if (file.size > 100 * 1024 * 1024) {
+        alert("File is too large. Maximum allowed size is 100MB (WhatsApp document limit).");
+        return;
+      }
+
       setPendingFile(file);
       setPendingFileType(type);
       setPendingLocation(null); // Clear location
