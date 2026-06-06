@@ -147,6 +147,32 @@ export default function InboxPage() {
     }
     return false;
   });
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
+
+  useEffect(() => {
+    if ("Notification" in window) {
+      setNotifPermission(Notification.permission);
+    } else {
+      setNotifPermission("unsupported");
+    }
+  }, []);
+
+  const requestNotifPermission = async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === "granted") {
+      // Play a silent sound or short beep to unlock audio context
+      const audio = new Audio("/assets/notification.mp3");
+      audio.volume = 0.2;
+      audio.play().catch(() => {});
+      
+      new Notification("Notifications Enabled", {
+        body: "You will now receive alerts for new messages.",
+        icon: "/logo.png"
+      });
+    }
+  };
   const [loginError, setLoginError] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const contactsRef = useRef<Contact[]>([]);
@@ -526,19 +552,52 @@ export default function InboxPage() {
     } catch (e) {}
   };
 
+  const handleMessageLongPress = (id: string) => {
+    if (isSelectMode) {
+      toggleMessageSelection(id);
+    } else {
+      setActiveMenuMessageId(id);
+    }
+  };
+
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+
   const playNotificationSound = () => {
-    if (notificationSound) {
-      notificationSound.currentTime = 0;
-      notificationSound.play().catch(e => console.error("Error playing sound:", e));
+    try {
+      if (!notificationSoundRef.current) {
+        notificationSoundRef.current = new Audio("/assets/notification.mp3");
+      }
+      notificationSoundRef.current.currentTime = 0;
+      notificationSoundRef.current.play().catch((e) => console.error("Error playing sound:", e));
+    } catch (e) {
+      console.error("Error playing sound:", e);
     }
   };
 
   const showBrowserNotification = (name: string, text: string) => {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(`New message from ${name}`, {
-        body: text,
-        icon: "/logo.png"
-      });
+    if (!("Notification" in window)) return;
+
+    if (Notification.permission === "granted") {
+      try {
+        const n = new Notification(`New message from ${name}`, {
+          body: text,
+          icon: "/logo.png",
+          tag: `msg-${name}`, // One notification per contact
+          renotify: true
+        } as NotificationOptions);
+
+        // Mobile vibration support
+        if ("vibrate" in navigator) {
+          navigator.vibrate([200, 100, 200]);
+        }
+
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      } catch (err) {
+        console.error("Notification display failed", err);
+      }
     }
   };
 
@@ -1090,6 +1149,142 @@ export default function InboxPage() {
     return matchesSearch && matchesTab;
   });
 
+  // Render different bubble contents depending on message type
+  const renderMessageContent = (msg: Message, isMe: boolean) => {
+    if (msg.isDeleted) {
+      return <p className="italic text-zinc-500 text-xs">🚫 This message was deleted</p>;
+    }
+
+    const type = msg.type || "text";
+
+    // Quoted message preview
+    const renderQuotedMessage = () => {
+      if (!msg.replyTo) return null;
+      const quotedMsg = activeChat?.messages.find(m => m.id === msg.replyTo);
+      if (!quotedMsg) return null;
+
+      return (
+        <div className={`mb-2 p-2 rounded-lg border-l-4 text-xs truncate max-w-full bg-black/20 ${
+          isMe ? "border-emerald-400 text-emerald-100" : "border-emerald-500 text-zinc-300"
+        }`}>
+          <div className="font-bold text-[10px] mb-0.5">
+            {quotedMsg.sender === "me" ? "You" : activeChat?.name}
+          </div>
+          <div className="truncate opacity-80">
+            {quotedMsg.isDeleted ? "🚫 Deleted" : 
+             quotedMsg.type === "image" ? "📷 Photo" :
+             quotedMsg.type === "audio" || quotedMsg.type === "voice" ? "🎵 Voice Note" :
+             quotedMsg.text}
+          </div>
+        </div>
+      );
+    };
+    
+    if (type === "image") {
+      return (
+        <div className="space-y-2">
+          {renderQuotedMessage()}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/media?id=${msg.mediaId}`}
+            alt="WhatsApp attachment"
+            className="max-w-full max-h-72 rounded-xl object-contain border border-zinc-800 bg-zinc-950 mt-1 cursor-pointer hover:opacity-90"
+            onClick={() => window.open(`/api/media?id=${msg.mediaId}`, "_blank")}
+          />
+          {msg.text && msg.text !== "📷 Photo" && (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
+          )}
+        </div>
+      );
+    }
+    
+    if (type === "audio" || type === "voice") {
+      return (
+        <div className="pt-0.5">
+          {renderQuotedMessage()}
+          <CustomAudioPlayer
+            src={`/api/media?id=${msg.mediaId}`}
+            isMe={isMe}
+          />
+        </div>
+      );
+    }
+
+    if (type === "video") {
+      return (
+        <div className="space-y-2">
+          {renderQuotedMessage()}
+          <video
+            controls
+            src={`/api/media?id=${msg.mediaId}`}
+            className="max-w-full max-h-72 rounded-xl border border-zinc-800 bg-zinc-950 mt-1"
+          />
+          {msg.text && msg.text !== "🎥 Video" && (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
+          )}
+        </div>
+      );
+    }
+
+    if (type === "document") {
+      return (
+        <div className="space-y-2">
+          {renderQuotedMessage()}
+          <a
+            href={`/api/media?id=${msg.mediaId}`}
+            download={msg.fileName || "document"}
+            className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
+          >
+            <div className="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center shrink-0 border border-rose-500/20">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="font-semibold text-xs block truncate text-zinc-200">{msg.fileName || "Document"}</span>
+              <span className="text-[9px] text-zinc-500 block">Download Attachment</span>
+            </div>
+          </a>
+        </div>
+      );
+    }
+
+    if (type === "location" && msg.location) {
+      return (
+        <div className="space-y-2">
+          {renderQuotedMessage()}
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${msg.location.latitude},${msg.location.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
+          >
+            <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-lg flex items-center justify-center shrink-0 border border-emerald-500/20">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="font-semibold text-xs block truncate text-zinc-200">{msg.location.name || "Shared Location"}</span>
+              {msg.location.address && (
+                <span className="text-[9px] text-zinc-500 block truncate">{msg.location.address}</span>
+              )}
+              <span className="text-[9px] text-emerald-400 block mt-0.5 font-bold">Open in Google Maps</span>
+            </div>
+          </a>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-1">
+        {renderQuotedMessage()}
+        <p className="leading-relaxed whitespace-pre-wrap text-sm">{msg.text}</p>
+      </div>
+    );
+  };
+
   // Login Screen
   if (!isLoggedIn) {
     return (
@@ -1146,7 +1341,7 @@ export default function InboxPage() {
       
       {/* Mobile-only: Full screen chat overlay when active */}
       {isMobile && activeChat && (
-        <div className="fixed inset-0 z-50 bg-[#0b141a] flex flex-col h-full overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-[#0b141a] flex flex-col h-[100dvh] overflow-hidden">
           {/* Mobile Header */}
           <div className="h-16 bg-[#202c33] flex items-center px-3 shrink-0 border-b border-white/5 shadow-lg">
             <button 
@@ -1221,7 +1416,7 @@ export default function InboxPage() {
                         : "bg-[#202c33] text-[#e9edef] rounded-tl-none border border-white/5"
                     }`}
                   >
-                    {renderBubbleContent(msg)}
+                    {renderMessageContent(msg, isMe)}
                     <div className="flex items-center justify-end space-x-1 mt-1">
                       <span className="text-[10px] text-[#8696a0]">{msgTime}</span>
                       {isMe && (
@@ -1249,6 +1444,7 @@ export default function InboxPage() {
               );
             })}
             <div ref={messagesEndRef} />
+            </div>
           </div>
 
           {/* Mobile Input Area - Fixed at bottom */}
@@ -1351,6 +1547,17 @@ export default function InboxPage() {
         </div>
 
         <div className="flex flex-col items-center space-y-4">
+          {notifPermission !== "granted" && notifPermission !== "unsupported" && (
+            <button
+              onClick={requestNotifPermission}
+              className="w-10 h-10 text-emerald-500 hover:bg-emerald-500/10 rounded-xl flex items-center justify-center transition-all animate-pulse"
+              title="Enable Notifications"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className="w-10 h-10 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center justify-center transition-all"
@@ -1430,10 +1637,16 @@ export default function InboxPage() {
                   onClick={() => { setActiveChat(c); if (c.hasUnread) markChatRead(c.phone); }}
                   className={`group w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-all border cursor-pointer relative ${
                     isActive
-                      ? "bg-zinc-900 border-zinc-800 text-zinc-100 shadow-sm"
-                      : "border-transparent hover:bg-zinc-900/30 text-zinc-400 hover:text-zinc-200"
+                      ? "bg-zinc-800 border-zinc-700 text-zinc-100 shadow-lg scale-[1.02] z-10"
+                      : c.hasUnread 
+                        ? "bg-emerald-500/5 border-emerald-500/20 text-zinc-200"
+                        : "border-transparent hover:bg-zinc-900/30 text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
+                  {/* Unread Indicator Bar */}
+                  {c.hasUnread && !isActive && (
+                    <div className="absolute left-0 top-3 bottom-3 w-1 bg-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                  )}
                   <div className="w-10 h-10 rounded-full shrink-0 relative mt-0.5 overflow-hidden bg-zinc-800">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
@@ -1651,142 +1864,6 @@ export default function InboxPage() {
                     minute: "2-digit",
                   });
 
-                  // Render different bubble contents depending on message type
-                  const renderBubbleContent = () => {
-                    if (msg.isDeleted) {
-                      return <p className="italic text-zinc-500 text-xs">🚫 This message was deleted</p>;
-                    }
-
-                    const type = msg.type || "text";
-
-                    // Quoted message preview
-                    const renderQuotedMessage = () => {
-                      if (!msg.replyTo) return null;
-                      const quotedMsg = activeChat.messages.find(m => m.id === msg.replyTo);
-                      if (!quotedMsg) return null;
-
-                      return (
-                        <div className={`mb-2 p-2 rounded-lg border-l-4 text-xs truncate max-w-full bg-black/20 ${
-                          isMe ? "border-emerald-400 text-emerald-100" : "border-emerald-500 text-zinc-300"
-                        }`}>
-                          <div className="font-bold text-[10px] mb-0.5">
-                            {quotedMsg.sender === "me" ? "You" : activeChat.name}
-                          </div>
-                          <div className="truncate opacity-80">
-                            {quotedMsg.isDeleted ? "🚫 Deleted" : 
-                             quotedMsg.type === "image" ? "📷 Photo" :
-                             quotedMsg.type === "audio" || quotedMsg.type === "voice" ? "🎵 Voice Note" :
-                             quotedMsg.text}
-                          </div>
-                        </div>
-                      );
-                    };
-                    
-                    if (type === "image") {
-                      return (
-                        <div className="space-y-2">
-                          {renderQuotedMessage()}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={`/api/media?id=${msg.mediaId}`}
-                            alt="WhatsApp attachment"
-                            className="max-w-full max-h-72 rounded-xl object-contain border border-zinc-800 bg-zinc-950 mt-1 cursor-pointer hover:opacity-90"
-                            onClick={() => window.open(`/api/media?id=${msg.mediaId}`, "_blank")}
-                          />
-                          {msg.text && msg.text !== "📷 Photo" && (
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
-                          )}
-                        </div>
-                      );
-                    }
-                    
-                    if (type === "audio" || type === "voice") {
-                      return (
-                        <div className="pt-0.5">
-                          {renderQuotedMessage()}
-                          <CustomAudioPlayer
-                            src={`/api/media?id=${msg.mediaId}`}
-                            isMe={isMe}
-                          />
-                        </div>
-                      );
-                    }
-
-                    if (type === "video") {
-                      return (
-                        <div className="space-y-2">
-                          {renderQuotedMessage()}
-                          <video
-                            controls
-                            src={`/api/media?id=${msg.mediaId}`}
-                            className="max-w-full max-h-72 rounded-xl border border-zinc-800 bg-zinc-950 mt-1"
-                          />
-                          {msg.text && msg.text !== "🎥 Video" && (
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
-                          )}
-                        </div>
-                      );
-                    }
-
-                    if (type === "document") {
-                      return (
-                        <div className="space-y-2">
-                          {renderQuotedMessage()}
-                          <a
-                            href={`/api/media?id=${msg.mediaId}`}
-                            download={msg.fileName || "document"}
-                            className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
-                          >
-                            <div className="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center shrink-0 border border-rose-500/20">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                              </svg>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="font-semibold text-xs block truncate text-zinc-200">{msg.fileName || "Document"}</span>
-                              <span className="text-[9px] text-zinc-500 block">Download Attachment</span>
-                            </div>
-                          </a>
-                        </div>
-                      );
-                    }
-
-                    if (type === "location" && msg.location) {
-                      return (
-                        <div className="space-y-2">
-                          {renderQuotedMessage()}
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${msg.location.latitude},${msg.location.longitude}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
-                          >
-                            <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-lg flex items-center justify-center shrink-0 border border-emerald-500/20">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                              </svg>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="font-semibold text-xs block truncate text-zinc-200">{msg.location.name || "Shared Location"}</span>
-                              {msg.location.address && (
-                                <span className="text-[9px] text-zinc-500 block truncate">{msg.location.address}</span>
-                              )}
-                              <span className="text-[9px] text-emerald-400 block mt-0.5 font-bold">Open in Google Maps</span>
-                            </div>
-                          </a>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-1">
-                        {renderQuotedMessage()}
-                        <p className="leading-relaxed whitespace-pre-wrap text-sm">{msg.text}</p>
-                      </div>
-                    );
-                  };
-
                   return (
                     <div
                       key={msg.id}
@@ -1851,7 +1928,7 @@ export default function InboxPage() {
                             : "bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-none shadow-md"
                         }`}
                       >
-                        {renderBubbleContent()}
+                        {renderMessageContent(msg, isMe)}
                         
                         <div
                           className={`flex items-center justify-end gap-1 mt-1.5 text-[9px] ${

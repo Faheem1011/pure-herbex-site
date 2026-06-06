@@ -25,9 +25,9 @@ export const metadata: Metadata = {
     google: 'r6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU',
   },
   icons: {
-    icon: '/favicon.png',
-    shortcut: '/icon.png',
-    apple: '/apple-icon.png',
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
   },
   openGraph: {
     title: 'Pure Herbex Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
@@ -51,6 +51,14 @@ export const metadata: Metadata = {
     description: 'Pakistan\'s premium medical-grade herbal formula for sexual enhancement, natural stamina, and genital health.',
     images: ['/assets/images/product-bottle.png'],
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
