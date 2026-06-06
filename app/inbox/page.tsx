@@ -163,10 +163,16 @@ export default function InboxPage() {
   
   // Forwarding feature states
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  const [forwardMessages, setForwardMessages] = useState<Message[]>([]); // For bulk forwarding
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [forwardSearchQuery, setForwardSearchQuery] = useState("");
   const [selectedForwardContacts, setSelectedForwardContacts] = useState<string[]>([]);
   const [isForwarding, setIsForwarding] = useState(false);
+
+  // Multi-select features states
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -351,58 +357,143 @@ export default function InboxPage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Multi-select handlers
+  const toggleMessageSelection = (messageId: string) => {
+    setSelectedMessageIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedMessageIds.size === 0 || !activeChat) return;
+    if (!confirm(`Delete ${selectedMessageIds.size} messages?`)) return;
+
+    const idsToDelete = Array.from(selectedMessageIds);
+    
+    // Optimistic update
+    setContacts((prev) =>
+      prev.map((c) => {
+        if (c.phone === activeChat.phone) {
+          return {
+            ...c,
+            messages: c.messages.map((m) =>
+              selectedMessageIds.has(m.id) ? { ...m, isDeleted: true, text: "🚫 This message was deleted" } : m
+            ),
+          };
+        }
+        return c;
+      })
+    );
+
+    if (activeChat.phone) {
+      setActiveChat((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: prev.messages.map((m) =>
+            selectedMessageIds.has(m.id) ? { ...m, isDeleted: true, text: "🚫 This message was deleted" } : m
+          ),
+        };
+      });
+    }
+
+    try {
+      for (const msgId of idsToDelete) {
+        await fetch("/api/messages", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${ACCESS_PASSWORD}` },
+          body: JSON.stringify({ phone: activeChat.phone, deleteMessageId: msgId }),
+        });
+      }
+    } catch (e) {
+      console.error("Bulk delete error:", e);
+    } finally {
+      setIsSelectMode(false);
+      setSelectedMessageIds(new Set());
+    }
+  };
+
+  const handleBulkForward = () => {
+    if (selectedMessageIds.size === 0 || !activeChat) return;
+    
+    const selectedMsgs = activeChat.messages
+      .filter(m => selectedMessageIds.has(m.id))
+      .sort((a, b) => a.timestamp - b.timestamp);
+      
+    setForwardMessages(selectedMsgs);
+    setForwardMessage(null);
+    setSelectedForwardContacts([]);
+    setIsForwardModalOpen(true);
+    setIsSelectMode(false);
+    setSelectedMessageIds(new Set());
+  };
+
+  const selectAllMessages = () => {
+    if (!activeChat) return;
+    setSelectedMessageIds(new Set(activeChat.messages.map(m => m.id)));
+  };
+
   const handleForward = async () => {
-    if (!forwardMessage || selectedForwardContacts.length === 0) return;
+    const messagesToForward = forwardMessage ? [forwardMessage] : forwardMessages;
+    if (messagesToForward.length === 0 || selectedForwardContacts.length === 0) return;
+    
     setIsForwarding(true);
     try {
       for (const phone of selectedForwardContacts) {
         const targetContact = contacts.find(c => c.phone === phone);
-        const res = await fetch("/api/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${ACCESS_PASSWORD}`,
-          },
-          body: JSON.stringify({
-            toPhone: phone,
-            replyText: forwardMessage.type === "text" || !forwardMessage.type ? forwardMessage.text : undefined,
-            contactName: targetContact?.name || "WhatsApp Contact",
-            type: forwardMessage.type || "text",
-            mediaId: forwardMessage.mediaId || undefined,
-            fileName: forwardMessage.fileName || undefined,
-            location: forwardMessage.location || undefined,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setContacts((prev) => {
-            return prev.map((c) => {
-              if (c.phone === phone) {
-                const newMsg: Message = {
-                  id: data.msgId,
-                  sender: "me",
-                  text: forwardMessage.text,
-                  timestamp: getEpochTime(),
-                  status: "sent",
-                  type: forwardMessage.type || "text",
-                  mediaId: forwardMessage.mediaId || undefined,
-                  fileName: forwardMessage.fileName || undefined,
-                  location: forwardMessage.location || undefined,
-                };
-                return {
-                  ...c,
-                  messages: [...c.messages, newMsg],
-                };
-              }
-              return c;
-            });
+        for (const msg of messagesToForward) {
+          const res = await fetch("/api/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${ACCESS_PASSWORD}`,
+            },
+            body: JSON.stringify({
+              toPhone: phone,
+              replyText: msg.type === "text" || !msg.type ? msg.text : undefined,
+              contactName: targetContact?.name || "WhatsApp Contact",
+              type: msg.type || "text",
+              mediaId: msg.mediaId || undefined,
+              fileName: msg.fileName || undefined,
+              location: msg.location || undefined,
+            }),
           });
+
+          if (res.ok) {
+            const data = await res.json();
+            setContacts((prev) => {
+              return prev.map((c) => {
+                if (c.phone === phone) {
+                  const newMsg: Message = {
+                    id: data.msgId,
+                    sender: "me",
+                    text: msg.text,
+                    timestamp: getEpochTime(),
+                    status: "sent",
+                    type: msg.type || "text",
+                    mediaId: msg.mediaId || undefined,
+                    fileName: msg.fileName || undefined,
+                    location: msg.location || undefined,
+                  };
+                  return { ...c, messages: [...c.messages, newMsg] };
+                }
+                return c;
+              });
+            });
+          }
         }
       }
       setIsForwardModalOpen(false);
       setForwardMessage(null);
+      setForwardMessages([]);
       setSelectedForwardContacts([]);
-      alert("Message forwarded successfully!");
+      alert("Messages forwarded successfully!");
     } catch (err: any) {
       alert("Error forwarding message: " + err.message);
     } finally {
@@ -1349,71 +1440,117 @@ export default function InboxPage() {
         {activeChat ? (
           <>
             {/* Chat Info Header */}
-            <div className="bg-zinc-900/40 border-b border-zinc-800/80 px-6 py-4 flex items-center justify-between shrink-0 backdrop-blur-md">
-              <div className="flex items-center">
-                <button
-                  onClick={() => setActiveChat(null)}
-                  className="md:hidden mr-3 p-1.5 hover:bg-zinc-900 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors shrink-0"
-                  title="Back to Chats"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(activeChat.name)}&radius=50&backgroundColor=0d9488,0f766e,115e59,134e4a,0f172a`} 
-                    alt={activeChat.name}
-                    className="w-full h-full object-cover"
-                  />
+            <div className="bg-zinc-900/40 border-b border-zinc-800/80 px-6 py-4 flex items-center justify-between shrink-0 backdrop-blur-md relative z-40">
+              {isSelectMode ? (
+                <div className="flex items-center justify-between w-full animate-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center space-x-4">
+                    <button 
+                      onClick={() => { setIsSelectMode(false); setSelectedMessageIds(new Set()); }}
+                      className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                    <span className="font-bold text-emerald-400">{selectedMessageIds.size} Selected</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={selectAllMessages}
+                      className="px-3 py-1.5 text-xs font-bold hover:bg-zinc-800 rounded-lg transition-colors"
+                    >
+                      Select All
+                    </button>
+                    <button 
+                      onClick={handleBulkForward}
+                      disabled={selectedMessageIds.size === 0}
+                      className="p-2 hover:bg-emerald-500/10 text-emerald-400 disabled:opacity-30 rounded-full transition-colors"
+                      title="Forward Selected"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={handleBulkDelete}
+                      disabled={selectedMessageIds.size === 0}
+                      className="p-2 hover:bg-rose-500/10 text-rose-400 disabled:opacity-30 rounded-full transition-colors"
+                      title="Delete Selected"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <div className="ml-3">
-                  <h2 className="font-bold text-sm leading-none text-zinc-100">{activeChat.name}</h2>
-                  <span className="text-[10px] text-zinc-500 mt-1 block">
-                    +{activeChat.phone}
-                  </span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center">
+                    <button
+                      onClick={() => setActiveChat(null)}
+                      className="md:hidden mr-3 p-1.5 hover:bg-zinc-900 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors shrink-0"
+                      title="Back to Chats"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(activeChat.name)}&radius=50&backgroundColor=0d9488,0f766e,115e59,134e4a,0f172a`} 
+                        alt={activeChat.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="ml-3">
+                      <h2 className="font-bold text-sm leading-none text-zinc-100">{activeChat.name}</h2>
+                      <span className="text-[10px] text-zinc-500 mt-1 block">
+                        +{activeChat.phone}
+                      </span>
+                    </div>
+                  </div>
 
-              {/* Header Actions & Tags Selector — icon-only on mobile */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => archiveContact(activeChat.phone, !activeChat.archived)}
-                  className="p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 text-xs font-semibold"
-                  title={activeChat.archived ? "Unarchive Chat" : "Archive Chat"}
-                >
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    {activeChat.archived ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                    )}
-                  </svg>
-                  <span className="hidden sm:inline">{activeChat.archived ? "Unarchive" : "Archive"}</span>
-                </button>
-                <button
-                  onClick={() => deleteContact(activeChat.phone)}
-                  className="p-2 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-800/40 rounded-xl text-zinc-500 hover:text-rose-400 transition-all flex items-center gap-1.5 text-xs font-semibold"
-                  title="Delete Chat"
-                >
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  <span className="hidden sm:inline">Delete</span>
-                </button>
-                <select
-                  value={activeChat.tag || ""}
-                  onChange={(e) => updateContactTag(activeChat.phone, (e.target.value as any) || null)}
-                  className="bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-2 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer max-w-[110px] sm:max-w-none"
-                  title="Tag Conversation"
-                >
-                  <option value="">No Tag</option>
-                  {TAGS.map((tag) => (
-                    <option key={tag.id} value={tag.id}>{tag.label}</option>
-                  ))}
-                </select>
-              </div>
+                  {/* Header Actions & Tags Selector — icon-only on mobile */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => archiveContact(activeChat.phone, !activeChat.archived)}
+                      className="p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                      title={activeChat.archived ? "Unarchive Chat" : "Archive Chat"}
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {activeChat.archived ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        )}
+                      </svg>
+                      <span className="hidden sm:inline">{activeChat.archived ? "Unarchive" : "Archive"}</span>
+                    </button>
+                    <button
+                      onClick={() => deleteContact(activeChat.phone)}
+                      className="p-2 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-800/40 rounded-xl text-zinc-500 hover:text-rose-400 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                      title="Delete Chat"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span className="hidden sm:inline">Delete</span>
+                    </button>
+                    <select
+                      value={activeChat.tag || ""}
+                      onChange={(e) => updateContactTag(activeChat.phone, (e.target.value as any) || null)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-2 text-xs text-zinc-300 focus:outline-none focus:border-emerald-500 font-semibold cursor-pointer max-w-[110px] sm:max-w-none"
+                      title="Tag Conversation"
+                    >
+                      <option value="">No Tag</option>
+                      {TAGS.map((tag) => (
+                        <option key={tag.id} value={tag.id}>{tag.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Message History Bubble list */}
@@ -1577,19 +1714,62 @@ export default function InboxPage() {
                   return (
                     <div
                       key={msg.id}
-                      className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} items-center space-x-2`}
                     >
+                      {isSelectMode && (
+                        <div 
+                          onClick={() => toggleMessageSelection(msg.id)}
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 cursor-pointer transition-all ${
+                            selectedMessageIds.has(msg.id)
+                              ? "bg-emerald-500 border-emerald-500 text-zinc-955"
+                              : "border-zinc-700 hover:border-emerald-500"
+                          }`}
+                        >
+                          {selectedMessageIds.has(msg.id) && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+
                       <div
                         onContextMenu={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setActiveMenuMessageId(msg.id);
+                          if (isSelectMode) {
+                            toggleMessageSelection(msg.id);
+                          } else {
+                            setActiveMenuMessageId(msg.id);
+                          }
+                        }}
+                        onMouseDown={() => {
+                          if (!isSelectMode) {
+                            longPressTimerRef.current = setTimeout(() => handleMessageLongPress(msg.id), 600);
+                          }
+                        }}
+                        onMouseUp={() => {
+                          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                        }}
+                        onTouchStart={() => {
+                          if (!isSelectMode) {
+                            longPressTimerRef.current = setTimeout(() => handleMessageLongPress(msg.id), 600);
+                          }
+                        }}
+                        onTouchEnd={() => {
+                          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActiveMenuMessageId(activeMenuMessageId === msg.id ? null : msg.id);
+                          if (isSelectMode) {
+                            toggleMessageSelection(msg.id);
+                          } else {
+                            setActiveMenuMessageId(activeMenuMessageId === msg.id ? null : msg.id);
+                          }
                         }}
-                        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm relative cursor-pointer select-none ${
+                        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm relative cursor-pointer select-none transition-all ${
+                          selectedMessageIds.has(msg.id) ? "scale-[0.98] opacity-80 border-emerald-500 ring-2 ring-emerald-500/20" : ""
+                        } ${
                           isMe
                             ? "bg-emerald-500 text-zinc-955 font-medium rounded-tr-none shadow-md shadow-emerald-500/10"
                             : "bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-none shadow-md"
