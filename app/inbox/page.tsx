@@ -66,7 +66,8 @@ export default function InboxPage() {
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [mp3Recorder, setMp3Recorder] = useState<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Media & Location features
@@ -124,23 +125,27 @@ export default function InboxPage() {
     return () => window.removeEventListener("click", handleWindowClick);
   }, []);
 
-  // Initialize mic-recorder-to-mp3 on client-side mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      import("mic-recorder-to-mp3").then((MicRecorderModule) => {
-        const recorderInstance = new MicRecorderModule.default({ bitRate: 128 });
-        setMp3Recorder(recorderInstance);
-      }).catch((err) => console.error("Failed to load mic-recorder-to-mp3", err));
-    }
-  }, []);
-
+  // Native MediaRecorder-based voice recording (OGG/OPUS — WhatsApp standard)
   const startRecording = async () => {
-    if (!mp3Recorder) {
-      alert("Microphone recorder is loading, please try again in a moment.");
-      return;
-    }
     try {
-      await mp3Recorder.start();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      // Prefer OGG/OPUS (WhatsApp voice note format), fall back to WebM
+      const mimeType = MediaRecorder.isTypeSupported("audio/ogg; codecs=opus")
+        ? "audio/ogg; codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm; codecs=opus")
+        ? "audio/webm; codecs=opus"
+        : "audio/webm";
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.start(100); // collect chunks every 100ms
       setIsRecording(true);
       setRecordingDuration(0);
 
@@ -148,93 +153,94 @@ export default function InboxPage() {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);
     } catch (err: any) {
-      alert("Could not access microphone. Please allow microphone access.");
+      alert("Could not access microphone. Please allow microphone access and try again.");
       console.error(err);
     }
   };
 
   const stopAndSendRecording = () => {
-    if (mp3Recorder && isRecording) {
-      setIsRecording(false);
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || !isRecording) return;
 
-      mp3Recorder
-        .stop()
-        .getMp3()
-        .then(async ([buffer, blob]: [any, any]) => {
-          const file = new File(buffer, `voice-note-${Date.now()}.mp3`, {
-            type: "audio/mpeg",
-            lastModified: Date.now(),
-          });
+    setIsRecording(false);
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
 
-          setSending(true);
-          try {
-            const mediaId = await uploadFile(file);
-            const res = await fetch("/api/messages", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${ACCESS_PASSWORD}`,
-              },
-              body: JSON.stringify({
-                toPhone: activeChat?.phone,
-                contactName: activeChat?.name,
-                type: "audio",
-                mediaId: mediaId,
-              }),
-            });
+    recorder.onstop = async () => {
+      // Stop all microphone tracks to release the mic
+      recorder.stream.getTracks().forEach((t) => t.stop());
 
-            const data = await res.json();
-            if (res.ok && data.status === "success") {
-              const newMsg: Message = {
-                id: data.msgId,
-                sender: "me",
-                text: "🎵 Audio/Voice Note",
-                timestamp: getEpochTime(),
-                status: "sent",
-                type: "audio",
-                mediaId: mediaId,
-              };
+      const mimeType = recorder.mimeType || "audio/ogg";
+      const isOgg = mimeType.includes("ogg");
+      const ext = isOgg ? "ogg" : "webm";
+      const fileType = isOgg ? "audio/ogg" : "audio/webm";
 
-              if (activeChat) {
-                const updatedChat = {
-                  ...activeChat,
-                  messages: [...activeChat.messages, newMsg],
-                };
-                setActiveChat(updatedChat);
-                setContacts((prev) =>
-                  prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
-                );
-              }
-            } else {
-              alert("Failed to send voice note: " + (data.error || "Unknown error"));
-            }
-          } catch (err: any) {
-            alert("Error sending voice note: " + err.message);
-          } finally {
-            setSending(false);
-          }
-        })
-        .catch((e: any) => {
-          alert("Error processing MP3: " + e.message);
-          console.error(e);
+      const audioBlob = new Blob(audioChunksRef.current, { type: fileType });
+      const file = new File([audioBlob], `voice-note-${Date.now()}.${ext}`, {
+        type: fileType,
+        lastModified: Date.now(),
+      });
+
+      setSending(true);
+      try {
+        const mediaId = await uploadFile(file);
+        const res = await fetch("/api/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          },
+          body: JSON.stringify({
+            toPhone: activeChat?.phone,
+            contactName: activeChat?.name,
+            type: "audio",
+            mediaId: mediaId,
+          }),
         });
-    }
+
+        const data = await res.json();
+        if (res.ok && data.status === "success") {
+          const newMsg: Message = {
+            id: data.msgId,
+            sender: "me",
+            text: "🎤 Voice Note",
+            timestamp: getEpochTime(),
+            status: "sent",
+            type: "audio",
+            mediaId: mediaId,
+          };
+
+          if (activeChat) {
+            const updatedChat = {
+              ...activeChat,
+              messages: [...activeChat.messages, newMsg],
+            };
+            setActiveChat(updatedChat);
+            setContacts((prev) =>
+              prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
+            );
+          }
+        } else {
+          alert("Failed to send voice note: " + (data.error || "Unknown error"));
+        }
+      } catch (err: any) {
+        alert("Error sending voice note: " + err.message);
+      } finally {
+        setSending(false);
+      }
+    };
+
+    recorder.stop();
   };
 
   const cancelRecording = () => {
-    if (mp3Recorder && isRecording) {
-      setIsRecording(false);
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
-      try {
-        mp3Recorder.stop();
-      } catch (e) {}
-      alert("Voice recording cancelled.");
-    }
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || !isRecording) return;
+    setIsRecording(false);
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    recorder.onstop = () => {
+      recorder.stream.getTracks().forEach((t) => t.stop());
+    };
+    recorder.stop();
   };
 
   const formatDuration = (seconds: number) => {
