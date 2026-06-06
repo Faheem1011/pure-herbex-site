@@ -165,7 +165,7 @@ export default function InboxPage() {
         .getMp3()
         .then(async ([buffer, blob]: [any, any]) => {
           const file = new File(buffer, `voice-note-${Date.now()}.mp3`, {
-            type: "audio/mp3",
+            type: "audio/mpeg",
             lastModified: Date.now(),
           });
 
