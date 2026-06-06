@@ -577,7 +577,7 @@ export default function InboxPage() {
     <div className="bg-zinc-950 text-zinc-200 min-h-screen flex h-screen overflow-hidden font-sans">
       
       {/* 1. LEFT SIDEBAR: Navigation / Utility Icons (Linear style) */}
-      <aside className="w-16 bg-zinc-900 border-r border-zinc-800/80 flex flex-col items-center py-6 justify-between shrink-0">
+      <aside className="hidden md:flex w-16 bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-6 justify-between shrink-0">
         <div className="flex flex-col items-center space-y-8 w-full">
           {/* Logo Brand */}
           <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center border border-emerald-500/20 font-black text-sm shadow-lg shadow-emerald-500/5 cursor-pointer">
@@ -644,7 +644,7 @@ export default function InboxPage() {
       </aside>
 
       {/* 2. MIDDLE COLUMN: Conversation Lists (Sleek List View) */}
-      <section className="w-80 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0">
+      <section className={`w-full md:w-80 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${activeChat ? "hidden md:flex" : "flex"}`}>
         
         {/* Header Section */}
         <div className="p-5 border-b border-zinc-800/60 shrink-0">
@@ -683,7 +683,7 @@ export default function InboxPage() {
         </div>
         
         {/* Chats list */}
-        <div className="flex-1 overflow-y-auto space-y-1 p-3">
+        <div className="flex-1 overflow-y-auto space-y-1 p-3 pb-20 md:pb-3">
           {filteredContacts.length === 0 ? (
             <div className="text-center text-zinc-600 text-sm mt-12 px-4">
               <svg className="w-8 h-8 mx-auto text-zinc-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -780,12 +780,21 @@ export default function InboxPage() {
       </section>
 
       {/* 3. RIGHT COLUMN: Active Chat Messages panel (Minimalistic details) */}
-      <main className="flex-1 flex flex-col bg-zinc-950 overflow-hidden relative">
+      <main className={`flex-1 flex flex-col bg-zinc-950 overflow-hidden relative ${activeChat ? "flex" : "hidden md:flex"}`}>
         {activeChat ? (
           <>
             {/* Chat Info Header */}
             <div className="bg-zinc-900/40 border-b border-zinc-800/80 px-6 py-4 flex items-center justify-between shrink-0 backdrop-blur-md">
               <div className="flex items-center">
+                <button
+                  onClick={() => setActiveChat(null)}
+                  className="md:hidden mr-3 p-1.5 hover:bg-zinc-900 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors shrink-0"
+                  title="Back to Chats"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
@@ -1418,6 +1427,48 @@ export default function InboxPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      {!activeChat && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-center justify-around z-40 px-4">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`flex flex-col items-center justify-center space-y-1 ${
+              activeTab === "all" ? "text-emerald-400" : "text-zinc-500"
+            }`}
+          >
+            <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0l-3.586-3.586a2 2 0 00-2.828 0L16 11m-8 3V4"/>
+            </svg>
+            <span className="text-[9px] font-bold">All</span>
+          </button>
+
+          {TAGS.map((tag) => (
+            <button
+              key={tag.id}
+              onClick={() => setActiveTab(tag.id as any)}
+              className={`flex flex-col items-center justify-center space-y-1 ${
+                activeTab === tag.id ? "text-emerald-400" : "text-zinc-500"
+              }`}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full ${tag.color}`}></span>
+              <span className="text-[9px] font-bold">{tag.label.split(" ")[0]}</span>
+            </button>
+          ))}
+
+          <button
+            onClick={() => setActiveTab("archived")}
+            className={`flex flex-col items-center justify-center space-y-1 ${
+              activeTab === "archived" ? "text-emerald-400" : "text-zinc-500"
+            }`}
+          >
+            <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+            <span className="text-[9px] font-bold">Archived</span>
+          </button>
+        </nav>
       )}
     </div>
   );
