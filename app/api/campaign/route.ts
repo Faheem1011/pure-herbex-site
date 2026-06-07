@@ -4,7 +4,7 @@ import path from "path";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
-import { DEFAULT_TEMPLATE_IMAGE, sendWhatsAppTemplateMessage } from "@/lib/whatsapp-send";
+import { sendWhatsAppTemplateMessage } from "@/lib/whatsapp-send";
 
 export const maxDuration = 60;
 
@@ -115,7 +115,6 @@ export async function POST(request: NextRequest) {
           bodyVarCount,
           name: lead.name,
           city: "",
-          headerImageUrl: DEFAULT_TEMPLATE_IMAGE,
         });
         if (result.ok) {
           sent++;
@@ -166,7 +165,6 @@ export async function POST(request: NextRequest) {
       bodyVarCount,
       name: displayName,
       city,
-      headerImageUrl: DEFAULT_TEMPLATE_IMAGE,
     });
 
     if (result.ok) {

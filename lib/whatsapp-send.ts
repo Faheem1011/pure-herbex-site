@@ -1,10 +1,14 @@
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 import { normalizePhone } from "@/lib/blocked";
+import {
+  getTemplateHeaderMediaId,
+  MARKETING_HEADER_IMAGE_URL,
+} from "@/lib/template-media";
 
 type SendResult = { ok: boolean; msgId?: string; error?: string };
 
-export const DEFAULT_TEMPLATE_IMAGE =
-  "https://pure-herbex-site.vercel.app/assets/images/product-bottle.png";
+/** Compressed JPEG under Meta's 5 MB template header limit (fallback URL only). */
+export const DEFAULT_TEMPLATE_IMAGE = MARKETING_HEADER_IMAGE_URL;
 
 export async function sendWhatsAppMediaMessage(
   toPhone: string,
@@ -52,6 +56,7 @@ export async function sendWhatsAppTemplateMessage(
     name?: string;
     city?: string;
     headerImageUrl?: string;
+    headerMediaId?: string;
   } = {}
 ): Promise<SendResult> {
   const {
@@ -60,16 +65,33 @@ export async function sendWhatsAppTemplateMessage(
     name = "",
     city = "",
     headerImageUrl,
+    headerMediaId,
   } = options;
 
   const to = normalizePhone(toPhone);
   const components: Record<string, unknown>[] = [];
 
-  const imageUrl = headerImageUrl || DEFAULT_TEMPLATE_IMAGE;
-  if (templateName === "herbex_marketing" || headerImageUrl) {
+  const needsHeaderImage =
+    templateName === "herbex_marketing" || headerImageUrl || headerMediaId;
+
+  if (needsHeaderImage) {
+    let imageParam: { id: string } | { link: string };
+    if (headerMediaId) {
+      imageParam = { id: headerMediaId };
+    } else if (templateName === "herbex_marketing") {
+      try {
+        const mediaId = await getTemplateHeaderMediaId();
+        imageParam = { id: mediaId };
+      } catch {
+        imageParam = { link: headerImageUrl || DEFAULT_TEMPLATE_IMAGE };
+      }
+    } else {
+      imageParam = { link: headerImageUrl || DEFAULT_TEMPLATE_IMAGE };
+    }
+
     components.push({
       type: "header",
-      parameters: [{ type: "image", image: { link: imageUrl } }],
+      parameters: [{ type: "image", image: imageParam }],
     });
   }
 

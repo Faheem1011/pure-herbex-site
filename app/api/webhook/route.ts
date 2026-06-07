@@ -153,10 +153,18 @@ export async function POST(request: NextRequest) {
             (await kv.get("whatsapp:campaign_status")) || {};
           const entry = campaignStatus[recipient_id];
           if (entry?.messageId === msg_id || entry?.status === "sent") {
-            const experimentNote =
-              errorCode === 130472
-                ? "Meta experiment: user cannot receive marketing until they message you first (error 130472)"
-                : errorTitle || "Delivery failed";
+            let failureNote = errorTitle || "Delivery failed";
+            if (errorCode === 130472) {
+              failureNote =
+                "Meta experiment: user cannot receive marketing until they message you first (error 130472)";
+            } else if (
+              errorCode === 131053 ||
+              (errorTitle && /media/i.test(errorTitle))
+            ) {
+              failureNote =
+                "Template header image failed — image must be under 5 MB and publicly reachable (error 131053)";
+            }
+            const experimentNote = failureNote;
             campaignStatus[recipient_id] = {
               ...entry,
               status: "failed",
