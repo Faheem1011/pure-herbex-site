@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
+import { bumpInboxVersion } from "@/lib/inbox-sync";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
 
     await kv.set(`whatsapp:contact:${phone}`, contact);
     await kv.sadd("whatsapp:active_contacts", phone);
+    await bumpInboxVersion();
 
     return NextResponse.json({ status: "success", tag: contact.tag });
   } catch (error: any) {

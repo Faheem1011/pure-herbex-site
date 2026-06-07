@@ -4,6 +4,7 @@ import path from "path";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
+import { bumpInboxVersion } from "@/lib/inbox-sync";
 import { registerMarketingContact } from "@/lib/marketing-inbox";
 import { sendWhatsAppTemplateMessage } from "@/lib/whatsapp-send";
 
@@ -34,6 +35,7 @@ async function saveSentMessage(
     status: "sent",
     type: "template",
   });
+  await bumpInboxVersion();
 }
 
 async function saveFailedMessage(
@@ -50,6 +52,7 @@ async function saveFailedMessage(
     status: "failed",
     type: "template",
   });
+  await bumpInboxVersion();
 }
 
 async function updateCampaignStatus(

@@ -213,6 +213,7 @@ export default function InboxPage() {
   const [loginError, setLoginError] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const contactsRef = useRef<Contact[]>([]);
+  const inboxVersionRef = useRef(0);
   useEffect(() => {
     contactsRef.current = contacts;
   }, [contacts]);
@@ -354,13 +355,20 @@ export default function InboxPage() {
 
   const restoreSession = async (token: string) => {
     try {
-      const res = await fetch("/api/messages/", {
+      inboxVersionRef.current = 0;
+      const res = await fetch("/api/inbox/sync/?since=0", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
+        const data = await res.json();
+        inboxVersionRef.current = data.version || 0;
         localStorage.setItem("inbox_password", token);
         setSessionToken(token);
         setIsLoggedIn(true);
+        if (!data.unchanged) {
+          if (data.contacts) setContacts(data.contacts);
+          if (data.campaignContacts) setCampaignContacts(data.campaignContacts);
+        }
         return true;
       }
       localStorage.removeItem("inbox_password");
@@ -891,16 +899,18 @@ export default function InboxPage() {
     failed: marketingLeads.filter((l) => getLeadStatus(l.phone) === "failed").length,
   };
 
-  // Fetch messages with polling
-  const fetchChats = async (silent = false) => {
+  const fetchInboxSync = async (silent = false, forceFull = false) => {
     if (!silent) setIsRefreshing(true);
     try {
-      const res = await fetch("/api/messages/", {
-        headers: {
-          Authorization: `Bearer ${sessionToken}`,
-        },
+      const since = forceFull ? 0 : inboxVersionRef.current;
+      const res = await fetch(`/api/inbox/sync/?since=${since}`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
       });
+      if (!res.ok) return;
       const data = await res.json();
+      inboxVersionRef.current = data.version ?? inboxVersionRef.current;
+      if (data.unchanged) return;
+
       if (data.contacts) {
         // Handle notifications for new messages
         const prevContacts = contactsRef.current;
@@ -967,8 +977,42 @@ export default function InboxPage() {
           }
         }
       }
+
+      if (data.campaignContacts) {
+        const prevCampaign = campaignContactsRef.current;
+        data.campaignContacts.forEach((newContact: Contact) => {
+          const oldContact = prevCampaign.find((c) => c.phone === newContact.phone);
+          if (oldContact) {
+            const newMessages = newContact.messages || [];
+            const oldMessages = oldContact.messages || [];
+            if (newMessages.length > oldMessages.length) {
+              const lastMsg = newMessages[newMessages.length - 1];
+              if (lastMsg.sender === "them") {
+                playNotificationSound();
+                showBrowserNotification(newContact.name, lastMsg.text, "campaign");
+              }
+            }
+          }
+        });
+
+        const sortedCampaign = data.campaignContacts.sort((a: Contact, b: Contact) => {
+          const timeA = a.messages?.[a.messages.length - 1]?.timestamp || 0;
+          const timeB = b.messages?.[a.messages.length - 1]?.timestamp || 0;
+          return timeB - timeA;
+        });
+
+        setCampaignContacts(sortedCampaign);
+
+        const currentCampaign = activeCampaignChatRef.current;
+        if (currentCampaign) {
+          const updated = sortedCampaign.find((c: Contact) => c.phone === currentCampaign.phone);
+          if (updated) {
+            setActiveCampaignChat({ ...updated, hasUnread: false, unreadCount: 0 });
+          }
+        }
+      }
     } catch (err) {
-      console.error("Failed to load conversations", err);
+      console.error("Failed to sync inbox", err);
     } finally {
       if (!silent) {
         setTimeout(() => setIsRefreshing(false), 600);
@@ -976,50 +1020,8 @@ export default function InboxPage() {
     }
   };
 
-
-  const fetchCampaignChats = async (silent = false) => {
-    try {
-      const res = await fetch("/api/marketing-messages/", {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-      });
-      const data = await res.json();
-      if (!data.contacts) return;
-
-      const prevContacts = campaignContactsRef.current;
-      data.contacts.forEach((newContact: Contact) => {
-        const oldContact = prevContacts.find((c) => c.phone === newContact.phone);
-        if (oldContact) {
-          const newMessages = newContact.messages || [];
-          const oldMessages = oldContact.messages || [];
-          if (newMessages.length > oldMessages.length) {
-            const lastMsg = newMessages[newMessages.length - 1];
-            if (lastMsg.sender === "them") {
-              playNotificationSound();
-              showBrowserNotification(newContact.name, lastMsg.text, "campaign");
-            }
-          }
-        }
-      });
-
-      const sorted = data.contacts.sort((a: Contact, b: Contact) => {
-        const timeA = a.messages?.[a.messages.length - 1]?.timestamp || 0;
-        const timeB = b.messages?.[b.messages.length - 1]?.timestamp || 0;
-        return timeB - timeA;
-      });
-
-      setCampaignContacts(sorted);
-
-      const currentActive = activeCampaignChatRef.current;
-      if (currentActive) {
-        const updated = sorted.find((c: Contact) => c.phone === currentActive.phone);
-        if (updated) {
-          setActiveCampaignChat({ ...updated, hasUnread: false, unreadCount: 0 });
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load campaign conversations", err);
-    }
-  };
+  const fetchChats = (silent = false) => fetchInboxSync(silent);
+  const fetchCampaignChats = (silent = false) => fetchInboxSync(silent);
 
   const markCampaignChatRead = async (phone: string) => {
     setCampaignContacts((prev) =>
@@ -1066,19 +1068,23 @@ export default function InboxPage() {
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    const timer = setTimeout(() => {
-      fetchChats(true);
-      fetchCampaignChats(true);
-    }, 0);
-    const interval = setInterval(() => {
-      fetchChats(true);
-      fetchCampaignChats(true);
-    }, 5000);
-    return () => {
-      clearTimeout(timer);
+
+    let interval: ReturnType<typeof setInterval>;
+    const poll = () => fetchInboxSync(true);
+    const resetInterval = () => {
       clearInterval(interval);
+      const ms = typeof document !== "undefined" && document.hidden ? 45000 : 15000;
+      interval = setInterval(poll, ms);
     };
-  }, [isLoggedIn]);
+
+    poll();
+    resetInterval();
+    document.addEventListener("visibilitychange", resetInterval);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", resetInterval);
+    };
+  }, [isLoggedIn, sessionToken]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -1547,6 +1553,7 @@ export default function InboxPage() {
 
   const handleLogout = () => {
     localStorage.removeItem("inbox_password");
+    inboxVersionRef.current = 0;
     setSessionToken(null);
     try {
       (window as any).Android?.clearSession?.();

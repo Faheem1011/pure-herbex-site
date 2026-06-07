@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isPhoneBlocked } from "@/lib/blocked";
+import { bumpInboxVersion } from "@/lib/inbox-sync";
 import {
   isMarketingLead,
   saveMarketingContact,
@@ -119,6 +120,7 @@ export async function POST(request: NextRequest) {
             contact.hasUnread = true;
             await kv.set(`whatsapp:contact:${from}`, contact);
             await kv.sadd("whatsapp:active_contacts", from);
+            await bumpInboxVersion();
           }
         } else {
           let contact: any = await kv.get(`whatsapp:marketing_contact:${from}`);
@@ -131,6 +133,7 @@ export async function POST(request: NextRequest) {
             contact.unreadCount = (contact.unreadCount || 0) + 1;
             contact.hasUnread = true;
             await saveMarketingContact(contact);
+            await bumpInboxVersion();
           }
         }
       }
@@ -168,8 +171,11 @@ export async function POST(request: NextRequest) {
         const mainContact = await kv.get(mainKey);
         const marketingContact = await kv.get(marketingKey);
         const updatedMain = await updateMessageStatus(mainContact, mainKey);
-        if (!updatedMain) {
-          await updateMessageStatus(marketingContact, marketingKey);
+        const updatedMarketing = updatedMain
+          ? false
+          : await updateMessageStatus(marketingContact, marketingKey);
+        if (updatedMain || updatedMarketing) {
+          await bumpInboxVersion();
         }
 
         // Sync marketing campaign status when Meta rejects delivery (e.g. error 130472)
@@ -197,6 +203,7 @@ export async function POST(request: NextRequest) {
               failedAt: Date.now(),
             };
             await kv.set("whatsapp:campaign_status", campaignStatus);
+            await bumpInboxVersion();
           }
         }
       }

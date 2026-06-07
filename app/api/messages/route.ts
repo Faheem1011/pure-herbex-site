@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone, setPhoneBlocked } from "@/lib/blocked";
-import { migrateMarketingOnlyFromMain } from "@/lib/marketing-inbox";
+import { bumpInboxVersion, fetchMainContacts } from "@/lib/inbox-sync";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 
 // 1. GET: Fetch all active chats and message history
@@ -12,20 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await migrateMarketingOnlyFromMain();
-
-    const activeNumbers: string[] = await kv.smembers("whatsapp:active_contacts");
-    
-    if (activeNumbers.length === 0) {
-      return NextResponse.json({ contacts: [] });
-    }
-
-    // Fetch all contact data in a single mget call for better performance
-    const contactKeys = activeNumbers.map(phone => `whatsapp:contact:${phone}`);
-    const contactsData = await kv.mget(contactKeys);
-    
-    const contacts = contactsData.filter(c => c !== null);
-
+    const contacts = await fetchMainContacts();
     return NextResponse.json({ contacts });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -144,6 +131,7 @@ export async function POST(request: NextRequest) {
 
       await kv.set(`whatsapp:contact:${toPhone}`, contact);
       await kv.sadd("whatsapp:active_contacts", toPhone);
+      await bumpInboxVersion();
 
       return NextResponse.json({ status: "success", msgId });
     } else {
@@ -169,6 +157,7 @@ export async function DELETE(request: NextRequest) {
 
     await kv.srem("whatsapp:active_contacts", phone);
     await kv.del(`whatsapp:contact:${phone}`);
+    await bumpInboxVersion();
 
     return NextResponse.json({ status: "success" });
   } catch (error: any) {
@@ -220,6 +209,9 @@ export async function PATCH(request: NextRequest) {
         }
       }
       await kv.set(`whatsapp:contact:${normalized}`, contact);
+      if (archived !== undefined || pinned !== undefined || blocked !== undefined || deleteMessageId) {
+        await bumpInboxVersion();
+      }
     }
 
     return NextResponse.json({ status: "success" });

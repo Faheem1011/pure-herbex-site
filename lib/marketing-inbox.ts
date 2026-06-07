@@ -80,8 +80,12 @@ export async function saveMarketingContact(contact: MarketingContact) {
   await kv.sadd(MARKETING_CONTACTS_SET, normalized);
 }
 
-/** Move legacy marketing-only threads out of the main inbox. */
+const MIGRATION_FLAG = "whatsapp:migration_v1_complete";
+
+/** Move legacy marketing-only threads out of the main inbox (runs once). */
 export async function migrateMarketingOnlyFromMain(): Promise<void> {
+  if (await kv.get(MIGRATION_FLAG)) return;
+
   const activeNumbers: string[] = await kv.smembers("whatsapp:active_contacts");
   for (const phone of activeNumbers) {
     const main = await kv.get(`whatsapp:contact:${phone}`);
@@ -99,6 +103,8 @@ export async function migrateMarketingOnlyFromMain(): Promise<void> {
     await kv.srem("whatsapp:active_contacts", phone);
     await kv.del(`whatsapp:contact:${phone}`);
   }
+
+  await kv.set(MIGRATION_FLAG, true);
 }
 
 export function shouldUseMainInboxForIncoming(

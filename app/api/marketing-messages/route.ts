@@ -3,10 +3,10 @@ import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
+import { bumpInboxVersion } from "@/lib/inbox-sync";
 import {
   getAllMarketingContacts,
   getMarketingContact,
-  migrateMarketingOnlyFromMain,
   saveMarketingContact,
 } from "@/lib/marketing-inbox";
 
@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await migrateMarketingOnlyFromMain();
     const contacts = await getAllMarketingContacts();
     return NextResponse.json({ contacts });
   } catch (error: any) {
@@ -122,6 +121,7 @@ export async function POST(request: NextRequest) {
     });
 
     await saveMarketingContact(contact);
+    await bumpInboxVersion();
     return NextResponse.json({ status: "success", msgId });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -166,6 +166,7 @@ export async function PATCH(request: NextRequest) {
       await kv.sadd("whatsapp:active_contacts", normalized);
       await kv.srem("whatsapp:marketing_contacts", normalized);
       await kv.del(`whatsapp:marketing_contact:${normalized}`);
+      await bumpInboxVersion();
     }
 
     return NextResponse.json({ status: "success" });
@@ -188,6 +189,7 @@ export async function DELETE(request: NextRequest) {
     const normalized = normalizePhone(phone);
     await kv.srem("whatsapp:marketing_contacts", normalized);
     await kv.del(`whatsapp:marketing_contact:${normalized}`);
+    await bumpInboxVersion();
     return NextResponse.json({ status: "success" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
