@@ -20,10 +20,10 @@ export const MARKETING_HEADER_IMAGE_URL =
   "https://pure-herbex-site.vercel.app/assets/images/marketing-header.jpg";
 
 async function uploadImageToMeta(buffer: Buffer, filename: string): Promise<string> {
-  const blob = new Blob([buffer], { type: "image/jpeg" });
+  const bytes = new Uint8Array(buffer);
   const formData = new FormData();
   formData.append("messaging_product", "whatsapp");
-  formData.append("file", new File([blob], filename, { type: "image/jpeg" }), filename);
+  formData.append("file", new File([bytes], filename, { type: "image/jpeg" }), filename);
   formData.append("type", "image");
 
   const uploadUrl = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/media`;
