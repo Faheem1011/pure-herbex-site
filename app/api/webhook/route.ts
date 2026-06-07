@@ -120,12 +120,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Handle status updates (sent, delivered, read)
+      // Handle status updates (sent, delivered, read, failed)
       if (value?.statuses) {
         const status = value.statuses[0];
         const recipient_id = status.recipient_id;
         const msg_id = status.id;
-        const msg_status = status.status; // "sent", "delivered", "read"
+        const msg_status = status.status;
+        const errorCode = status.errors?.[0]?.code;
+        const errorTitle = status.errors?.[0]?.title || status.errors?.[0]?.message;
 
         let contact: any = await kv.get(`whatsapp:contact:${recipient_id}`);
         if (contact && contact.messages) {
@@ -133,12 +135,35 @@ export async function POST(request: NextRequest) {
           for (let msg of contact.messages) {
             if (msg.id === msg_id) {
               msg.status = msg_status;
+              if (msg_status === "failed" && errorTitle) {
+                msg.text = `🚫 Delivery failed: ${errorTitle}`;
+              }
               updated = true;
               break;
             }
           }
           if (updated) {
             await kv.set(`whatsapp:contact:${recipient_id}`, contact);
+          }
+        }
+
+        // Sync marketing campaign status when Meta rejects delivery (e.g. error 130472)
+        if (msg_status === "failed") {
+          const campaignStatus: Record<string, any> =
+            (await kv.get("whatsapp:campaign_status")) || {};
+          const entry = campaignStatus[recipient_id];
+          if (entry?.messageId === msg_id || entry?.status === "sent") {
+            const experimentNote =
+              errorCode === 130472
+                ? "Meta experiment: user cannot receive marketing until they message you first (error 130472)"
+                : errorTitle || "Delivery failed";
+            campaignStatus[recipient_id] = {
+              ...entry,
+              status: "failed",
+              error: experimentNote,
+              failedAt: Date.now(),
+            };
+            await kv.set("whatsapp:campaign_status", campaignStatus);
           }
         }
       }

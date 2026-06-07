@@ -2112,6 +2112,7 @@ export default function InboxPage() {
                   <p>• {marketingLeads.length} leads loaded from contacts.json</p>
                   <p>• Template works outside the 24-hour window (approved marketing)</p>
                   <p>• Use Test Send first, then batch or one-by-one from the list</p>
+                  <p className="text-amber-500/90 mt-2">• If Meta shows error <strong>130472</strong>, that number is in a Meta experiment — they must message you first, or try a different number. You are not charged.</p>
                 </div>
               </div>
             )}
