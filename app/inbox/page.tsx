@@ -131,6 +131,13 @@ function CustomAudioPlayer({ src, isMe }: { src: string; isMe: boolean }) {
 
 const ACCESS_PASSWORD = "PureHerbex2026!";
 const getEpochTime = () => Math.floor(Date.now() / 1000);
+const MARKETING_TEMPLATE = "herbex_marketing";
+
+function parseLeadName(fullName: string): { name: string; city: string } {
+  const match = fullName.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (match) return { name: match[1].trim(), city: match[2].trim() };
+  return { name: fullName.trim(), city: "" };
+}
 
 const TAGS = [
   { id: "Confirm", label: "Confirm", color: "bg-emerald-500", text: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/10" },
@@ -218,6 +225,17 @@ export default function InboxPage() {
   const [dirSearchQuery, setDirSearchQuery] = useState("");
   const [customName, setCustomName] = useState("");
   const [customPhone, setCustomPhone] = useState("");
+
+  // Marketing CRM states
+  const [viewMode, setViewMode] = useState<"inbox" | "marketing">("inbox");
+  const [campaignStatus, setCampaignStatus] = useState<Record<string, { status: string; sentAt?: number; messageId?: string; error?: string; name?: string }>>({});
+  const [marketingSearch, setMarketingSearch] = useState("");
+  const [marketingFilter, setMarketingFilter] = useState<"all" | "pending" | "sent" | "failed">("all");
+  const [selectedMarketingLead, setSelectedMarketingLead] = useState<{ name: string; phone: string; city: string } | null>(null);
+  const [isSendingCampaign, setIsSendingCampaign] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
+  const [testName, setTestName] = useState("Test Customer");
+  const [testCity, setTestCity] = useState("Karachi");
 
   const [isMobile, setIsMobile] = useState(false);
 
@@ -611,6 +629,131 @@ export default function InboxPage() {
       })
       .catch((err) => console.error("Failed to load contacts directory", err));
   }, [isLoggedIn]);
+
+  const fetchCampaignStatus = async () => {
+    try {
+      const res = await fetch("/api/campaign", {
+        headers: { Authorization: `Bearer ${ACCESS_PASSWORD}` },
+      });
+      const data = await res.json();
+      if (data.status) setCampaignStatus(data.status);
+    } catch (err) {
+      console.error("Failed to load campaign status", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn || viewMode !== "marketing") return;
+    fetchCampaignStatus();
+  }, [isLoggedIn, viewMode]);
+
+  const sendTemplateToLead = async (
+    phone: string,
+    name: string,
+    city: string,
+    confirm = true
+  ) => {
+    if (confirm && !window.confirm(`Send "${MARKETING_TEMPLATE}" to ${name} (+${phone})?`)) {
+      return false;
+    }
+
+    setIsSendingCampaign(true);
+    try {
+      const res = await fetch("/api/campaign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+        },
+        body: JSON.stringify({
+          toPhone: phone,
+          contactName: name,
+          city,
+          templateName: MARKETING_TEMPLATE,
+          languageCode: "en",
+          bodyVarCount: 1,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setCampaignStatus((prev) => ({
+          ...prev,
+          [phone]: {
+            status: "sent",
+            sentAt: Date.now(),
+            messageId: data.msgId,
+            name,
+          },
+        }));
+        fetchChats(true);
+        return true;
+      }
+
+      setCampaignStatus((prev) => ({
+        ...prev,
+        [phone]: {
+          status: "failed",
+          sentAt: Date.now(),
+          error: data.error,
+          name,
+        },
+      }));
+      alert("Failed to send template: " + (data.error || "Unknown error"));
+      return false;
+    } catch (err: any) {
+      alert("Error: " + err.message);
+      return false;
+    } finally {
+      setIsSendingCampaign(false);
+    }
+  };
+
+  const resetLeadCampaignStatus = async (phone: string) => {
+    try {
+      await fetch("/api/campaign", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+        },
+        body: JSON.stringify({ phone }),
+      });
+      setCampaignStatus((prev) => {
+        const next = { ...prev };
+        delete next[phone];
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to reset campaign status", err);
+    }
+  };
+
+  const marketingLeads = directoryContacts.map((dc) => {
+    const parsed = parseLeadName(dc.name);
+    return { ...dc, ...parsed, displayName: dc.name };
+  });
+
+  const getLeadStatus = (phone: string) => campaignStatus[phone]?.status || "pending";
+
+  const filteredMarketingLeads = marketingLeads.filter((lead) => {
+    const status = getLeadStatus(lead.phone);
+    if (marketingFilter !== "all" && status !== marketingFilter) return false;
+    if (!marketingSearch) return true;
+    const q = marketingSearch.toLowerCase();
+    return (
+      lead.name.toLowerCase().includes(q) ||
+      lead.city.toLowerCase().includes(q) ||
+      lead.phone.includes(q) ||
+      lead.displayName.toLowerCase().includes(q)
+    );
+  });
+
+  const marketingStats = {
+    pending: marketingLeads.filter((l) => getLeadStatus(l.phone) === "pending").length,
+    sent: marketingLeads.filter((l) => getLeadStatus(l.phone) === "sent").length,
+    failed: marketingLeads.filter((l) => getLeadStatus(l.phone) === "failed").length,
+  };
 
   // Fetch messages with polling
   const fetchChats = async (silent = false) => {
@@ -1502,9 +1645,12 @@ export default function InboxPage() {
           {/* Navigation Links */}
           <nav className="flex flex-col items-center space-y-4 w-full">
             <button
-              onClick={() => setActiveTab("all")}
+              onClick={() => {
+                setViewMode("inbox");
+                setActiveTab("all");
+              }}
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                activeTab === "all"
+                activeTab === "all" && viewMode === "inbox"
                   ? "bg-zinc-800 text-zinc-100"
                   : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
               }`}
@@ -1518,9 +1664,12 @@ export default function InboxPage() {
             {TAGS.map((tag) => (
               <button
                 key={tag.id}
-                onClick={() => setActiveTab(tag.id as any)}
+                onClick={() => {
+                  setViewMode("inbox");
+                  setActiveTab(tag.id as any);
+                }}
                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                  activeTab === tag.id
+                  activeTab === tag.id && viewMode === "inbox"
                     ? "bg-zinc-800 text-zinc-100"
                     : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
                 }`}
@@ -1531,9 +1680,12 @@ export default function InboxPage() {
             ))}
 
             <button
-              onClick={() => setActiveTab("archived")}
+              onClick={() => {
+                setViewMode("inbox");
+                setActiveTab("archived");
+              }}
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                activeTab === "archived"
+                activeTab === "archived" && viewMode === "inbox"
                   ? "bg-zinc-800 text-zinc-100"
                   : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
               }`}
@@ -1541,6 +1693,24 @@ export default function InboxPage() {
             >
               <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => {
+                setViewMode("marketing");
+                setActiveChat(null);
+                fetchCampaignStatus();
+              }}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                viewMode === "marketing"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  : "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+              }`}
+              title="Marketing Campaigns"
+            >
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
               </svg>
             </button>
           </nav>
@@ -1570,6 +1740,227 @@ export default function InboxPage() {
         </div>
       </aside>
 
+      {viewMode === "marketing" ? (
+        <>
+          {/* MARKETING: Lead list */}
+          <section className={`w-full md:w-96 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${selectedMarketingLead ? "hidden md:flex" : "flex"}`}>
+            <div className="p-5 border-b border-zinc-800/60 shrink-0">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-zinc-100">Marketing</h1>
+                  <p className="text-xs text-zinc-500 mt-0.5">Template: {MARKETING_TEMPLATE}</p>
+                </div>
+                <button
+                  onClick={fetchCampaignStatus}
+                  className="w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-zinc-400 hover:text-zinc-200"
+                  title="Refresh status"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="bg-zinc-950/60 border border-zinc-800 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-zinc-300">{marketingStats.pending}</div>
+                  <div className="text-[10px] text-zinc-500">Pending</div>
+                </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-emerald-400">{marketingStats.sent}</div>
+                  <div className="text-[10px] text-emerald-600">Sent</div>
+                </div>
+                <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 text-center">
+                  <div className="text-lg font-bold text-rose-400">{marketingStats.failed}</div>
+                  <div className="text-[10px] text-rose-600">Failed</div>
+                </div>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Search leads..."
+                value={marketingSearch}
+                onChange={(e) => setMarketingSearch(e.target.value)}
+                className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800/80 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 mb-2"
+              />
+              <select
+                value={marketingFilter}
+                onChange={(e) => setMarketingFilter(e.target.value as any)}
+                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800/80 rounded-xl text-sm text-zinc-200"
+              >
+                <option value="all">All leads</option>
+                <option value="pending">Pending only</option>
+                <option value="sent">Sent only</option>
+                <option value="failed">Failed only</option>
+              </select>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 pb-20 md:pb-3">
+              {filteredMarketingLeads.length === 0 ? (
+                <p className="text-center text-zinc-500 text-sm py-8">No matching leads.</p>
+              ) : (
+                filteredMarketingLeads.map((lead) => {
+                  const status = getLeadStatus(lead.phone);
+                  return (
+                    <button
+                      key={lead.phone}
+                      type="button"
+                      onClick={() => setSelectedMarketingLead({ name: lead.name, phone: lead.phone, city: lead.city })}
+                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                        selectedMarketingLead?.phone === lead.phone
+                          ? "bg-emerald-500/10 border-emerald-500/30"
+                          : "bg-zinc-950/40 border-zinc-800/30 hover:bg-zinc-800/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-zinc-200 truncate">{lead.name}</div>
+                          <div className="text-[10px] text-zinc-500 mt-0.5">+{lead.phone}{lead.city ? ` · ${lead.city}` : ""}</div>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${
+                          status === "sent" ? "bg-emerald-500/20 text-emerald-400" :
+                          status === "failed" ? "bg-rose-500/20 text-rose-400" :
+                          "bg-zinc-800 text-zinc-400"
+                        }`}>
+                          {status}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
+          {/* MARKETING: Send panel */}
+          <main className={`flex-1 flex flex-col bg-zinc-950 overflow-hidden ${selectedMarketingLead ? "flex" : "hidden md:flex"}`}>
+            {selectedMarketingLead ? (
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 max-w-2xl mx-auto w-full">
+                {isMobile && (
+                  <button
+                    onClick={() => setSelectedMarketingLead(null)}
+                    className="mb-4 text-sm text-emerald-400 flex items-center gap-1"
+                  >
+                    ← Back to leads
+                  </button>
+                )}
+
+                <h2 className="text-2xl font-bold text-zinc-100 mb-1">{selectedMarketingLead.name}</h2>
+                <p className="text-zinc-500 text-sm mb-6">+{selectedMarketingLead.phone}{selectedMarketingLead.city ? ` · ${selectedMarketingLead.city}` : ""}</p>
+
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 mb-6">
+                  <div className="text-xs text-zinc-500 uppercase font-bold mb-2">Approved Template</div>
+                  <div className="text-emerald-400 font-semibold">{MARKETING_TEMPLATE}</div>
+                  <p className="text-zinc-500 text-xs mt-2">Bypasses the 24-hour window. Sends via official WhatsApp Cloud API.</p>
+                </div>
+
+                <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-5 mb-6">
+                  <div className="text-xs text-zinc-500 uppercase font-bold mb-2">Status</div>
+                  {(() => {
+                    const st = campaignStatus[selectedMarketingLead.phone];
+                    if (st?.status === "sent") {
+                      return (
+                        <div className="text-emerald-400 text-sm">
+                          Sent {st.sentAt ? new Date(st.sentAt).toLocaleString() : ""}
+                          {st.messageId && <div className="text-zinc-500 text-xs mt-1">ID: {st.messageId}</div>}
+                        </div>
+                      );
+                    }
+                    if (st?.status === "failed") {
+                      return <div className="text-rose-400 text-sm">{st.error || "Send failed"}</div>;
+                    }
+                    return <div className="text-zinc-400 text-sm">Not sent yet — ready to send</div>;
+                  })()}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    disabled={isSendingCampaign}
+                    onClick={async () => {
+                      const ok = await sendTemplateToLead(
+                        selectedMarketingLead.phone,
+                        selectedMarketingLead.name,
+                        selectedMarketingLead.city
+                      );
+                      if (ok) alert("Template sent successfully!");
+                    }}
+                    className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-bold rounded-2xl transition-all"
+                  >
+                    {isSendingCampaign ? "Sending..." : `Send ${MARKETING_TEMPLATE}`}
+                  </button>
+
+                  {campaignStatus[selectedMarketingLead.phone] && (
+                    <button
+                      onClick={() => resetLeadCampaignStatus(selectedMarketingLead.phone)}
+                      className="w-full py-3 border border-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-xl text-sm"
+                    >
+                      Reset to Pending
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => startChat(selectedMarketingLead.phone, selectedMarketingLead.name)}
+                    className="w-full py-3 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-xl text-sm font-semibold"
+                  >
+                    Open in Inbox (if they reply)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col p-6 md:p-8 max-w-2xl mx-auto w-full overflow-y-auto">
+                <h2 className="text-2xl font-bold text-zinc-100 mb-2">Marketing Campaign Desk</h2>
+                <p className="text-zinc-500 text-sm mb-6">
+                  Select a lead from the list, or send a test message to your own number first.
+                </p>
+
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 mb-6">
+                  <div className="text-sm font-bold text-zinc-200 mb-4">Test Send</div>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="Phone (923001234567)"
+                      value={testPhone}
+                      onChange={(e) => setTestPhone(e.target.value.replace(/\D/g, ""))}
+                      className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Name for {{1}}"
+                      value={testName}
+                      onChange={(e) => setTestName(e.target.value)}
+                      className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200"
+                    />
+                    <input
+                      type="text"
+                      placeholder="City (optional)"
+                      value={testCity}
+                      onChange={(e) => setTestCity(e.target.value)}
+                      className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200"
+                    />
+                    <button
+                      disabled={!testPhone || isSendingCampaign}
+                      onClick={async () => {
+                        const ok = await sendTemplateToLead(testPhone, testName, testCity);
+                        if (ok) alert("Test template sent! Check WhatsApp on that phone.");
+                      }}
+                      className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-bold rounded-xl"
+                    >
+                      {isSendingCampaign ? "Sending..." : "Send Test Template"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-zinc-600 text-xs leading-relaxed">
+                  <p>• {marketingLeads.length} leads loaded from contacts.json</p>
+                  <p>• You control who gets the template and when — one lead at a time</p>
+                  <p>• When they reply, switch to Inbox to continue the conversation</p>
+                </div>
+              </div>
+            )}
+          </main>
+        </>
+      ) : (
+        <>
       {/* 2. MIDDLE COLUMN: Conversation Lists (Sleek List View) */}
       <section className={`w-full md:w-80 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${activeChat ? "hidden md:flex" : "flex"}`}>
         
@@ -2304,6 +2695,8 @@ export default function InboxPage() {
           </div>
         )}
       </main>
+        </>
+      )}
 
       {/* New Chat Modal */}
       {isNewChatOpen && (
@@ -2546,12 +2939,12 @@ export default function InboxPage() {
       )}
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
-      {!activeChat && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-center justify-around z-40 px-4">
+      {!activeChat && !selectedMarketingLead && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-center justify-around z-40 px-2">
           <button
-            onClick={() => setActiveTab("all")}
+            onClick={() => { setViewMode("inbox"); setActiveTab("all"); }}
             className={`flex flex-col items-center justify-center space-y-1 ${
-              activeTab === "all" ? "text-emerald-400" : "text-zinc-500"
+              activeTab === "all" && viewMode === "inbox" ? "text-emerald-400" : "text-zinc-500"
             }`}
           >
             <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2563,9 +2956,9 @@ export default function InboxPage() {
           {TAGS.map((tag) => (
             <button
               key={tag.id}
-              onClick={() => setActiveTab(tag.id as any)}
+              onClick={() => { setViewMode("inbox"); setActiveTab(tag.id as any); }}
               className={`flex flex-col items-center justify-center space-y-1 ${
-                activeTab === tag.id ? "text-emerald-400" : "text-zinc-500"
+                activeTab === tag.id && viewMode === "inbox" ? "text-emerald-400" : "text-zinc-500"
               }`}
             >
               <span className={`w-2.5 h-2.5 rounded-full ${tag.color}`}></span>
@@ -2574,15 +2967,19 @@ export default function InboxPage() {
           ))}
 
           <button
-            onClick={() => setActiveTab("archived")}
+            onClick={() => {
+              setViewMode("marketing");
+              setActiveChat(null);
+              fetchCampaignStatus();
+            }}
             className={`flex flex-col items-center justify-center space-y-1 ${
-              activeTab === "archived" ? "text-emerald-400" : "text-zinc-500"
+              viewMode === "marketing" ? "text-emerald-400" : "text-zinc-500"
             }`}
           >
             <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
             </svg>
-            <span className="text-[9px] font-bold">Archived</span>
+            <span className="text-[9px] font-bold">Promo</span>
           </button>
         </nav>
       )}
