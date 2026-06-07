@@ -292,6 +292,31 @@ export default function InboxPage() {
     }
   }, [activeChat]);
 
+  // Keep phone screen awake while inbox is unlocked (Android app)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const android = (window as any).Android;
+    if (android && typeof android.setKeepScreenOn === "function") {
+      android.setKeepScreenOn(isLoggedIn);
+    }
+  }, [isLoggedIn]);
+
+  // Restore login session from Android native storage (survives WebView cache clears)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const android = (window as any).Android;
+    if (!android?.getSession) return;
+    try {
+      const saved = android.getSession();
+      if (saved === ACCESS_PASSWORD && localStorage.getItem("inbox_password") !== ACCESS_PASSWORD) {
+        localStorage.setItem("inbox_password", saved);
+        setIsLoggedIn(true);
+      }
+    } catch (e) {
+      console.error("Failed to restore Android session", e);
+    }
+  }, []);
+
   // Click outside listener to close custom message context menus
   useEffect(() => {
     const handleWindowClick = () => {
@@ -304,6 +329,12 @@ export default function InboxPage() {
   // Load mic-recorder-to-mp3 module but create a FRESH instance per recording
   const startRecording = async () => {
     try {
+      const android = (window as any).Android;
+      if (android?.requestMicrophonePermission && !android.requestMicrophonePermission()) {
+        alert("Microphone permission required. Allow it when prompted, then tap the mic again.");
+        return;
+      }
+
       const MicRecorderModule = await import("mic-recorder-to-mp3");
       const freshRecorder = new MicRecorderModule.default({ bitRate: 128 });
       setMp3Recorder(freshRecorder);
@@ -315,7 +346,11 @@ export default function InboxPage() {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);
     } catch (err: any) {
-      alert("Could not access microphone. Please allow microphone access.");
+      const android = (window as any).Android;
+      const settingsHint = android?.openAppSettings
+        ? "\n\nIf blocked, open App Settings and enable Microphone."
+        : "";
+      alert("Could not access microphone. Please allow microphone access." + settingsHint);
       console.error(err);
     }
   };
@@ -864,6 +899,9 @@ export default function InboxPage() {
     e.preventDefault();
     if (password === ACCESS_PASSWORD) {
       localStorage.setItem("inbox_password", password);
+      try {
+        (window as any).Android?.saveSession?.(password);
+      } catch (e) {}
       setIsLoggedIn(true);
       setLoginError("");
     } else {
@@ -1179,6 +1217,10 @@ export default function InboxPage() {
 
   const handleLogout = () => {
     localStorage.removeItem("inbox_password");
+    try {
+      (window as any).Android?.clearSession?.();
+      (window as any).Android?.setKeepScreenOn?.(false);
+    } catch (e) {}
     setIsLoggedIn(false);
   };
 
