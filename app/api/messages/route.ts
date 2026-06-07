@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone, setPhoneBlocked } from "@/lib/blocked";
+import { migrateMarketingOnlyFromMain } from "@/lib/marketing-inbox";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 
 // 1. GET: Fetch all active chats and message history
@@ -11,7 +12,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch the list of active contact numbers
+    await migrateMarketingOnlyFromMain();
+
     const activeNumbers: string[] = await kv.smembers("whatsapp:active_contacts");
     
     if (activeNumbers.length === 0) {

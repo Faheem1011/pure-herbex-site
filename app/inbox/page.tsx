@@ -238,7 +238,12 @@ export default function InboxPage() {
   const [customPhone, setCustomPhone] = useState("");
 
   // Marketing CRM states
-  const [viewMode, setViewMode] = useState<"inbox" | "marketing" | "status">("inbox");
+  const [viewMode, setViewMode] = useState<"inbox" | "promo" | "campaign" | "status">("inbox");
+  const [campaignContacts, setCampaignContacts] = useState<Contact[]>([]);
+  const campaignContactsRef = useRef<Contact[]>([]);
+  const [activeCampaignChat, setActiveCampaignChat] = useState<Contact | null>(null);
+  const activeCampaignChatRef = useRef<Contact | null>(null);
+  const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignStatus, setCampaignStatus] = useState<Record<string, { status: string; sentAt?: number; messageId?: string; error?: string; name?: string }>>({});
   const [marketingSearch, setMarketingSearch] = useState("");
   const [marketingFilter, setMarketingFilter] = useState<"all" | "pending" | "sent" | "failed">("all");
@@ -274,17 +279,28 @@ export default function InboxPage() {
   const activeChatRef = useRef<Contact | null>(null);
   useEffect(() => {
     activeChatRef.current = activeChat;
-    // Mark as read when opening a chat
     if (activeChat && (activeChat.hasUnread || (activeChat.unreadCount || 0) > 0)) {
       markChatRead(activeChat.phone);
     }
   }, [activeChat]);
 
+  useEffect(() => {
+    campaignContactsRef.current = campaignContacts;
+  }, [campaignContacts]);
+
+  useEffect(() => {
+    activeCampaignChatRef.current = activeCampaignChat;
+    if (activeCampaignChat && (activeCampaignChat.hasUnread || (activeCampaignChat.unreadCount || 0) > 0)) {
+      markCampaignChatRead(activeCampaignChat.phone);
+    }
+  }, [activeCampaignChat]);
+
   // Android back button integration
   useEffect(() => {
     if (typeof window !== "undefined") {
       (window as any).handleAndroidBack = () => {
-        setActiveChat(null);
+        if (activeCampaignChatRef.current) setActiveCampaignChat(null);
+        else setActiveChat(null);
       };
     }
     return () => {
@@ -651,15 +667,16 @@ export default function InboxPage() {
     }
   };
 
-  const showBrowserNotification = (name: string, text: string) => {
+  const showBrowserNotification = (name: string, text: string, scope: "main" | "campaign" = "main") => {
     if (!("Notification" in window)) return;
 
     if (Notification.permission === "granted") {
       try {
-        const n = new Notification(`New message from ${name}`, {
+        const prefix = scope === "campaign" ? "Campaign reply" : "New message";
+        const n = new Notification(`${prefix} from ${name}`, {
           body: text,
           icon: "/logo.png",
-          tag: `msg-${name}`, // One notification per contact
+          tag: `${scope}-msg-${name}`,
           renotify: true
         } as NotificationOptions);
 
@@ -702,7 +719,7 @@ export default function InboxPage() {
   };
 
   useEffect(() => {
-    if (!isLoggedIn || viewMode !== "marketing") return;
+    if (!isLoggedIn || viewMode !== "promo") return;
     fetchCampaignStatus();
   }, [isLoggedIn, viewMode]);
 
@@ -726,6 +743,7 @@ export default function InboxPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Batch send failed");
       await fetchCampaignStatus();
+      await fetchCampaignChats(true);
       alert(`Batch done!\nSent: ${data.sent}\nFailed: ${data.failed}\nSkipped (blocked): ${data.skipped}${data.firstError ? `\nError: ${data.firstError}` : ""}${data.remaining ? `\n${data.remaining} still pending — run again.` : ""}`);
     } catch (e: any) {
       alert("Batch failed: " + e.message);
@@ -773,7 +791,7 @@ export default function InboxPage() {
             name,
           },
         }));
-        fetchChats(true);
+        fetchCampaignChats(true);
         return true;
       }
 
@@ -928,12 +946,103 @@ export default function InboxPage() {
   };
 
 
+  const fetchCampaignChats = async (silent = false) => {
+    try {
+      const res = await fetch("/api/marketing-messages/", {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      const data = await res.json();
+      if (!data.contacts) return;
+
+      const prevContacts = campaignContactsRef.current;
+      data.contacts.forEach((newContact: Contact) => {
+        const oldContact = prevContacts.find((c) => c.phone === newContact.phone);
+        if (oldContact) {
+          const newMessages = newContact.messages || [];
+          const oldMessages = oldContact.messages || [];
+          if (newMessages.length > oldMessages.length) {
+            const lastMsg = newMessages[newMessages.length - 1];
+            if (lastMsg.sender === "them") {
+              playNotificationSound();
+              showBrowserNotification(newContact.name, lastMsg.text, "campaign");
+            }
+          }
+        }
+      });
+
+      const sorted = data.contacts.sort((a: Contact, b: Contact) => {
+        const timeA = a.messages?.[a.messages.length - 1]?.timestamp || 0;
+        const timeB = b.messages?.[b.messages.length - 1]?.timestamp || 0;
+        return timeB - timeA;
+      });
+
+      setCampaignContacts(sorted);
+
+      const currentActive = activeCampaignChatRef.current;
+      if (currentActive) {
+        const updated = sorted.find((c: Contact) => c.phone === currentActive.phone);
+        if (updated) {
+          setActiveCampaignChat({ ...updated, hasUnread: false, unreadCount: 0 });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load campaign conversations", err);
+    }
+  };
+
+  const markCampaignChatRead = async (phone: string) => {
+    setCampaignContacts((prev) =>
+      prev.map((c) => (c.phone === phone ? { ...c, hasUnread: false, unreadCount: 0 } : c))
+    );
+    try {
+      await fetch("/api/marketing-messages/", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ phone, markRead: true }),
+      });
+    } catch (e) {}
+  };
+
+  const startCampaignChat = (phone: string, name: string) => {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const existing = campaignContacts.find((c) => c.phone === cleanPhone);
+    if (existing) {
+      setActiveCampaignChat(existing);
+    } else {
+      const newContact: Contact = { name: name || "Lead", phone: cleanPhone, messages: [] };
+      setCampaignContacts((prev) => [newContact, ...prev]);
+      setActiveCampaignChat(newContact);
+    }
+    setViewMode("campaign");
+    setSelectedMarketingLead(null);
+  };
+
+  const promoteToMainInbox = async (phone: string) => {
+    try {
+      await fetch("/api/marketing-messages/", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ phone, promoteToMain: true }),
+      });
+      setCampaignContacts((prev) => prev.filter((c) => c.phone !== phone));
+      setActiveCampaignChat(null);
+      await fetchChats(true);
+      alert("Moved to main inbox. Future replies will appear there.");
+    } catch (e: any) {
+      alert("Failed to move contact: " + e.message);
+    }
+  };
+
   useEffect(() => {
     if (!isLoggedIn) return;
     const timer = setTimeout(() => {
       fetchChats(true);
+      fetchCampaignChats(true);
     }, 0);
-    const interval = setInterval(() => fetchChats(true), 5000); // Poll every 5 seconds
+    const interval = setInterval(() => {
+      fetchChats(true);
+      fetchCampaignChats(true);
+    }, 5000);
     return () => {
       clearTimeout(timer);
       clearInterval(interval);
@@ -943,7 +1052,7 @@ export default function InboxPage() {
   // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeChat?.messages]);
+  }, [activeChat?.messages, activeCampaignChat?.messages]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -999,6 +1108,49 @@ export default function InboxPage() {
         throw new Error("Upload timed out. The file might be too large for your current connection or the server is busy.");
       }
       throw err;
+    }
+  };
+
+  const handleCampaignSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeCampaignChat || sending || !replyText.trim()) return;
+
+    setSending(true);
+    try {
+      const res = await fetch("/api/marketing-messages/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          toPhone: activeCampaignChat.phone,
+          replyText: replyText,
+          contactName: activeCampaignChat.name,
+          type: "text",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.status === "success") {
+        const newMsg: Message = {
+          id: data.msgId,
+          sender: "me",
+          text: replyText,
+          timestamp: getEpochTime(),
+          status: "sent",
+          type: "text",
+        };
+        const updated = { ...activeCampaignChat, messages: [...activeCampaignChat.messages, newMsg] };
+        setActiveCampaignChat(updated);
+        setCampaignContacts((prev) => prev.map((c) => (c.phone === activeCampaignChat.phone ? updated : c)));
+        setReplyText("");
+      } else {
+        alert("Failed to send: " + (data.error || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -1478,6 +1630,18 @@ export default function InboxPage() {
     });
 
   const blockedCount = contacts.filter((c) => c.blocked).length;
+  const campaignUnreadCount = campaignContacts.reduce((n, c) => n + (c.hasUnread ? (c.unreadCount || 1) : 0), 0);
+  const filteredCampaignContacts = campaignContacts
+    .filter((c) => {
+      if (!campaignSearch) return true;
+      const q = campaignSearch.toLowerCase();
+      return c.name.toLowerCase().includes(q) || c.phone.includes(q);
+    })
+    .sort((a, b) => {
+      const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
+      const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
+      return bTime - aTime;
+    });
   const inboxTitle =
     activeTab === "blocked" ? "Blocked" :
     activeTab === "archived" ? "Archived" :
@@ -1777,16 +1941,41 @@ export default function InboxPage() {
 
             <button
               onClick={() => {
-                setViewMode("marketing");
+                setViewMode("campaign");
                 setActiveChat(null);
+                setSelectedMarketingLead(null);
+                fetchCampaignChats(false);
+              }}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all relative ${
+                viewMode === "campaign"
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                  : "text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10"
+              }`}
+              title="Campaign Inbox"
+            >
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              {campaignUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-amber-500 text-[9px] font-black text-zinc-950 rounded-full flex items-center justify-center">
+                  {campaignUnreadCount > 9 ? "9+" : campaignUnreadCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setViewMode("promo");
+                setActiveChat(null);
+                setActiveCampaignChat(null);
                 fetchCampaignStatus();
               }}
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                viewMode === "marketing"
+                viewMode === "promo"
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                   : "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
               }`}
-              title="Marketing Campaigns"
+              title="Promo — Send Template"
             >
               <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
@@ -1903,15 +2092,15 @@ export default function InboxPage() {
             </div>
           </div>
         </main>
-      ) : viewMode === "marketing" ? (
+      ) : viewMode === "promo" ? (
         <>
           {/* MARKETING: Lead list */}
           <section className={`w-full md:w-96 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${selectedMarketingLead ? "hidden md:flex" : "flex"}`}>
             <div className="p-5 border-b border-zinc-800/60 shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h1 className="text-xl font-bold tracking-tight text-zinc-100">Marketing</h1>
-                  <p className="text-xs text-zinc-500 mt-0.5">Template: {MARKETING_TEMPLATE}</p>
+                  <h1 className="text-xl font-bold tracking-tight text-zinc-100">Promo</h1>
+                  <p className="text-xs text-zinc-500 mt-0.5">Send template: {MARKETING_TEMPLATE}</p>
                 </div>
                 <button
                   onClick={fetchCampaignStatus}
@@ -2062,10 +2251,10 @@ export default function InboxPage() {
                   )}
 
                   <button
-                    onClick={() => startChat(selectedMarketingLead.phone, selectedMarketingLead.name)}
-                    className="w-full py-3 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-xl text-sm font-semibold"
+                    onClick={() => startCampaignChat(selectedMarketingLead.phone, selectedMarketingLead.name)}
+                    className="w-full py-3 border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 rounded-xl text-sm font-semibold"
                   >
-                    Open in Inbox (if they reply)
+                    Open in Campaign Inbox
                   </button>
                 </div>
               </div>
@@ -2114,6 +2303,163 @@ export default function InboxPage() {
                   <p>• Use Test Send first, then batch or one-by-one from the list</p>
                   <p className="text-amber-500/90 mt-2">• If Meta shows error <strong>130472</strong>, that number is in a Meta experiment — they must message you first, or try a different number. You are not charged.</p>
                 </div>
+              </div>
+            )}
+          </main>
+        </>
+      ) : viewMode === "campaign" ? (
+        <>
+          <section className={`w-full md:w-80 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${activeCampaignChat ? "hidden md:flex" : "flex"}`}>
+            <div className="p-5 border-b border-zinc-800/60 shrink-0">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-amber-400">Campaign Inbox</h1>
+                  <p className="text-xs text-zinc-500 mt-0.5">Marketing sends &amp; replies only</p>
+                </div>
+                <button
+                  onClick={() => fetchCampaignChats(false)}
+                  className="w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-zinc-400 hover:text-zinc-200"
+                  title="Refresh"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"/>
+                  </svg>
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Search campaign contacts..."
+                value={campaignSearch}
+                onChange={(e) => setCampaignSearch(e.target.value)}
+                className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800/80 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-500/50"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 pb-20 md:pb-3">
+              {filteredCampaignContacts.length === 0 ? (
+                <div className="text-center text-zinc-600 text-sm mt-12 px-4">
+                  <p>No campaign conversations yet.</p>
+                  <p className="text-xs mt-2 text-zinc-500">Send promos from the Promo tab — they appear here, not in main Chats.</p>
+                </div>
+              ) : (
+                filteredCampaignContacts.map((c) => {
+                  const latestMsg = c.messages[c.messages.length - 1];
+                  const latestText = latestMsg?.text || "No messages";
+                  const latestTime = latestMsg
+                    ? new Date(latestMsg.timestamp * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    : "";
+                  return (
+                    <button
+                      key={c.phone}
+                      type="button"
+                      onClick={() => {
+                        setActiveCampaignChat(c);
+                        if (c.hasUnread) markCampaignChatRead(c.phone);
+                      }}
+                      className={`w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl border transition-all ${
+                        activeCampaignChat?.phone === c.phone
+                          ? "bg-amber-500/10 border-amber-500/30"
+                          : c.hasUnread
+                            ? "bg-amber-500/5 border-amber-500/20"
+                            : "border-transparent hover:bg-zinc-900/30"
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full shrink-0 bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">
+                        {c.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-semibold text-sm truncate text-zinc-200">{c.name}</h3>
+                          <span className="text-[10px] text-zinc-500">{latestTime}</span>
+                        </div>
+                        <p className="text-xs truncate mt-0.5 text-zinc-500">{latestText}</p>
+                      </div>
+                      {c.hasUnread && (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 mt-2" />
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
+          <main className={`flex-1 flex flex-col bg-zinc-950 overflow-hidden ${activeCampaignChat ? "flex max-md:fixed max-md:inset-0 max-md:z-50" : "hidden md:flex"}`}>
+            {activeCampaignChat ? (
+              <>
+                <div className="bg-zinc-900/40 border-b border-zinc-800/80 px-3 pb-2.5 pt-[max(2.75rem,env(safe-area-inset-top,0px))] md:px-6 md:py-4 flex items-center justify-between shrink-0">
+                  <div className="flex items-center">
+                    <button
+                      onClick={() => setActiveCampaignChat(null)}
+                      className="md:hidden mr-3 p-1.5 hover:bg-zinc-900 rounded-lg text-zinc-400"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <div>
+                      <h2 className="font-bold text-sm text-zinc-100">{activeCampaignChat.name}</h2>
+                      <span className="text-[10px] text-amber-400/80">Campaign · +{activeCampaignChat.phone}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => promoteToMainInbox(activeCampaignChat.phone)}
+                    className="px-3 py-1.5 text-xs font-bold border border-emerald-500/30 text-emerald-400 rounded-lg hover:bg-emerald-500/10"
+                    title="When they become a real customer"
+                  >
+                    Move to Main Inbox
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {activeCampaignChat.messages.map((msg) => {
+                    const isMe = msg.sender === "me";
+                    const msgTime = new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm ${
+                          isMe
+                            ? "bg-amber-500 text-zinc-950 font-medium rounded-tr-none"
+                            : "bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-none"
+                        }`}>
+                          {renderMessageContent(msg, isMe)}
+                          <div className={`text-[9px] mt-1 text-right ${isMe ? "text-amber-950/70" : "text-zinc-500"}`}>{msgTime}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                <form onSubmit={handleCampaignSend} className="p-4 border-t border-zinc-800/80 shrink-0 safe-bottom">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Reply within 24h window..."
+                      className="flex-1 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-500/50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={sending || !replyText.trim()}
+                      className="px-5 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-zinc-950 font-bold rounded-2xl"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-zinc-100 mb-2">Campaign Inbox</h2>
+                <p className="text-zinc-500 text-sm max-w-md">
+                  All marketing template sends and replies live here — separate from your main customer chats.
+                </p>
               </div>
             )}
           </main>
@@ -3240,10 +3586,10 @@ export default function InboxPage() {
       )}
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
-      {!activeChat && !selectedMarketingLead && (
+      {!activeChat && !activeCampaignChat && !selectedMarketingLead && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-stretch justify-around z-40 px-1 safe-bottom">
           <button
-            onClick={() => { setViewMode("inbox"); setActiveTab("all"); }}
+            onClick={() => { setViewMode("inbox"); setActiveTab("all"); setActiveCampaignChat(null); }}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
               activeTab === "all" && viewMode === "inbox" ? "text-emerald-400" : "text-zinc-500"
             }`}
@@ -3255,18 +3601,18 @@ export default function InboxPage() {
           </button>
 
           <button
-            onClick={() => { setViewMode("inbox"); setActiveTab("blocked"); setActiveChat(null); }}
+            onClick={() => { setViewMode("campaign"); setActiveChat(null); setSelectedMarketingLead(null); fetchCampaignChats(false); }}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 relative ${
-              activeTab === "blocked" && viewMode === "inbox" ? "text-rose-400" : "text-zinc-500"
+              viewMode === "campaign" ? "text-amber-400" : "text-zinc-500"
             }`}
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            <span className="text-[9px] font-bold">Blocked</span>
-            {blockedCount > 0 && (
-              <span className="absolute top-1.5 right-[18%] min-w-[14px] h-[14px] px-0.5 bg-rose-500 text-[8px] font-black text-white rounded-full flex items-center justify-center">
-                {blockedCount > 9 ? "9+" : blockedCount}
+            <span className="text-[9px] font-bold">Campaign</span>
+            {campaignUnreadCount > 0 && (
+              <span className="absolute top-1.5 right-[18%] min-w-[14px] h-[14px] px-0.5 bg-amber-500 text-[8px] font-black text-zinc-950 rounded-full flex items-center justify-center">
+                {campaignUnreadCount > 9 ? "9+" : campaignUnreadCount}
               </span>
             )}
           </button>
@@ -3289,12 +3635,13 @@ export default function InboxPage() {
 
           <button
             onClick={() => {
-              setViewMode("marketing");
+              setViewMode("promo");
               setActiveChat(null);
+              setActiveCampaignChat(null);
               fetchCampaignStatus();
             }}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
-              viewMode === "marketing" ? "text-emerald-400" : "text-zinc-500"
+              viewMode === "promo" ? "text-emerald-400" : "text-zinc-500"
             }`}
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

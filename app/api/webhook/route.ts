@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isPhoneBlocked } from "@/lib/blocked";
+import {
+  isMarketingLead,
+  saveMarketingContact,
+  shouldUseMainInboxForIncoming,
+} from "@/lib/marketing-inbox";
 import { getWhatsAppVerifyToken } from "@/lib/whatsapp";
 
 export async function GET(request: NextRequest) {
@@ -76,47 +81,54 @@ export async function POST(request: NextRequest) {
           text = `(${msgType} message)`;
         }
 
-        // Fetch existing contact or create new
-        let contact: any = await kv.get(`whatsapp:contact:${from}`);
-        if (!contact) {
-          const profileName = value.contacts?.[0]?.profile?.name || "WhatsApp Contact";
-          contact = {
-            name: profileName,
-            phone: from,
-            messages: []
-          };
+        const profileName = value.contacts?.[0]?.profile?.name || "WhatsApp Contact";
+        let replyToId = undefined;
+        if (message.context?.id) {
+          replyToId = message.context.id;
         }
 
-        // Add message if it doesn't already exist
-        const isDuplicate = contact.messages.some((m: any) => m.id === msgId);
-        if (!isDuplicate) {
-          // Handle quoted messages in webhook
-          let replyToId = undefined;
-          if (message.context?.id) {
-            replyToId = message.context.id;
+        const incomingMsg = {
+          id: msgId,
+          sender: "them" as const,
+          text,
+          timestamp: parseInt(timestamp),
+          status: "received",
+          type: msgType,
+          mediaId: mediaId || undefined,
+          replyTo: replyToId,
+          fileName: fileName || undefined,
+          location: location || undefined,
+        };
+
+        const mainContact: any = await kv.get(`whatsapp:contact:${from}`);
+        const fromMarketing = await isMarketingLead(from);
+        const useMain = shouldUseMainInboxForIncoming(mainContact, fromMarketing);
+
+        if (useMain) {
+          let contact = mainContact;
+          if (!contact) {
+            contact = { name: profileName, phone: from, messages: [] };
           }
-
-          contact.messages.push({
-            id: msgId,
-            sender: "them",
-            text: text,
-            timestamp: parseInt(timestamp),
-            status: "received",
-            type: msgType,
-            mediaId: mediaId || undefined,
-            replyTo: replyToId,
-            fileName: fileName || undefined,
-            location: location || undefined
-          });
-
-          // Set unread states only for new messages
-          contact.unreadCount = (contact.unreadCount || 0) + 1;
-          contact.hasUnread = true;
-
-          // Save back to KV
-          await kv.set(`whatsapp:contact:${from}`, contact);
-          // Track list of active contacts
-          await kv.sadd("whatsapp:active_contacts", from);
+          const isDuplicate = contact.messages.some((m: any) => m.id === msgId);
+          if (!isDuplicate) {
+            contact.messages.push(incomingMsg);
+            contact.unreadCount = (contact.unreadCount || 0) + 1;
+            contact.hasUnread = true;
+            await kv.set(`whatsapp:contact:${from}`, contact);
+            await kv.sadd("whatsapp:active_contacts", from);
+          }
+        } else {
+          let contact: any = await kv.get(`whatsapp:marketing_contact:${from}`);
+          if (!contact) {
+            contact = { name: profileName, phone: from, messages: [] };
+          }
+          const isDuplicate = contact.messages.some((m: any) => m.id === msgId);
+          if (!isDuplicate) {
+            contact.messages.push(incomingMsg);
+            contact.unreadCount = (contact.unreadCount || 0) + 1;
+            contact.hasUnread = true;
+            await saveMarketingContact(contact);
+          }
         }
       }
 
@@ -129,10 +141,10 @@ export async function POST(request: NextRequest) {
         const errorCode = status.errors?.[0]?.code;
         const errorTitle = status.errors?.[0]?.title || status.errors?.[0]?.message;
 
-        let contact: any = await kv.get(`whatsapp:contact:${recipient_id}`);
-        if (contact && contact.messages) {
+        const updateMessageStatus = async (contact: any, storageKey: string) => {
+          if (!contact?.messages) return false;
           let updated = false;
-          for (let msg of contact.messages) {
+          for (const msg of contact.messages) {
             if (msg.id === msg_id) {
               msg.status = msg_status;
               if (msg_status === "failed" && errorTitle) {
@@ -143,8 +155,18 @@ export async function POST(request: NextRequest) {
             }
           }
           if (updated) {
-            await kv.set(`whatsapp:contact:${recipient_id}`, contact);
+            await kv.set(storageKey, contact);
           }
+          return updated;
+        };
+
+        const mainKey = `whatsapp:contact:${recipient_id}`;
+        const marketingKey = `whatsapp:marketing_contact:${recipient_id}`;
+        const mainContact = await kv.get(mainKey);
+        const marketingContact = await kv.get(marketingKey);
+        const updatedMain = await updateMessageStatus(mainContact, mainKey);
+        if (!updatedMain) {
+          await updateMessageStatus(marketingContact, marketingKey);
         }
 
         // Sync marketing campaign status when Meta rejects delivery (e.g. error 130472)

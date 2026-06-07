@@ -4,6 +4,7 @@ import path from "path";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
+import { registerMarketingContact } from "@/lib/marketing-inbox";
 import { sendWhatsAppTemplateMessage } from "@/lib/whatsapp-send";
 
 export const maxDuration = 60;
@@ -25,15 +26,7 @@ async function saveSentMessage(
   msgId: string,
   templateName: string
 ) {
-  const phone = normalizePhone(toPhone);
-  let contact: any = await kv.get(`whatsapp:contact:${phone}`);
-  if (!contact) {
-    contact = { name: contactName, phone, messages: [] };
-  } else if (contactName && contact.name === "WhatsApp Contact") {
-    contact.name = contactName;
-  }
-
-  contact.messages.push({
+  await registerMarketingContact(toPhone, contactName, {
     id: msgId,
     sender: "me",
     text: `📢 Marketing: ${templateName}`,
@@ -41,9 +34,22 @@ async function saveSentMessage(
     status: "sent",
     type: "template",
   });
+}
 
-  await kv.set(`whatsapp:contact:${phone}`, contact);
-  await kv.sadd("whatsapp:active_contacts", phone);
+async function saveFailedMessage(
+  toPhone: string,
+  contactName: string,
+  error: string,
+  templateName: string
+) {
+  await registerMarketingContact(toPhone, contactName, {
+    id: `failed-${Date.now()}-${normalizePhone(toPhone)}`,
+    sender: "me",
+    text: `🚫 Failed: ${error}`,
+    timestamp: Math.floor(Date.now() / 1000),
+    status: "failed",
+    type: "template",
+  });
 }
 
 async function updateCampaignStatus(
@@ -128,11 +134,13 @@ export async function POST(request: NextRequest) {
           });
         } else {
           failed++;
-          if (!firstError) firstError = result.error || "Unknown error";
+          const err = result.error || "Unknown error";
+          if (!firstError) firstError = err;
+          await saveFailedMessage(phone, lead.name, err, templateName);
           await updateCampaignStatus(phone, {
             status: "failed",
             sentAt: Date.now(),
-            error: result.error,
+            error: err,
             name: lead.name,
             templateName,
           });
@@ -183,6 +191,7 @@ export async function POST(request: NextRequest) {
     }
 
     const errorMsg = result.error || "Failed to send template";
+    await saveFailedMessage(phone, displayName, errorMsg, templateName);
     await updateCampaignStatus(phone, {
       status: "failed",
       sentAt: Date.now(),
