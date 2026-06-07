@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
-
-const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || "EAAa0oH3M7CYBRmNij6bQHxQZBp0OgdYbqedMF9XRQFDEElnilxUi3ygW9qsygpf7YN1Ok3ZAi9T2ZCuV8XuWNq8GxbAMgsNwGEIVQzCytgCEGYWdFbfhZCcHbxZANwIe222pjnVSgedDPxe9NwPZCgb6CfO4hn2Em5Tr5AWWdMEWZBvFRv3QmGhla1QDb98PQZDZD";
-const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || "1098694096667377";
-const AUTH_PASSWORD = "PureHerbex2026!";
+import { isInboxAuthed } from "@/lib/auth";
+import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 
 type CampaignStatus = {
   status: "sent" | "failed";
@@ -103,15 +101,11 @@ async function updateCampaignStatus(
   await kv.set("whatsapp:campaign_status", statusMap);
 }
 
-function checkAuth(request: NextRequest) {
-  const sessionToken = request.headers.get("Authorization")?.split(" ")[1];
-  return sessionToken === AUTH_PASSWORD;
-}
 
 // GET: fetch campaign send status for all leads
 export async function GET(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
+    if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -127,7 +121,7 @@ export async function GET(request: NextRequest) {
 // POST: send approved marketing template to one lead
 export async function POST(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
+    if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -147,7 +141,7 @@ export async function POST(request: NextRequest) {
     const phone = normalizePhone(toPhone);
     const displayName = contactName || "Customer";
 
-    const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+    const url = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/messages`;
     const payload = buildTemplatePayload(
       phone,
       templateName,
@@ -160,7 +154,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${getWhatsAppAccessToken()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
@@ -201,7 +195,7 @@ export async function POST(request: NextRequest) {
 // DELETE: reset campaign status for a lead (mark as pending again)
 export async function DELETE(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
+    if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

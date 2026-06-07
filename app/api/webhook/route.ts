@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
-
-const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || "pure_herbex_secret_token";
+import { getWhatsAppVerifyToken } from "@/lib/whatsapp";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -10,7 +9,7 @@ export async function GET(request: NextRequest) {
   const challenge = searchParams.get("hub.challenge");
 
   if (mode && token) {
-    if (mode === "subscribe" && token === verifyToken) {
+    if (mode === "subscribe" && token === getWhatsAppVerifyToken()) {
       console.log("WEBHOOK_VERIFIED");
       return new NextResponse(challenge, {
         status: 200,

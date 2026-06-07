@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
-
-const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || "EAAa0oH3M7CYBRmNij6bQHxQZBp0OgdYbqedMF9XRQFDEElnilxUi3ygW9qsygpf7YN1Ok3ZAi9T2ZCuV8XuWNq8GxbAMgsNwGEIVQzCytgCEGYWdFbfhZCcHbxZANwIe222pjnVSgedDPxe9NwPZCgb6CfO4hn2Em5Tr5AWWdMEWZBvFRv3QmGhla1QDb98PQZDZD";
-const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || "1098694096667377";
+import { isInboxAuthed } from "@/lib/auth";
+import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 
 // 1. GET: Fetch all active chats and message history
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    const sessionToken = authHeader?.split(" ")[1];
-    
-    // Quick security check against verify token or a static password
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -37,10 +32,7 @@ export async function GET(request: NextRequest) {
 // 2. POST: Send a reply message to a contact
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    const sessionToken = authHeader?.split(" ")[1];
-
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -61,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing latitude or longitude for location" }, { status: 400 });
     }
 
-    const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+    const url = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/messages`;
     
     // Build Payload based on Message Type
     let messagePayload: any = {
@@ -99,7 +91,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${accessToken}`,
+        "Authorization": `Bearer ${getWhatsAppAccessToken()}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(messagePayload)
@@ -159,10 +151,7 @@ export async function POST(request: NextRequest) {
 // 3. DELETE: Delete a conversation completely
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    const sessionToken = authHeader?.split(" ")[1];
-
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -183,14 +172,11 @@ export async function DELETE(request: NextRequest) {
 // 4. PATCH: Archive/Unarchive a conversation
 export async function PATCH(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    const sessionToken = authHeader?.split(" ")[1];
-
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { phone, archived, markRead, deleteMessageId } = await request.json();
+    const { phone, archived, markRead, deleteMessageId, pinned, blocked } = await request.json();
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
@@ -203,6 +189,12 @@ export async function PATCH(request: NextRequest) {
       if (markRead) {
         contact.unreadCount = 0;
         contact.hasUnread = false;
+      }
+      if (pinned !== undefined) {
+        contact.pinned = !!pinned;
+      }
+      if (blocked !== undefined) {
+        contact.blocked = !!blocked;
       }
       if (deleteMessageId) {
         if (contact.messages) {

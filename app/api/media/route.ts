@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isInboxAuthed } from "@/lib/auth";
+import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Increase timeout to 60 seconds for larger media uploads
-
-const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || "EAAa0oH3M7CYBRmNij6bQHxQZBp0OgdYbqedMF9XRQFDEElnilxUi3ygW9qsygpf7YN1Ok3ZAi9T2ZCuV8XuWNq8GxbAMgsNwGEIVQzCytgCEGYWdFbfhZCcHbxZANwIe222pjnVSgedDPxe9NwPZCgb6CfO4hn2Em5Tr5AWWdMEWZBvFRv3QmGhla1QDb98PQZDZD";
-const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || "1098694096667377";
 
 // 1. GET: Fetch media from Meta and proxy it to bypass authentication and CORS
 export async function GET(request: NextRequest) {
@@ -20,7 +19,7 @@ export async function GET(request: NextRequest) {
     const metaUrl = `https://graph.facebook.com/v20.0/${mediaId}`;
     const infoRes = await fetch(metaUrl, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${getWhatsAppAccessToken()}`,
       },
     });
 
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Step B: Download binary content from Meta
     const mediaRes = await fetch(downloadUrl, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${getWhatsAppAccessToken()}`,
       },
     });
 
@@ -69,10 +68,7 @@ export async function GET(request: NextRequest) {
 // 2. POST: Upload file to Meta WhatsApp Media Endpoint
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    const sessionToken = authHeader?.split(" ")[1];
-
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -98,11 +94,11 @@ export async function POST(request: NextRequest) {
     metaFormData.append("file", file, file.name);
     metaFormData.append("type", category);
 
-    const uploadUrl = `https://graph.facebook.com/v20.0/${phoneNumberId}/media`;
+    const uploadUrl = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/media`;
     const response = await fetch(uploadUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${getWhatsAppAccessToken()}`,
       },
       body: metaFormData,
     });

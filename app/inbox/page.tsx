@@ -27,10 +27,21 @@ interface Contact {
   messages: Message[];
   tag?: "Confirm" | "Potential" | "Important" | "Spam" | null;
   archived?: boolean;
+  pinned?: boolean;
+  blocked?: boolean;
   avatarUrl?: string;
   unreadCount?: number;
   hasUnread?: boolean;
 }
+
+type StatusItem = {
+  id: string;
+  type: "image" | "video";
+  mediaId: string;
+  caption?: string;
+  createdAt: number;
+  expiresAt: number;
+};
 
 // Custom Audio Player Component
 function CustomAudioPlayer({ src, isMe }: { src: string; isMe: boolean }) {
@@ -129,7 +140,6 @@ function CustomAudioPlayer({ src, isMe }: { src: string; isMe: boolean }) {
   );
 }
 
-const ACCESS_PASSWORD = "PureHerbex2026!";
 const getEpochTime = () => Math.floor(Date.now() / 1000);
 const MARKETING_TEMPLATE = "herbex_marketing";
 
@@ -148,12 +158,8 @@ const TAGS = [
 
 export default function InboxPage() {
   const [password, setPassword] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("inbox_password") === ACCESS_PASSWORD;
-    }
-    return false;
-  });
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
 
   useEffect(() => {
@@ -192,7 +198,12 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived" | "blocked">("all");
+  const [contactMenuTarget, setContactMenuTarget] = useState<Contact | null>(null);
+  const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
+  const [statusCaption, setStatusCaption] = useState("");
+  const [statusUploading, setStatusUploading] = useState(false);
+  const statusFileRef = useRef<HTMLInputElement | null>(null);
   
   // Message features states
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -227,7 +238,7 @@ export default function InboxPage() {
   const [customPhone, setCustomPhone] = useState("");
 
   // Marketing CRM states
-  const [viewMode, setViewMode] = useState<"inbox" | "marketing">("inbox");
+  const [viewMode, setViewMode] = useState<"inbox" | "marketing" | "status">("inbox");
   const [campaignStatus, setCampaignStatus] = useState<Record<string, { status: string; sentAt?: number; messageId?: string; error?: string; name?: string }>>({});
   const [marketingSearch, setMarketingSearch] = useState("");
   const [marketingFilter, setMarketingFilter] = useState<"all" | "pending" | "sent" | "failed">("all");
@@ -301,20 +312,31 @@ export default function InboxPage() {
     }
   }, [isLoggedIn]);
 
-  // Restore login session from Android native storage (survives WebView cache clears)
+  const restoreSession = async (token: string) => {
+    try {
+      const res = await fetch("/api/messages", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        localStorage.setItem("inbox_password", token);
+        setSessionToken(token);
+        setIsLoggedIn(true);
+        return true;
+      }
+      localStorage.removeItem("inbox_password");
+      return false;
+    } catch (e) {
+      console.error("Failed to restore session", e);
+      return false;
+    }
+  };
+
+  // Restore login session from localStorage or Android native storage
   useEffect(() => {
     if (typeof window === "undefined") return;
     const android = (window as any).Android;
-    if (!android?.getSession) return;
-    try {
-      const saved = android.getSession();
-      if (saved === ACCESS_PASSWORD && localStorage.getItem("inbox_password") !== ACCESS_PASSWORD) {
-        localStorage.setItem("inbox_password", saved);
-        setIsLoggedIn(true);
-      }
-    } catch (e) {
-      console.error("Failed to restore Android session", e);
-    }
+    const saved = localStorage.getItem("inbox_password") || (android?.getSession?.() ?? null);
+    if (saved) restoreSession(saved);
   }, []);
 
   // Click outside listener to close custom message context menus
@@ -380,7 +402,7 @@ export default function InboxPage() {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${ACCESS_PASSWORD}`,
+                Authorization: `Bearer ${sessionToken}`,
               },
               body: JSON.stringify({
                 toPhone: activeChat?.phone,
@@ -497,7 +519,7 @@ export default function InboxPage() {
       for (const msgId of idsToDelete) {
         await fetch("/api/messages", {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${ACCESS_PASSWORD}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ phone: activeChat.phone, deleteMessageId: msgId }),
         });
       }
@@ -542,7 +564,7 @@ export default function InboxPage() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${ACCESS_PASSWORD}`,
+              Authorization: `Bearer ${sessionToken}`,
             },
             body: JSON.stringify({
               toPhone: phone,
@@ -601,7 +623,7 @@ export default function InboxPage() {
     try {
       await fetch("/api/messages", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${ACCESS_PASSWORD}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, markRead: true }),
       });
     } catch (e) {}
@@ -670,7 +692,7 @@ export default function InboxPage() {
   const fetchCampaignStatus = async () => {
     try {
       const res = await fetch("/api/campaign", {
-        headers: { Authorization: `Bearer ${ACCESS_PASSWORD}` },
+        headers: { Authorization: `Bearer ${sessionToken}` },
       });
       const data = await res.json();
       if (data.status) setCampaignStatus(data.status);
@@ -682,6 +704,11 @@ export default function InboxPage() {
   useEffect(() => {
     if (!isLoggedIn || viewMode !== "marketing") return;
     fetchCampaignStatus();
+  }, [isLoggedIn, viewMode]);
+
+  useEffect(() => {
+    if (!isLoggedIn || viewMode !== "status") return;
+    fetchStatusItems();
   }, [isLoggedIn, viewMode]);
 
   const sendTemplateToLead = async (
@@ -700,7 +727,7 @@ export default function InboxPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({
           toPhone: phone,
@@ -752,7 +779,7 @@ export default function InboxPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({ phone }),
       });
@@ -798,7 +825,7 @@ export default function InboxPage() {
     try {
       const res = await fetch("/api/messages", {
         headers: {
-          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          Authorization: `Bearer ${sessionToken}`,
         },
       });
       const data = await res.json();
@@ -895,14 +922,13 @@ export default function InboxPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeChat?.messages]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ACCESS_PASSWORD) {
-      localStorage.setItem("inbox_password", password);
+    const ok = await restoreSession(password);
+    if (ok) {
       try {
         (window as any).Android?.saveSession?.(password);
-      } catch (e) {}
-      setIsLoggedIn(true);
+      } catch (err) {}
       setLoginError("");
     } else {
       setLoginError("Incorrect password. Please try again.");
@@ -922,7 +948,7 @@ export default function InboxPage() {
       const res = await fetch("/api/media", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          Authorization: `Bearer ${sessionToken}`,
         },
         body: formData,
         signal: controller.signal
@@ -985,7 +1011,7 @@ export default function InboxPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({
           toPhone: activeChat.phone,
@@ -1080,7 +1106,7 @@ export default function InboxPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({ phone, tag }),
       });
@@ -1089,6 +1115,86 @@ export default function InboxPage() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const updateContactFlag = async (
+    phone: string,
+    patch: { pinned?: boolean; blocked?: boolean; archived?: boolean; markRead?: boolean }
+  ) => {
+    setContacts((prev) =>
+      prev.map((c) => (c.phone === phone ? { ...c, ...patch, ...(patch.markRead ? { hasUnread: false, unreadCount: 0 } : {}) } : c))
+    );
+    if (activeChat?.phone === phone) {
+      setActiveChat((prev) => (prev ? { ...prev, ...patch, ...(patch.markRead ? { hasUnread: false, unreadCount: 0 } : {}) } : null));
+    }
+    try {
+      await fetch("/api/messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ phone, ...patch }),
+      });
+    } catch (e) {
+      console.error("Failed to update contact", e);
+    }
+  };
+
+  const pinContact = (phone: string, pinned: boolean) => updateContactFlag(phone, { pinned });
+  const blockContact = (phone: string, blocked: boolean) => {
+    updateContactFlag(phone, { blocked });
+    if (blocked && activeChat?.phone === phone) setActiveChat(null);
+  };
+
+  const fetchStatusItems = async () => {
+    try {
+      const res = await fetch("/api/status", {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      const data = await res.json();
+      if (data.items) setStatusItems(data.items);
+    } catch (e) {
+      console.error("Failed to load status", e);
+    }
+  };
+
+  const publishStatus = async (file: File) => {
+    setStatusUploading(true);
+    try {
+      const mediaId = await uploadFile(file);
+      const type = file.type.startsWith("video/") ? "video" : "image";
+      const res = await fetch("/api/status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ type, mediaId, caption: statusCaption }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to publish status");
+      setStatusCaption("");
+      await fetchStatusItems();
+      alert("Status published! Customers can view at /status for 24 hours.");
+    } catch (e: any) {
+      alert("Failed to publish status: " + e.message);
+    } finally {
+      setStatusUploading(false);
+    }
+  };
+
+  const deleteStatusItem = async (id: string) => {
+    try {
+      await fetch("/api/status", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ id }),
+      });
+      setStatusItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (e) {
+      console.error("Failed to delete status", e);
     }
   };
 
@@ -1112,7 +1218,7 @@ export default function InboxPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({ phone, archived }),
       });
@@ -1137,7 +1243,7 @@ export default function InboxPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ACCESS_PASSWORD}`,
+          Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({ phone }),
       });
@@ -1183,7 +1289,7 @@ export default function InboxPage() {
     try {
       await fetch("/api/messages", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${ACCESS_PASSWORD}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone: activeChat.phone, deleteMessageId: messageId }),
       });
     } catch (e) {}
@@ -1217,6 +1323,7 @@ export default function InboxPage() {
 
   const handleLogout = () => {
     localStorage.removeItem("inbox_password");
+    setSessionToken(null);
     try {
       (window as any).Android?.clearSession?.();
       (window as any).Android?.setKeepScreenOn?.(false);
@@ -1322,19 +1429,29 @@ export default function InboxPage() {
   };
 
   // Filter contacts by search query AND active category tab
-  const filteredContacts = contacts.filter((c) => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery);
-    
-    if (activeTab === "archived") {
-      return matchesSearch && c.archived;
-    }
-    
-    // Hide archived chats from standard tabs
-    if (c.archived) return false;
-    
-    const matchesTab = activeTab === "all" ? true : c.tag === activeTab;
-    return matchesSearch && matchesTab;
-  });
+  const filteredContacts = contacts
+    .filter((c) => {
+      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery);
+
+      if (activeTab === "archived") {
+        return matchesSearch && c.archived && !c.blocked;
+      }
+
+      if (activeTab === "blocked") {
+        return matchesSearch && c.blocked;
+      }
+
+      if (c.archived || c.blocked) return false;
+
+      const matchesTab = activeTab === "all" ? true : c.tag === activeTab;
+      return matchesSearch && matchesTab;
+    })
+    .sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
+      const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
+      return bTime - aTime;
+    });
 
   // Render different bubble contents depending on message type
   const renderMessageContent = (msg: Message, isMe: boolean) => {
@@ -1594,6 +1711,41 @@ export default function InboxPage() {
 
             <button
               onClick={() => {
+                setViewMode("status");
+                setActiveChat(null);
+                fetchStatusItems();
+              }}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                viewMode === "status"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  : "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+              }`}
+              title="Status Updates"
+            >
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => {
+                setViewMode("inbox");
+                setActiveTab("blocked");
+              }}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                activeTab === "blocked" && viewMode === "inbox"
+                  ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                  : "text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10"
+              }`}
+              title="Blocked Contacts"
+            >
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => {
                 setViewMode("marketing");
                 setActiveChat(null);
                 fetchCampaignStatus();
@@ -1636,7 +1788,79 @@ export default function InboxPage() {
         </div>
       </aside>
 
-      {viewMode === "marketing" ? (
+      {viewMode === "status" ? (
+        <main className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
+          <div className="p-5 border-b border-zinc-800/60 shrink-0">
+            <h1 className="text-xl font-bold tracking-tight text-zinc-100">Status</h1>
+            <p className="text-xs text-zinc-500 mt-1">Upload images or videos — visible to customers for 24 hours at <a href="/status" target="_blank" className="text-emerald-400 hover:underline">/status</a></p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+              <h2 className="font-semibold text-sm text-zinc-200 mb-3">Add new status</h2>
+              <input
+                type="text"
+                placeholder="Caption (optional)"
+                value={statusCaption}
+                onChange={(e) => setStatusCaption(e.target.value)}
+                className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 mb-3"
+              />
+              <input
+                ref={statusFileRef}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) publishStatus(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                disabled={statusUploading}
+                onClick={() => statusFileRef.current?.click()}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-bold rounded-xl transition-all"
+              >
+                {statusUploading ? "Uploading..." : "Upload Image or Video"}
+              </button>
+              <p className="text-[11px] text-zinc-500 mt-2">Note: This is a web status page. Native WhatsApp Status requires the WhatsApp Business app on your phone.</p>
+            </div>
+
+            <div>
+              <h2 className="font-semibold text-sm text-zinc-200 mb-3">Active updates ({statusItems.length})</h2>
+              {statusItems.length === 0 ? (
+                <p className="text-sm text-zinc-600">No active status. Upload one above.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {statusItems.map((item) => (
+                    <div key={item.id} className="relative group rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900 aspect-[9/16]">
+                      {item.type === "image" ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={`/api/media?id=${item.mediaId}`} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <video src={`/api/media?id=${item.mediaId}`} className="w-full h-full object-cover" muted />
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                        <p className="text-[10px] text-zinc-300 truncate">{item.caption || "No caption"}</p>
+                        <p className="text-[9px] text-zinc-500">{Math.max(0, Math.round((item.expiresAt - Date.now()) / 3600000))}h left</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteStatusItem(item.id)}
+                        className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        title="Delete"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
+      ) : viewMode === "marketing" ? (
         <>
           {/* MARKETING: Lead list */}
           <section className={`w-full md:w-96 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${selectedMarketingLead ? "hidden md:flex" : "flex"}`}>
@@ -1940,7 +2164,10 @@ export default function InboxPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
-                      <h3 className={`font-semibold text-sm truncate ${ c.hasUnread ? "text-zinc-100" : "text-zinc-200" }`}>
+                      <h3 className={`font-semibold text-sm truncate flex items-center gap-1 ${ c.hasUnread ? "text-zinc-100" : "text-zinc-200" }`}>
+                        {c.pinned && (
+                          <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                        )}
                         {c.name}
                       </h3>
                       <div className="flex items-center gap-1 ml-1 shrink-0">
@@ -1963,11 +2190,28 @@ export default function InboxPage() {
                     )}
                   </div>
 
+                  {/* Contact menu (mobile) */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setContactMenuTarget(c); }}
+                    className="absolute right-3 top-3.5 md:hidden p-1.5 text-zinc-500 hover:text-zinc-200"
+                    title="Chat options"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                  </button>
+
                   {/* Hover Actions Panel */}
                   <div 
                     className="absolute right-4 top-3.5 hidden md:flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    <button
+                      onClick={() => pinContact(c.phone, !c.pinned)}
+                      className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-emerald-400 transition-colors"
+                      title={c.pinned ? "Unpin Chat" : "Pin Chat"}
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                    </button>
                     <button
                       onClick={() => archiveContact(c.phone, !c.archived)}
                       className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-250 transition-colors"
@@ -2076,6 +2320,29 @@ export default function InboxPage() {
 
                   {/* Header Actions & Tags Selector — icon-only on mobile */}
                   <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => pinContact(activeChat.phone, !activeChat.pinned)}
+                      className={`p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl transition-all ${activeChat.pinned ? "text-emerald-400" : "text-zinc-400 hover:text-zinc-200"}`}
+                      title={activeChat.pinned ? "Unpin Chat" : "Pin Chat"}
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+                    </button>
+                    {activeChat.hasUnread && (
+                      <button
+                        onClick={() => markChatRead(activeChat.phone)}
+                        className="p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all"
+                        title="Mark as read"
+                      >
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setContactMenuTarget(activeChat)}
+                      className="md:hidden p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all"
+                      title="More options"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                    </button>
                     <button
                       onClick={() => archiveContact(activeChat.phone, !activeChat.archived)}
                       className="p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all flex items-center gap-1.5 text-xs font-semibold"
@@ -2823,6 +3090,35 @@ export default function InboxPage() {
         </div>
       )}
 
+      {/* Contact context menu (WhatsApp-style) */}
+      {contactMenuTarget && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-zinc-950/70 backdrop-blur-sm" onClick={() => setContactMenuTarget(null)}>
+          <div className="w-full md:max-w-sm bg-zinc-900 border border-zinc-800 rounded-t-3xl md:rounded-3xl p-2 shadow-2xl safe-bottom" onClick={(e) => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-zinc-800 mb-1">
+              <p className="font-bold text-zinc-100">{contactMenuTarget.name}</p>
+              <p className="text-xs text-zinc-500">+{contactMenuTarget.phone}</p>
+            </div>
+            {[
+              { label: contactMenuTarget.pinned ? "Unpin chat" : "Pin chat", action: () => pinContact(contactMenuTarget.phone, !contactMenuTarget.pinned) },
+              ...(contactMenuTarget.hasUnread ? [{ label: "Mark as read", action: () => markChatRead(contactMenuTarget.phone) }] : []),
+              { label: contactMenuTarget.archived ? "Unarchive chat" : "Archive chat", action: () => archiveContact(contactMenuTarget.phone, !contactMenuTarget.archived) },
+              { label: contactMenuTarget.blocked ? "Unblock" : "Block", action: () => blockContact(contactMenuTarget.phone, !contactMenuTarget.blocked), danger: true },
+              { label: "Delete chat", action: () => deleteContact(contactMenuTarget.phone), danger: true },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => { opt.action(); setContactMenuTarget(null); }}
+                className={`w-full text-left px-4 py-3.5 rounded-xl text-sm font-medium transition-colors hover:bg-zinc-800 ${opt.danger ? "text-rose-400" : "text-zinc-200"}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <button type="button" onClick={() => setContactMenuTarget(null)} className="w-full px-4 py-3 text-sm text-zinc-500 hover:text-zinc-300">Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* MOBILE BOTTOM NAVIGATION BAR */}
       {!activeChat && !selectedMarketingLead && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-center justify-around z-40 px-2">
@@ -2850,6 +3146,22 @@ export default function InboxPage() {
               <span className="text-[9px] font-bold">{tag.label.split(" ")[0]}</span>
             </button>
           ))}
+
+          <button
+            onClick={() => {
+              setViewMode("status");
+              setActiveChat(null);
+              fetchStatusItems();
+            }}
+            className={`flex flex-col items-center justify-center space-y-1 ${
+              viewMode === "status" ? "text-emerald-400" : "text-zinc-500"
+            }`}
+          >
+            <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-[9px] font-bold">Status</span>
+          </button>
 
           <button
             onClick={() => {
