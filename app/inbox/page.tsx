@@ -671,7 +671,7 @@ export default function InboxPage() {
           city,
           templateName: MARKETING_TEMPLATE,
           languageCode: "en",
-          bodyVarCount: 1,
+          bodyVarCount: 0,
         }),
       });
       const data = await res.json();
@@ -1851,7 +1851,7 @@ export default function InboxPage() {
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 mb-6">
                   <div className="text-xs text-zinc-500 uppercase font-bold mb-2">Approved Template</div>
                   <div className="text-emerald-400 font-semibold">{MARKETING_TEMPLATE}</div>
-                  <p className="text-zinc-500 text-xs mt-2">Bypasses the 24-hour window. Sends via official WhatsApp Cloud API.</p>
+                  <p className="text-zinc-500 text-xs mt-2">Bypasses the 24-hour window. Includes product image header. Fixed text — no name placeholder.</p>
                 </div>
 
                 <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-5 mb-6">
@@ -1923,20 +1923,7 @@ export default function InboxPage() {
                       onChange={(e) => setTestPhone(e.target.value.replace(/\D/g, ""))}
                       className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200"
                     />
-                    <input
-                      type="text"
-                      placeholder="Name for {{1}}"
-                      value={testName}
-                      onChange={(e) => setTestName(e.target.value)}
-                      className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200"
-                    />
-                    <input
-                      type="text"
-                      placeholder="City (optional)"
-                      value={testCity}
-                      onChange={(e) => setTestCity(e.target.value)}
-                      className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200"
-                    />
+                    <p className="text-xs text-zinc-500">Template uses fixed text + product image. Name/city fields are optional labels only.</p>
                     <button
                       disabled={!testPhone || isSendingCampaign}
                       onClick={async () => {

@@ -20,37 +20,49 @@ function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
 
+const DEFAULT_HEADER_IMAGE =
+  "https://pureherbex.com/assets/images/product-bottle.png";
+
 function buildTemplatePayload(
   toPhone: string,
   templateName: string,
   languageCode: string,
   bodyVarCount: number,
   name: string,
-  city: string
+  city: string,
+  headerImageUrl?: string
 ) {
-  const parameters: { type: "text"; text: string }[] = [];
-  if (bodyVarCount >= 1) parameters.push({ type: "text", text: name });
-  if (bodyVarCount >= 2) parameters.push({ type: "text", text: city });
+  const components: Record<string, unknown>[] = [];
 
-  const payload: Record<string, unknown> = {
+  // herbex_marketing requires an IMAGE header in the approved template
+  const imageUrl = headerImageUrl || DEFAULT_HEADER_IMAGE;
+  if (templateName === "herbex_marketing" || headerImageUrl) {
+    components.push({
+      type: "header",
+      parameters: [{ type: "image", image: { link: imageUrl } }],
+    });
+  }
+
+  const bodyParams: { type: "text"; text: string }[] = [];
+  if (bodyVarCount >= 1) bodyParams.push({ type: "text", text: name });
+  if (bodyVarCount >= 2) bodyParams.push({ type: "text", text: city });
+  if (bodyParams.length > 0) {
+    components.push({ type: "body", parameters: bodyParams });
+  }
+
+  const template: Record<string, unknown> = {
+    name: templateName,
+    language: { code: languageCode },
+  };
+  if (components.length > 0) template.components = components;
+
+  return {
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to: normalizePhone(toPhone),
     type: "template",
-    template: {
-      name: templateName,
-      language: { code: languageCode },
-    },
+    template,
   };
-
-  if (parameters.length > 0) {
-    payload.template = {
-      ...(payload.template as object),
-      components: [{ type: "body", parameters }],
-    };
-  }
-
-  return payload;
 }
 
 async function saveSentMessage(
@@ -125,7 +137,7 @@ export async function POST(request: NextRequest) {
       city = "",
       templateName = "herbex_marketing",
       languageCode = "en",
-      bodyVarCount = 1,
+      bodyVarCount = 0,
     } = await request.json();
 
     if (!toPhone) {
