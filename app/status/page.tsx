@@ -17,7 +17,7 @@ export default function StatusPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/status?public=1")
+    fetch("/api/status/?public=1")
       .then((res) => res.json())
       .then((data) => setItems(data.items || []))
       .catch(() => setItems([]))
@@ -60,13 +60,13 @@ export default function StatusPage() {
         {active.type === "image" ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`/api/media?id=${active.mediaId}`}
+            src={`/api/media/?id=${active.mediaId}`}
             alt={active.caption || "Status"}
             className="max-h-[70vh] max-w-full rounded-2xl object-contain"
           />
         ) : (
           <video
-            src={`/api/media?id=${active.mediaId}`}
+            src={`/api/media/?id=${active.mediaId}`}
             controls
             autoPlay
             className="max-h-[70vh] max-w-full rounded-2xl"

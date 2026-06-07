@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
+import { isPhoneBlocked, normalizePhone, setPhoneBlocked } from "@/lib/blocked";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 
 // 1. GET: Fetch all active chats and message history
@@ -40,6 +41,10 @@ export async function POST(request: NextRequest) {
 
     if (!toPhone) {
       return NextResponse.json({ error: "Missing recipient phone number" }, { status: 400 });
+    }
+
+    if (await isPhoneBlocked(toPhone)) {
+      return NextResponse.json({ error: "This contact is blocked. Unblock them to send messages." }, { status: 403 });
     }
 
     const msgType = type || "text";
@@ -181,7 +186,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
 
-    const contact: any = await kv.get(`whatsapp:contact:${phone}`);
+    const normalized = normalizePhone(phone);
+    let contact: any = await kv.get(`whatsapp:contact:${normalized}`);
+    if (!contact && blocked !== undefined) {
+      contact = {
+        name: "WhatsApp Contact",
+        phone: normalized,
+        messages: [],
+      };
+    }
     if (contact) {
       if (archived !== undefined) {
         contact.archived = !!archived;
@@ -195,6 +208,7 @@ export async function PATCH(request: NextRequest) {
       }
       if (blocked !== undefined) {
         contact.blocked = !!blocked;
+        await setPhoneBlocked(normalized, !!blocked);
       }
       if (deleteMessageId) {
         if (contact.messages) {
@@ -203,7 +217,7 @@ export async function PATCH(request: NextRequest) {
           );
         }
       }
-      await kv.set(`whatsapp:contact:${phone}`, contact);
+      await kv.set(`whatsapp:contact:${normalized}`, contact);
     }
 
     return NextResponse.json({ status: "success" });

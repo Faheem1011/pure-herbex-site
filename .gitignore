@@ -15,3 +15,5 @@ yarn-error.log*
 tsconfig.tsbuildinfo
 .env*.local
 .vercel
+
+.vercel

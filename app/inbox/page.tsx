@@ -203,6 +203,7 @@ export default function InboxPage() {
   const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
   const [statusCaption, setStatusCaption] = useState("");
   const [statusUploading, setStatusUploading] = useState(false);
+  const [statusNotifyContacts, setStatusNotifyContacts] = useState(true);
   const statusFileRef = useRef<HTMLInputElement | null>(null);
   
   // Message features states
@@ -981,7 +982,7 @@ export default function InboxPage() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeChat || sending) return;
+    if (!activeChat || sending || activeChat.blocked) return;
 
     const hasAttachment = pendingFile || pendingLocation;
     if (!replyText.trim() && !hasAttachment) return;
@@ -1168,13 +1169,16 @@ export default function InboxPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({ type, mediaId, caption: statusCaption }),
+        body: JSON.stringify({ type, mediaId, caption: statusCaption, notifyContacts: statusNotifyContacts }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to publish status");
       setStatusCaption("");
       await fetchStatusItems();
-      alert("Status published! Customers can view at /status for 24 hours.");
+      const broadcastMsg = data.broadcast
+        ? `\n\nSent on WhatsApp: ${data.broadcast.sent}\nFailed: ${data.broadcast.failed}\nSkipped (blocked): ${data.broadcast.skipped}`
+        : "";
+      alert(`Status published for 24 hours!${broadcastMsg}\n\nView: ${data.statusPageUrl || "/status/"}`);
     } catch (e: any) {
       alert("Failed to publish status: " + e.message);
     } finally {
@@ -1452,6 +1456,13 @@ export default function InboxPage() {
       const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
       return bTime - aTime;
     });
+
+  const blockedCount = contacts.filter((c) => c.blocked).length;
+  const inboxTitle =
+    activeTab === "blocked" ? "Blocked" :
+    activeTab === "archived" ? "Archived" :
+    activeTab === "all" ? "Inbox" :
+    TAGS.find((t) => t.id === activeTab)?.label || "Inbox";
 
   // Render different bubble contents depending on message type
   const renderMessageContent = (msg: Message, isMe: boolean) => {
@@ -1824,7 +1835,16 @@ export default function InboxPage() {
               >
                 {statusUploading ? "Uploading..." : "Upload Image or Video"}
               </button>
-              <p className="text-[11px] text-zinc-500 mt-2">Note: This is a web status page. Native WhatsApp Status requires the WhatsApp Business app on your phone.</p>
+              <label className="flex items-center gap-2 text-xs text-zinc-400 mb-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={statusNotifyContacts}
+                  onChange={(e) => setStatusNotifyContacts(e.target.checked)}
+                  className="rounded border-zinc-700 bg-zinc-950 text-emerald-500"
+                />
+                Send this status to all leads on WhatsApp (contacts.json + inbox)
+              </label>
+              <p className="text-[11px] text-zinc-500 mt-2">Contacts receive the image/video in WhatsApp plus a link to /status for 24 hours.</p>
             </div>
 
             <div>
@@ -1837,9 +1857,9 @@ export default function InboxPage() {
                     <div key={item.id} className="relative group rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900 aspect-[9/16]">
                       {item.type === "image" ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`/api/media?id=${item.mediaId}`} alt="" className="w-full h-full object-cover" />
+                        <img src={`/api/media/?id=${item.mediaId}`} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <video src={`/api/media?id=${item.mediaId}`} className="w-full h-full object-cover" muted />
+                        <video src={`/api/media/?id=${item.mediaId}`} className="w-full h-full object-cover" muted />
                       )}
                       <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                         <p className="text-[10px] text-zinc-300 truncate">{item.caption || "No caption"}</p>
@@ -2074,7 +2094,7 @@ export default function InboxPage() {
         {/* Header Section */}
         <div className="p-5 border-b border-zinc-800/60 shrink-0">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold tracking-tight text-zinc-100">Inbox</h1>
+            <h1 className="text-xl font-bold tracking-tight text-zinc-100">{inboxTitle}</h1>
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => fetchChats(false)}
@@ -2105,6 +2125,34 @@ export default function InboxPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800/80 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50"
           />
+
+          {/* Mobile tag filters — keeps bottom nav uncluttered */}
+          <div className="md:hidden flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => { setViewMode("inbox"); setActiveTab("all"); }}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeTab === "all" && viewMode === "inbox" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "border-zinc-800 text-zinc-500"}`}
+            >
+              All
+            </button>
+            {TAGS.map((tag) => (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => { setViewMode("inbox"); setActiveTab(tag.id as any); }}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeTab === tag.id && viewMode === "inbox" ? `${tag.bg} ${tag.border} ${tag.text}` : "border-zinc-800 text-zinc-500"}`}
+              >
+                {tag.label.split(" ")[0]}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => { setViewMode("inbox"); setActiveTab("archived"); }}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeTab === "archived" ? "bg-zinc-800 border-zinc-700 text-zinc-300" : "border-zinc-800 text-zinc-500"}`}
+            >
+              Archived
+            </button>
+          </div>
         </div>
         
         {/* Chats list */}
@@ -2114,7 +2162,7 @@ export default function InboxPage() {
               <svg className="w-8 h-8 mx-auto text-zinc-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
               </svg>
-              <p>No chats found in this category.</p>
+              <p>{activeTab === "blocked" ? "No blocked contacts." : "No chats found in this category."}</p>
             </div>
           ) : (
             filteredContacts.map((c) => {
@@ -2132,7 +2180,7 @@ export default function InboxPage() {
               return (
                 <div
                   key={c.phone}
-                  onClick={() => { setActiveChat(c); if (c.hasUnread) markChatRead(c.phone); }}
+                  onClick={() => { setActiveChat(c); if (c.hasUnread && !c.blocked) markChatRead(c.phone); }}
                   className={`group w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-all border cursor-pointer relative ${
                     isActive
                       ? "bg-zinc-800 border-zinc-700 text-zinc-100 shadow-lg scale-[1.02] z-10"
@@ -2183,12 +2231,27 @@ export default function InboxPage() {
                     </div>
                     <p className={`text-xs truncate mt-0.5 leading-normal pr-8 ${ c.hasUnread ? "text-zinc-300 font-medium" : "" }`}>{latestText}</p>
                     {/* Tag pill */}
-                    {contactTag && (
+                    {contactTag && !c.blocked && (
                       <span className={`inline-flex items-center px-2 py-0.5 mt-1.5 rounded-md text-[9px] font-semibold border ${contactTag.text} ${contactTag.border} ${contactTag.bg}`}>
                         {contactTag.label}
                       </span>
                     )}
+                    {c.blocked && (
+                      <span className="inline-flex items-center px-2 py-0.5 mt-1.5 rounded-md text-[9px] font-semibold border border-rose-500/30 bg-rose-500/10 text-rose-400">
+                        Blocked
+                      </span>
+                    )}
                   </div>
+
+                  {c.blocked && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); blockContact(c.phone, false); }}
+                      className="absolute right-12 top-3.5 md:right-14 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold hover:bg-emerald-500/30"
+                    >
+                      Unblock
+                    </button>
+                  )}
 
                   {/* Contact menu (mobile) */}
                   <button
@@ -2320,6 +2383,14 @@ export default function InboxPage() {
 
                   {/* Header Actions & Tags Selector — icon-only on mobile */}
                   <div className="flex items-center gap-1.5">
+                    {activeChat.blocked && (
+                      <button
+                        onClick={() => blockContact(activeChat.phone, false)}
+                        className="px-2.5 py-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs font-bold hover:bg-emerald-500/30"
+                      >
+                        Unblock
+                      </button>
+                    )}
                     <button
                       onClick={() => pinContact(activeChat.phone, !activeChat.pinned)}
                       className={`p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl transition-all ${activeChat.pinned ? "text-emerald-400" : "text-zinc-400 hover:text-zinc-200"}`}
@@ -2573,7 +2644,22 @@ export default function InboxPage() {
 
             {/* Chat Input Area */}
             <div className="px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] md:p-4 border-t border-zinc-800/80 bg-zinc-900/10 shrink-0 relative">
-              
+              {activeChat.blocked ? (
+                <div className="flex items-center justify-between gap-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-rose-300">Contact blocked</p>
+                    <p className="text-[11px] text-zinc-500">They cannot message you and you cannot reply until you unblock.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => blockContact(activeChat.phone, false)}
+                    className="shrink-0 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 text-xs font-bold rounded-lg"
+                  >
+                    Unblock
+                  </button>
+                </div>
+              ) : (
+              <>
               {/* Reply Preview */}
               {replyingTo && (
                 <div className="mb-3 p-3 bg-zinc-900 border-l-4 border-emerald-500 rounded-r-2xl flex items-center justify-between animate-slide-up">
@@ -2830,6 +2916,8 @@ export default function InboxPage() {
                     <span className="hidden md:inline">{sending ? "Sending..." : "Send"}</span>
                   </button>
                 </form>
+              )}
+              </>
               )}
             </div>
           </>
@@ -3121,31 +3209,35 @@ export default function InboxPage() {
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
       {!activeChat && !selectedMarketingLead && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-center justify-around z-40 px-2">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-stretch justify-around z-40 px-1 safe-bottom">
           <button
             onClick={() => { setViewMode("inbox"); setActiveTab("all"); }}
-            className={`flex flex-col items-center justify-center space-y-1 ${
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
               activeTab === "all" && viewMode === "inbox" ? "text-emerald-400" : "text-zinc-500"
             }`}
           >
-            <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0l-3.586-3.586a2 2 0 00-2.828 0L16 11m-8 3V4"/>
             </svg>
-            <span className="text-[9px] font-bold">All</span>
+            <span className="text-[9px] font-bold">Chats</span>
           </button>
 
-          {TAGS.map((tag) => (
-            <button
-              key={tag.id}
-              onClick={() => { setViewMode("inbox"); setActiveTab(tag.id as any); }}
-              className={`flex flex-col items-center justify-center space-y-1 ${
-                activeTab === tag.id && viewMode === "inbox" ? "text-emerald-400" : "text-zinc-500"
-              }`}
-            >
-              <span className={`w-2.5 h-2.5 rounded-full ${tag.color}`}></span>
-              <span className="text-[9px] font-bold">{tag.label.split(" ")[0]}</span>
-            </button>
-          ))}
+          <button
+            onClick={() => { setViewMode("inbox"); setActiveTab("blocked"); setActiveChat(null); }}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 relative ${
+              activeTab === "blocked" && viewMode === "inbox" ? "text-rose-400" : "text-zinc-500"
+            }`}
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+            <span className="text-[9px] font-bold">Blocked</span>
+            {blockedCount > 0 && (
+              <span className="absolute top-1.5 right-[18%] min-w-[14px] h-[14px] px-0.5 bg-rose-500 text-[8px] font-black text-white rounded-full flex items-center justify-center">
+                {blockedCount > 9 ? "9+" : blockedCount}
+              </span>
+            )}
+          </button>
 
           <button
             onClick={() => {
@@ -3153,11 +3245,11 @@ export default function InboxPage() {
               setActiveChat(null);
               fetchStatusItems();
             }}
-            className={`flex flex-col items-center justify-center space-y-1 ${
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
               viewMode === "status" ? "text-emerald-400" : "text-zinc-500"
             }`}
           >
-            <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="text-[9px] font-bold">Status</span>
@@ -3169,11 +3261,11 @@ export default function InboxPage() {
               setActiveChat(null);
               fetchCampaignStatus();
             }}
-            className={`flex flex-col items-center justify-center space-y-1 ${
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
               viewMode === "marketing" ? "text-emerald-400" : "text-zinc-500"
             }`}
           >
-            <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
             </svg>
             <span className="text-[9px] font-bold">Promo</span>

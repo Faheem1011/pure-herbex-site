@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
+import { isPhoneBlocked } from "@/lib/blocked";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 
 type CampaignStatus = {
@@ -140,6 +141,10 @@ export async function POST(request: NextRequest) {
 
     const phone = normalizePhone(toPhone);
     const displayName = contactName || "Customer";
+
+    if (await isPhoneBlocked(phone)) {
+      return NextResponse.json({ error: "This contact is blocked." }, { status: 403 });
+    }
 
     const url = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/messages`;
     const payload = buildTemplatePayload(

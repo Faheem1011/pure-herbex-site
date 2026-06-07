@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
+import { isPhoneBlocked } from "@/lib/blocked";
 import { getWhatsAppVerifyToken } from "@/lib/whatsapp";
 
 export async function GET(request: NextRequest) {
@@ -35,6 +36,11 @@ export async function POST(request: NextRequest) {
       if (value?.messages) {
         const message = value.messages[0];
         const from = message.from;
+
+        if (await isPhoneBlocked(from)) {
+          return NextResponse.json({ status: "ignored_blocked" }, { status: 200 });
+        }
+
         const msgType = message.type || "text";
         const timestamp = message.timestamp || Math.floor(Date.now() / 1000);
         const msgId = message.id;
