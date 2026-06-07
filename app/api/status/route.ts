@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
-import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
-import { sendWhatsAppMediaMessage } from "@/lib/whatsapp-send";
-
-export const maxDuration = 60;
 
 const STATUS_KEY = "whatsapp:status_items";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
@@ -20,20 +14,6 @@ export type StatusItem = {
   expiresAt: number;
 };
 
-
-async function getAllLeadPhones(): Promise<string[]> {
-  const active: string[] = await kv.smembers("whatsapp:active_contacts");
-  let fromFile: string[] = [];
-  try {
-    const file = path.join(process.cwd(), "public", "contacts.json");
-    const data = JSON.parse(await readFile(file, "utf-8")) as { phone: string }[];
-    fromFile = data.map((c) => normalizePhone(c.phone));
-  } catch {
-    fromFile = [];
-  }
-  return [...new Set([...active.map(normalizePhone), ...fromFile])].filter(Boolean);
-}
-
 async function getActiveItems(): Promise<StatusItem[]> {
   const items: StatusItem[] = (await kv.get(STATUS_KEY)) || [];
   const now = Date.now();
@@ -44,6 +24,13 @@ async function getActiveItems(): Promise<StatusItem[]> {
   return active.sort((a, b) => b.createdAt - a.createdAt);
 }
 
+function getStatusPageUrl() {
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://pure-herbex-site.vercel.app");
+  return `${siteUrl.replace(/\/$/, "")}/status/`;
+}
+
 // GET: list active status items (public or authed)
 export async function GET(request: NextRequest) {
   try {
@@ -52,20 +39,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const items = await getActiveItems();
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, statusPageUrl: getStatusPageUrl() });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST: add a new status item (image/video via Meta mediaId)
+// POST: publish a status item (web viewer only — separate from marketing templates)
 export async function POST(request: NextRequest) {
   try {
     if (!isInboxAuthed(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { type, mediaId, caption, notifyContacts = true } = await request.json();
+    const { type, mediaId, caption } = await request.json();
     if (!mediaId || !["image", "video"].includes(type)) {
       return NextResponse.json({ error: "Invalid status payload" }, { status: 400 });
     }
@@ -84,31 +71,9 @@ export async function POST(request: NextRequest) {
     items.unshift(item);
     await kv.set(STATUS_KEY, items.slice(0, 30));
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://pure-herbex-site.vercel.app");
-    const statusPageUrl = `${siteUrl.replace(/\/$/, "")}/status/`;
+    const statusPageUrl = getStatusPageUrl();
 
-    let broadcast = { sent: 0, failed: 0, skipped: 0 };
-    if (notifyContacts) {
-      const phones = await getAllLeadPhones();
-      const statusCaption = [
-        caption || "New update from Pure Herbex!",
-        `View all updates: ${statusPageUrl}`,
-      ].filter(Boolean).join("\n\n");
-
-      for (const phone of phones) {
-        if (await isPhoneBlocked(phone)) {
-          broadcast.skipped++;
-          continue;
-        }
-        const result = await sendWhatsAppMediaMessage(phone, type, mediaId, statusCaption);
-        if (result.ok) broadcast.sent++;
-        else broadcast.failed++;
-      }
-    }
-
-    return NextResponse.json({ status: "success", item, broadcast, statusPageUrl });
+    return NextResponse.json({ status: "success", item, statusPageUrl });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

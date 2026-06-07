@@ -203,7 +203,6 @@ export default function InboxPage() {
   const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
   const [statusCaption, setStatusCaption] = useState("");
   const [statusUploading, setStatusUploading] = useState(false);
-  const [statusNotifyContacts, setStatusNotifyContacts] = useState(true);
   const statusFileRef = useRef<HTMLInputElement | null>(null);
   
   // Message features states
@@ -315,7 +314,7 @@ export default function InboxPage() {
 
   const restoreSession = async (token: string) => {
     try {
-      const res = await fetch("/api/messages", {
+      const res = await fetch("/api/messages/", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -399,7 +398,7 @@ export default function InboxPage() {
           setSending(true);
           try {
             const mediaId = await uploadFile(file);
-            const res = await fetch("/api/messages", {
+            const res = await fetch("/api/messages/", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -518,7 +517,7 @@ export default function InboxPage() {
 
     try {
       for (const msgId of idsToDelete) {
-        await fetch("/api/messages", {
+        await fetch("/api/messages/", {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ phone: activeChat.phone, deleteMessageId: msgId }),
@@ -561,7 +560,7 @@ export default function InboxPage() {
       for (const phone of selectedForwardContacts) {
         const targetContact = contacts.find(c => c.phone === phone);
         for (const msg of messagesToForward) {
-          const res = await fetch("/api/messages", {
+          const res = await fetch("/api/messages/", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -622,7 +621,7 @@ export default function InboxPage() {
       )
     );
     try {
-      await fetch("/api/messages", {
+      await fetch("/api/messages/", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, markRead: true }),
@@ -692,7 +691,7 @@ export default function InboxPage() {
 
   const fetchCampaignStatus = async () => {
     try {
-      const res = await fetch("/api/campaign", {
+      const res = await fetch("/api/campaign/", {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       const data = await res.json();
@@ -712,6 +711,29 @@ export default function InboxPage() {
     fetchStatusItems();
   }, [isLoggedIn, viewMode]);
 
+  const sendBatchMarketing = async (limit = 20) => {
+    if (!window.confirm(`Send ${MARKETING_TEMPLATE} to the next ${limit} pending leads?`)) return;
+    setIsSendingCampaign(true);
+    try {
+      const res = await fetch("/api/campaign/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ batch: true, limit, templateName: MARKETING_TEMPLATE, languageCode: "en", bodyVarCount: 0 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Batch send failed");
+      await fetchCampaignStatus();
+      alert(`Batch done!\nSent: ${data.sent}\nFailed: ${data.failed}\nSkipped (blocked): ${data.skipped}${data.firstError ? `\nError: ${data.firstError}` : ""}${data.remaining ? `\n${data.remaining} still pending — run again.` : ""}`);
+    } catch (e: any) {
+      alert("Batch failed: " + e.message);
+    } finally {
+      setIsSendingCampaign(false);
+    }
+  };
+
   const sendTemplateToLead = async (
     phone: string,
     name: string,
@@ -724,7 +746,7 @@ export default function InboxPage() {
 
     setIsSendingCampaign(true);
     try {
-      const res = await fetch("/api/campaign", {
+      const res = await fetch("/api/campaign/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -776,7 +798,7 @@ export default function InboxPage() {
 
   const resetLeadCampaignStatus = async (phone: string) => {
     try {
-      await fetch("/api/campaign", {
+      await fetch("/api/campaign/", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -824,7 +846,7 @@ export default function InboxPage() {
   const fetchChats = async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
-      const res = await fetch("/api/messages", {
+      const res = await fetch("/api/messages/", {
         headers: {
           Authorization: `Bearer ${sessionToken}`,
         },
@@ -946,7 +968,7 @@ export default function InboxPage() {
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
     try {
-      const res = await fetch("/api/media", {
+      const res = await fetch("/api/media/", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${sessionToken}`,
@@ -1008,7 +1030,7 @@ export default function InboxPage() {
       }
 
       // 2. Dispatch message
-      const res = await fetch("/api/messages", {
+      const res = await fetch("/api/messages/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1103,7 +1125,7 @@ export default function InboxPage() {
         })
       );
 
-      const res = await fetch("/api/tags", {
+      const res = await fetch("/api/tags/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1130,7 +1152,7 @@ export default function InboxPage() {
       setActiveChat((prev) => (prev ? { ...prev, ...patch, ...(patch.markRead ? { hasUnread: false, unreadCount: 0 } : {}) } : null));
     }
     try {
-      await fetch("/api/messages", {
+      await fetch("/api/messages/", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, ...patch }),
@@ -1148,7 +1170,7 @@ export default function InboxPage() {
 
   const fetchStatusItems = async () => {
     try {
-      const res = await fetch("/api/status", {
+      const res = await fetch("/api/status/", {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       const data = await res.json();
@@ -1163,22 +1185,20 @@ export default function InboxPage() {
     try {
       const mediaId = await uploadFile(file);
       const type = file.type.startsWith("video/") ? "video" : "image";
-      const res = await fetch("/api/status", {
+      const res = await fetch("/api/status/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({ type, mediaId, caption: statusCaption, notifyContacts: statusNotifyContacts }),
+        body: JSON.stringify({ type, mediaId, caption: statusCaption }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to publish status");
       setStatusCaption("");
       await fetchStatusItems();
-      const broadcastMsg = data.broadcast
-        ? `\n\nSent on WhatsApp: ${data.broadcast.sent}\nFailed: ${data.broadcast.failed}\nSkipped (blocked): ${data.broadcast.skipped}`
-        : "";
-      alert(`Status published for 24 hours!${broadcastMsg}\n\nView: ${data.statusPageUrl || "/status/"}`);
+      const link = data.statusPageUrl || `${window.location.origin}/status/`;
+      alert(`Status published for 24 hours!\n\nShare this link with customers:\n${link}`);
     } catch (e: any) {
       alert("Failed to publish status: " + e.message);
     } finally {
@@ -1188,7 +1208,7 @@ export default function InboxPage() {
 
   const deleteStatusItem = async (id: string) => {
     try {
-      await fetch("/api/status", {
+      await fetch("/api/status/", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -1218,7 +1238,7 @@ export default function InboxPage() {
         })
       );
 
-      const res = await fetch("/api/messages", {
+      const res = await fetch("/api/messages/", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -1243,7 +1263,7 @@ export default function InboxPage() {
         setActiveChat(null);
       }
 
-      const res = await fetch("/api/messages", {
+      const res = await fetch("/api/messages/", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -1291,7 +1311,7 @@ export default function InboxPage() {
     }
 
     try {
-      await fetch("/api/messages", {
+      await fetch("/api/messages/", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone: activeChat.phone, deleteMessageId: messageId }),
@@ -1803,7 +1823,8 @@ export default function InboxPage() {
         <main className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
           <div className="p-5 border-b border-zinc-800/60 shrink-0">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100">Status</h1>
-            <p className="text-xs text-zinc-500 mt-1">Upload images or videos — visible to customers for 24 hours at <a href="/status" target="_blank" className="text-emerald-400 hover:underline">/status</a></p>
+            <p className="text-xs text-zinc-500 mt-1">Upload images or videos for your public status page (separate from Promo marketing).</p>
+            <a href="/status/" target="_blank" className="text-xs text-emerald-400 hover:underline mt-1 inline-block">Open status page →</a>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-6">
@@ -1835,16 +1856,18 @@ export default function InboxPage() {
               >
                 {statusUploading ? "Uploading..." : "Upload Image or Video"}
               </button>
-              <label className="flex items-center gap-2 text-xs text-zinc-400 mb-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={statusNotifyContacts}
-                  onChange={(e) => setStatusNotifyContacts(e.target.checked)}
-                  className="rounded border-zinc-700 bg-zinc-950 text-emerald-500"
-                />
-                Send this status to all leads on WhatsApp (contacts.json + inbox)
-              </label>
-              <p className="text-[11px] text-zinc-500 mt-2">Contacts receive the image/video in WhatsApp plus a link to /status for 24 hours.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  const link = `${window.location.origin}/status/`;
+                  navigator.clipboard.writeText(link);
+                  alert("Status link copied! Share it with customers on WhatsApp manually.");
+                }}
+                className="w-full py-2.5 mb-3 border border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-xl text-sm font-semibold"
+              >
+                Copy status page link
+              </button>
+              <p className="text-[11px] text-zinc-500 mt-2">Status is web-only for 24h. Use the Promo tab to send the herbex_marketing template to leads.</p>
             </div>
 
             <div>
@@ -2048,9 +2071,9 @@ export default function InboxPage() {
               </div>
             ) : (
               <div className="flex-1 flex flex-col p-6 md:p-8 max-w-2xl mx-auto w-full overflow-y-auto">
-                <h2 className="text-2xl font-bold text-zinc-100 mb-2">Marketing Campaign Desk</h2>
+                <h2 className="text-2xl font-bold text-zinc-100 mb-2">Promo — Marketing Template</h2>
                 <p className="text-zinc-500 text-sm mb-6">
-                  Select a lead from the list, or send a test message to your own number first.
+                  Send the approved <span className="text-emerald-400 font-semibold">{MARKETING_TEMPLATE}</span> template to leads. This is separate from Status updates.
                 </p>
 
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 mb-6">
@@ -2077,10 +2100,18 @@ export default function InboxPage() {
                   </div>
                 </div>
 
+                <button
+                  disabled={isSendingCampaign || marketingStats.pending === 0}
+                  onClick={() => sendBatchMarketing(20)}
+                  className="w-full py-4 mb-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-zinc-950 font-bold rounded-2xl"
+                >
+                  {isSendingCampaign ? "Sending batch..." : `Send to next 20 pending (${marketingStats.pending} left)`}
+                </button>
+
                 <div className="text-zinc-600 text-xs leading-relaxed">
                   <p>• {marketingLeads.length} leads loaded from contacts.json</p>
-                  <p>• You control who gets the template and when — one lead at a time</p>
-                  <p>• When they reply, switch to Inbox to continue the conversation</p>
+                  <p>• Template works outside the 24-hour window (approved marketing)</p>
+                  <p>• Use Test Send first, then batch or one-by-one from the list</p>
                 </div>
               </div>
             )}

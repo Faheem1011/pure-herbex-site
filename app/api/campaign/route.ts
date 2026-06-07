@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readFile } from "fs/promises";
+import path from "path";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
-import { isPhoneBlocked } from "@/lib/blocked";
-import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
+import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
+import { DEFAULT_TEMPLATE_IMAGE, sendWhatsAppTemplateMessage } from "@/lib/whatsapp-send";
+
+export const maxDuration = 60;
 
 type CampaignStatus = {
   status: "sent" | "failed";
@@ -14,55 +18,6 @@ type CampaignStatus = {
 };
 
 type CampaignStatusMap = Record<string, CampaignStatus>;
-
-function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "");
-}
-
-const DEFAULT_HEADER_IMAGE =
-  "https://pureherbex.com/assets/images/product-bottle.png";
-
-function buildTemplatePayload(
-  toPhone: string,
-  templateName: string,
-  languageCode: string,
-  bodyVarCount: number,
-  name: string,
-  city: string,
-  headerImageUrl?: string
-) {
-  const components: Record<string, unknown>[] = [];
-
-  // herbex_marketing requires an IMAGE header in the approved template
-  const imageUrl = headerImageUrl || DEFAULT_HEADER_IMAGE;
-  if (templateName === "herbex_marketing" || headerImageUrl) {
-    components.push({
-      type: "header",
-      parameters: [{ type: "image", image: { link: imageUrl } }],
-    });
-  }
-
-  const bodyParams: { type: "text"; text: string }[] = [];
-  if (bodyVarCount >= 1) bodyParams.push({ type: "text", text: name });
-  if (bodyVarCount >= 2) bodyParams.push({ type: "text", text: city });
-  if (bodyParams.length > 0) {
-    components.push({ type: "body", parameters: bodyParams });
-  }
-
-  const template: Record<string, unknown> = {
-    name: templateName,
-    language: { code: languageCode },
-  };
-  if (components.length > 0) template.components = components;
-
-  return {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to: normalizePhone(toPhone),
-    type: "template",
-    template,
-  };
-}
 
 async function saveSentMessage(
   toPhone: string,
@@ -126,6 +81,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const body = await request.json();
     const {
       toPhone,
       contactName,
@@ -133,7 +89,66 @@ export async function POST(request: NextRequest) {
       templateName = "herbex_marketing",
       languageCode = "en",
       bodyVarCount = 0,
-    } = await request.json();
+      batch = false,
+      limit = 20,
+    } = body;
+
+    if (batch) {
+      const statusMap: CampaignStatusMap = (await kv.get("whatsapp:campaign_status")) || {};
+      const file = path.join(process.cwd(), "public", "contacts.json");
+      const leads = JSON.parse(await readFile(file, "utf-8")) as { name: string; phone: string }[];
+      const pending = leads.filter((l) => !statusMap[normalizePhone(l.phone)] || statusMap[normalizePhone(l.phone)]?.status === "failed");
+
+      let sent = 0;
+      let failed = 0;
+      let skipped = 0;
+      let firstError = "";
+
+      for (const lead of pending.slice(0, Math.min(limit, 40))) {
+        const phone = normalizePhone(lead.phone);
+        if (await isPhoneBlocked(phone)) {
+          skipped++;
+          continue;
+        }
+        const result = await sendWhatsAppTemplateMessage(phone, templateName, {
+          languageCode,
+          bodyVarCount,
+          name: lead.name,
+          city: "",
+          headerImageUrl: DEFAULT_TEMPLATE_IMAGE,
+        });
+        if (result.ok) {
+          sent++;
+          await saveSentMessage(phone, lead.name, result.msgId || "N/A", templateName);
+          await updateCampaignStatus(phone, {
+            status: "sent",
+            sentAt: Date.now(),
+            messageId: result.msgId,
+            name: lead.name,
+            templateName,
+          });
+        } else {
+          failed++;
+          if (!firstError) firstError = result.error || "Unknown error";
+          await updateCampaignStatus(phone, {
+            status: "failed",
+            sentAt: Date.now(),
+            error: result.error,
+            name: lead.name,
+            templateName,
+          });
+        }
+      }
+
+      return NextResponse.json({
+        status: "batch_complete",
+        sent,
+        failed,
+        skipped,
+        remaining: Math.max(0, pending.length - limit),
+        firstError: firstError || undefined,
+      });
+    }
 
     if (!toPhone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
@@ -146,29 +161,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This contact is blocked." }, { status: 403 });
     }
 
-    const url = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/messages`;
-    const payload = buildTemplatePayload(
-      phone,
-      templateName,
+    const result = await sendWhatsAppTemplateMessage(phone, templateName, {
       languageCode,
       bodyVarCount,
-      displayName,
-      city
-    );
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${getWhatsAppAccessToken()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+      name: displayName,
+      city,
+      headerImageUrl: DEFAULT_TEMPLATE_IMAGE,
     });
 
-    const respData = await response.json();
-
-    if (response.ok) {
-      const msgId = respData.messages?.[0]?.id || "N/A";
+    if (result.ok) {
+      const msgId = result.msgId || "N/A";
 
       await saveSentMessage(phone, displayName, msgId, templateName);
       await updateCampaignStatus(phone, {
@@ -182,7 +184,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: "success", msgId, phone });
     }
 
-    const errorMsg = respData.error?.message || "Failed to send template";
+    const errorMsg = result.error || "Failed to send template";
     await updateCampaignStatus(phone, {
       status: "failed",
       sentAt: Date.now(),
@@ -191,7 +193,7 @@ export async function POST(request: NextRequest) {
       templateName,
     });
 
-    return NextResponse.json({ error: errorMsg, details: respData }, { status: 400 });
+    return NextResponse.json({ error: errorMsg }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
