@@ -30,6 +30,14 @@
 }
 
 @layer utilities {
+  .safe-top {
+    padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .glass-card {
     @apply bg-card backdrop-blur-xl border border-border shadow-2xl;
   }
