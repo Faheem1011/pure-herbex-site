@@ -8,7 +8,7 @@ interface Message {
   text: string;
   timestamp: number;
   status?: string;
-  type?: string; // "text" | "image" | "audio" | "voice" | "video" | "document" | "location"
+  type?: string; // "text" | "image" | "audio" | "voice" | "video" | "document" | "sticker" | "location"
   mediaId?: string;
   fileName?: string;
   replyTo?: string; // ID of the message being replied to
@@ -142,6 +142,29 @@ function CustomAudioPlayer({ src, isMe }: { src: string; isMe: boolean }) {
 
 const getEpochTime = () => Math.floor(Date.now() / 1000);
 const MARKETING_TEMPLATE = "herbex_marketing";
+
+function formatMessagePreview(msg?: Message, empty = "(New Conversation)"): string {
+  if (!msg) return empty;
+  if (msg.isDeleted) return "🚫 Deleted";
+  switch (msg.type) {
+    case "image":
+      return "📷 Photo";
+    case "sticker":
+      return "🎭 Sticker";
+    case "audio":
+    case "voice":
+      return "🎵 Voice Note";
+    case "video":
+      return "🎥 Video";
+    case "document":
+      return msg.fileName ? `📄 ${msg.fileName}` : "📄 File";
+    case "location":
+      return "📍 Location";
+    default:
+      if (msg.text === "(sticker message)") return "🎭 Sticker";
+      return msg.text || "(message)";
+  }
+}
 
 function parseLeadName(fullName: string): { name: string; city: string } {
   const match = fullName.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
@@ -1662,9 +1685,10 @@ export default function InboxPage() {
     const type = msg.type || "text";
 
     // Quoted message preview
+    const quoteChat = activeChat || activeCampaignChat;
     const renderQuotedMessage = () => {
       if (!msg.replyTo) return null;
-      const quotedMsg = activeChat?.messages.find(m => m.id === msg.replyTo);
+      const quotedMsg = quoteChat?.messages.find((m) => m.id === msg.replyTo);
       if (!quotedMsg) return null;
 
       return (
@@ -1672,11 +1696,12 @@ export default function InboxPage() {
           isMe ? "border-emerald-400 text-emerald-100" : "border-emerald-500 text-zinc-300"
         }`}>
           <div className="font-bold text-[10px] mb-0.5">
-            {quotedMsg.sender === "me" ? "You" : activeChat?.name}
+            {quotedMsg.sender === "me" ? "You" : quoteChat?.name}
           </div>
           <div className="truncate opacity-80">
-            {quotedMsg.isDeleted ? "🚫 Deleted" : 
+            {quotedMsg.isDeleted ? "🚫 Deleted" :
              quotedMsg.type === "image" ? "📷 Photo" :
+             quotedMsg.type === "sticker" ? "🎭 Sticker" :
              quotedMsg.type === "audio" || quotedMsg.type === "voice" ? "🎵 Voice Note" :
              quotedMsg.text}
           </div>
@@ -1725,6 +1750,25 @@ export default function InboxPage() {
           />
           {msg.text && msg.text !== "🎥 Video" && (
             <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
+          )}
+        </div>
+      );
+    }
+
+    if (type === "sticker") {
+      return (
+        <div className="space-y-1">
+          {renderQuotedMessage()}
+          {msg.mediaId ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/media/?id=${msg.mediaId}`}
+              alt="WhatsApp sticker"
+              className="w-32 h-32 object-contain"
+              onClick={() => window.open(`/api/media/?id=${msg.mediaId}`, "_blank")}
+            />
+          ) : (
+            <p className="text-sm text-zinc-400">🎭 Sticker</p>
           )}
         </div>
       );
@@ -2348,7 +2392,7 @@ export default function InboxPage() {
               ) : (
                 filteredCampaignContacts.map((c) => {
                   const latestMsg = c.messages[c.messages.length - 1];
-                  const latestText = latestMsg?.text || "No messages";
+                  const latestText = formatMessagePreview(latestMsg, "No messages");
                   const latestTime = latestMsg
                     ? new Date(latestMsg.timestamp * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                     : "";
@@ -2550,7 +2594,7 @@ export default function InboxPage() {
           ) : (
             filteredContacts.map((c) => {
               const latestMsg = c.messages[c.messages.length - 1];
-              const latestText = latestMsg?.text || "(New Conversation)";
+              const latestText = formatMessagePreview(latestMsg);
               const latestTime = latestMsg
                 ? new Date(latestMsg.timestamp * 1000).toLocaleTimeString([], {
                     hour: "2-digit",

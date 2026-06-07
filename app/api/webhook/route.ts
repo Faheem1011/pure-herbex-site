@@ -69,6 +69,9 @@ export async function POST(request: NextRequest) {
           mediaId = message.document?.id || "";
           fileName = message.document?.filename || "";
           text = fileName ? `📄 File: ${fileName}` : "📄 File";
+        } else if (msgType === "sticker") {
+          mediaId = message.sticker?.id || "";
+          text = "🎭 Sticker";
         } else if (msgType === "location") {
           location = {
             latitude: message.location?.latitude,
