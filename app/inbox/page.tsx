@@ -157,6 +157,7 @@ function formatMessagePreview(msg?: Message, empty = "(New Conversation)"): stri
     case "video":
       return "🎥 Video";
     case "document":
+      if (msg.fileName && /\.(mp4|m4v|mov|3gp)$/i.test(msg.fileName)) return "🎥 Video";
       return msg.fileName ? `📄 ${msg.fileName}` : "📄 File";
     case "location":
       return "📍 Location";
@@ -443,7 +444,7 @@ export default function InboxPage() {
 
           setSending(true);
           try {
-            const mediaId = await uploadFile(file);
+            const { mediaId } = await uploadFile(file);
             const res = await fetch("/api/messages/", {
               method: "POST",
               headers: {
@@ -1095,14 +1096,15 @@ export default function InboxPage() {
     }
   };
 
-  // Upload attachment file to API
-  const uploadFile = async (file: File): Promise<string> => {
+  type UploadResult = { mediaId: string; category?: string; filename?: string };
+
+  const uploadFile = async (file: File, sendAs: "auto" | "document" | "video" = "auto"): Promise<UploadResult> => {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("sendAs", sendAs);
 
-    // Create an AbortController to handle timeouts
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
       const res = await fetch("/api/media/", {
@@ -1122,7 +1124,7 @@ export default function InboxPage() {
         data = JSON.parse(text);
       } catch (e) {
         if (text.includes("Payload Too Large") || res.status === 413) {
-          throw new Error("File exceeds serverless upload limits. Please use a compressed or smaller file.");
+          throw new Error("Video is too large for upload. Compress to under 4 MB (use a free compressor app) and try again.");
         }
         throw new Error(text || "Failed to upload file");
       }
@@ -1130,10 +1132,14 @@ export default function InboxPage() {
       if (!res.ok) {
         throw new Error(data.error || "Failed to upload file to WhatsApp Media server");
       }
-      return data.mediaId;
+      return {
+        mediaId: data.mediaId,
+        category: data.category,
+        filename: data.filename,
+      };
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        throw new Error("Upload timed out. The file might be too large for your current connection or the server is busy.");
+        throw new Error("Upload timed out. Try a smaller or compressed video.");
       }
       throw err;
     }
@@ -1194,17 +1200,30 @@ export default function InboxPage() {
       let mediaId = "";
       let msgType = "text";
       let fileToUpload = pendingFile;
+      let uploadFilename = pendingFile?.name;
 
-      // 1. Handle file upload & optional compression
       if (pendingFile) {
         if (pendingFileType === "image" && pendingFile.size > 4 * 1024 * 1024) {
           fileToUpload = await compressImage(pendingFile);
         }
 
         if (fileToUpload) {
-          mediaId = await uploadFile(fileToUpload);
+          const upload = await uploadFile(
+            fileToUpload,
+            pendingFileType === "video" ? "auto" : "auto"
+          );
+          mediaId = upload.mediaId;
+          uploadFilename = upload.filename || fileToUpload.name;
+          if (pendingFileType === "video") {
+            // Deliver as document — works with most MP4 codecs WhatsApp video mode rejects
+            msgType = upload.category === "video" ? "video" : "document";
+          } else {
+            msgType = upload.category === "image" ? "image"
+              : upload.category === "audio" ? "audio"
+              : upload.category === "video" ? "video"
+              : pendingFileType || "document";
+          }
         }
-        msgType = pendingFileType || "document";
       } else if (pendingLocation) {
         msgType = "location";
       }
@@ -1223,7 +1242,7 @@ export default function InboxPage() {
           type: msgType,
           mediaId: mediaId || undefined,
           replyTo: replyingTo?.id || undefined,
-          fileName: fileToUpload ? fileToUpload.name : undefined,
+          fileName: uploadFilename || undefined,
           location: pendingLocation ? {
             latitude: parseFloat(pendingLocation.latitude),
             longitude: parseFloat(pendingLocation.longitude),
@@ -1235,12 +1254,12 @@ export default function InboxPage() {
 
       const data = await res.json();
       if (res.ok && data.status === "success") {
-        // Format display text for optimistic update
         let displayLogText = replyText || "";
+        const isVideoDoc = msgType === "document" && /\.(mp4|mov|m4v|3gp)$/i.test(uploadFilename || "");
         if (msgType === "image") displayLogText = "📷 Photo";
         else if (msgType === "audio") displayLogText = "🎵 Audio/Voice Note";
-        else if (msgType === "video") displayLogText = "🎥 Video";
-        else if (msgType === "document") displayLogText = fileToUpload ? `📄 File: ${fileToUpload.name}` : "📄 File";
+        else if (msgType === "video" || isVideoDoc) displayLogText = "🎥 Video";
+        else if (msgType === "document") displayLogText = uploadFilename ? `📄 File: ${uploadFilename}` : "📄 File";
         else if (msgType === "location") displayLogText = pendingLocation?.name ? `📍 Location: ${pendingLocation.name}` : "📍 Location";
 
         const newMsg: Message = {
@@ -1249,10 +1268,10 @@ export default function InboxPage() {
           text: displayLogText,
           timestamp: getEpochTime(),
           status: "sent",
-          type: msgType,
+          type: isVideoDoc ? "video" : msgType,
           mediaId: mediaId || undefined,
           replyTo: replyingTo?.id || undefined,
-          fileName: fileToUpload ? fileToUpload.name : undefined,
+          fileName: uploadFilename || undefined,
           location: pendingLocation ? {
             latitude: parseFloat(pendingLocation.latitude),
             longitude: parseFloat(pendingLocation.longitude),
@@ -1363,8 +1382,9 @@ export default function InboxPage() {
   const publishStatus = async (file: File) => {
     setStatusUploading(true);
     try {
-      const mediaId = await uploadFile(file);
-      const type = file.type.startsWith("video/") ? "video" : "image";
+      const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|m4v|3gp)$/i.test(file.name);
+      const { mediaId } = await uploadFile(file, isVideo ? "video" : "auto");
+      const type = isVideo ? "video" : "image";
       const res = await fetch("/api/status/", {
         method: "POST",
         headers: {
@@ -1540,8 +1560,11 @@ export default function InboxPage() {
     if (file) {
       // Check file size limits early
       if (type === "video" && file.size > 16 * 1024 * 1024) {
-        alert("Video file is too large. WhatsApp limits videos to 16MB. Please choose a smaller or compressed video.");
+        alert("Video is too large. WhatsApp max is 16 MB. Compress the file and try again.");
         return;
+      }
+      if (type === "video" && file.size > 4 * 1024 * 1024) {
+        alert("This video is over 4 MB. It may fail to upload — compress it to under 4 MB first for best results.");
       }
       if (file.size > 100 * 1024 * 1024) {
         alert("File is too large. Maximum allowed size is 100MB (WhatsApp document limit).");
@@ -1739,13 +1762,15 @@ export default function InboxPage() {
       );
     }
 
-    if (type === "video") {
+    if (type === "video" || (type === "document" && msg.mediaId && /\.(mp4|m4v|mov|3gp|webm)$/i.test(msg.fileName || ""))) {
       return (
         <div className="space-y-2">
           {renderQuotedMessage()}
           <video
             controls
-            src={`/api/media?id=${msg.mediaId}`}
+            playsInline
+            preload="metadata"
+            src={`/api/media/?id=${msg.mediaId}`}
             className="max-w-full max-h-72 rounded-xl border border-zinc-800 bg-zinc-950 mt-1"
           />
           {msg.text && msg.text !== "🎥 Video" && (
@@ -3196,14 +3221,14 @@ export default function InboxPage() {
                     type="button"
                     onClick={() => {
                       if (fileInputRef.current) {
-                        fileInputRef.current.accept = "video/mp4";
+                        fileInputRef.current.accept = "video/mp4,video/*,.mp4,.mov";
                         fileInputRef.current.click();
                       }
                     }}
                     className="w-full text-left flex items-center space-x-3 px-3.5 py-2.5 hover:bg-zinc-800/80 rounded-xl text-zinc-300 hover:text-zinc-100 transition-all text-xs font-semibold"
                   >
                     <span className="text-emerald-400">🎥</span>
-                    <span>Video</span>
+                    <span>Video (MP4, max 4 MB)</span>
                   </button>
                   <button
                     type="button"

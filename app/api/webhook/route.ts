@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
               (errorTitle && /media/i.test(errorTitle))
             ) {
               failureNote =
-                "Template header image failed — image must be under 5 MB and publicly reachable (error 131053)";
+                "Media delivery failed — compress video to under 4 MB MP4, or resend from inbox (error 131053)";
             }
             const experimentNote = failureNote;
             campaignStatus[recipient_id] = {

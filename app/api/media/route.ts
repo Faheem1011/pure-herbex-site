@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
+import { prepareMetaUploadFile } from "@/lib/meta-media";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
+
+const MAX_VIDEO_BYTES = 16 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Increase timeout to 60 seconds for larger media uploads
@@ -74,25 +78,42 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
+    const sendAs = (formData.get("sendAs") as string) || "auto";
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Extract category from mime type for Meta's 'type' parameter
-    // Meta expects categories: 'audio', 'document', 'image', 'sticker', 'video'
-    const mimeType = file.type || "";
-    let category = "document";
-    if (mimeType.startsWith("image/")) category = "image";
-    else if (mimeType.startsWith("audio/")) category = "audio";
-    else if (mimeType.startsWith("video/")) category = "video";
-    else if (mimeType.includes("sticker")) category = "sticker";
+    const prepared = prepareMetaUploadFile(file, {
+      sendAs: sendAs === "document" || sendAs === "video" ? sendAs : "auto",
+    });
 
-    // Prepare Multipart form-data for Meta
+    if (prepared.category === "document" && file.size > MAX_DOCUMENT_BYTES) {
+      return NextResponse.json(
+        { error: "File exceeds WhatsApp's 100 MB document limit." },
+        { status: 400 }
+      );
+    }
+    if (prepared.category === "video" && file.size > MAX_VIDEO_BYTES) {
+      return NextResponse.json(
+        { error: "Video exceeds WhatsApp's 16 MB limit. Compress the file or send a shorter clip." },
+        { status: 400 }
+      );
+    }
+    if (file.size > 4.5 * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          error:
+            "File is over 4.5 MB — the server upload limit. Compress your video (under 4 MB) before sending.",
+        },
+        { status: 413 }
+      );
+    }
+
     const metaFormData = new FormData();
     metaFormData.append("messaging_product", "whatsapp");
-    metaFormData.append("file", file, file.name);
-    metaFormData.append("type", category);
+    metaFormData.append("file", prepared.blob, prepared.filename);
+    metaFormData.append("type", prepared.category);
 
     const uploadUrl = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/media`;
     const response = await fetch(uploadUrl, {
@@ -106,7 +127,12 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
 
     if (response.ok && data.id) {
-      return NextResponse.json({ status: "success", mediaId: data.id });
+      return NextResponse.json({
+        status: "success",
+        mediaId: data.id,
+        category: prepared.category,
+        filename: prepared.filename,
+      });
     } else {
       const errorMsg = data.error?.message || "Failed to upload media to Meta API";
       return NextResponse.json({ error: errorMsg }, { status: 400 });
