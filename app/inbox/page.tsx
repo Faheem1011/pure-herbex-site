@@ -340,9 +340,16 @@ export default function InboxPage() {
         return true;
       }
       localStorage.removeItem("inbox_password");
+      if (res.status === 401) {
+        setLoginError("Incorrect password. Please try again.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setLoginError(data.error ? `Server error: ${data.error}` : "Server error — try again in a moment.");
+      }
       return false;
     } catch (e) {
       console.error("Failed to restore session", e);
+      setLoginError("Could not reach server. Check your connection.");
       return false;
     }
   };
@@ -1062,8 +1069,6 @@ export default function InboxPage() {
         (window as any).Android?.saveSession?.(password);
       } catch (err) {}
       setLoginError("");
-    } else {
-      setLoginError("Incorrect password. Please try again.");
     }
   };
 

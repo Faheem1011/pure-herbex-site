@@ -2,8 +2,8 @@ import { kv } from "@vercel/kv";
 
 const BLOCKED_KEY = "whatsapp:blocked_numbers";
 
-export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "");
+export function normalizePhone(phone: string | number): string {
+  return String(phone ?? "").replace(/\D/g, "");
 }
 
 export async function isPhoneBlocked(phone: string): Promise<boolean> {
