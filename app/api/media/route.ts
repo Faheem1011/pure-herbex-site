@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
 import { prepareMetaUploadFile } from "@/lib/meta-media";
+import { isKnownInboxMedia } from "@/lib/inbox-media";
 import { isPublicStatusMedia } from "@/lib/status-media";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
@@ -21,7 +22,11 @@ export async function GET(request: NextRequest) {
     }
 
     const authed = isInboxAuthed(request);
-    if (!authed && !(await isPublicStatusMedia(mediaId))) {
+    const allowed =
+      authed ||
+      (await isPublicStatusMedia(mediaId)) ||
+      (await isKnownInboxMedia(mediaId));
+    if (!allowed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
