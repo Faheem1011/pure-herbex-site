@@ -66,12 +66,12 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-12 border-t border-border flex flex-col md:row justify-between items-center gap-6">
+        <div className="pt-12 border-t border-border flex flex-col md:flex-row justify-between items-center gap-6">
           <p className="text-xs text-muted-foreground text-center md:text-left">
             © 2026 Pure Herbex Pakistan. All Rights Reserved. <br className="md:hidden" />
-            <Link href="/privacy" className="hover:text-primary transition-colors ml-0 md:ml-4">Privacy Policy</Link>
+            <Link href="/privacy/" className="hover:text-primary transition-colors ml-0 md:ml-4">Privacy Policy</Link>
           </p>
-          <div className="flex gap-6 text-xs text-muted-foreground">
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-xs text-muted-foreground">
             <span>✅ 100% Original</span>
             <span>✅ COD Available</span>
             <span>✅ Money Back Guarantee</span>

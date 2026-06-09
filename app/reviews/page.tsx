@@ -75,10 +75,10 @@ export default function ReviewsPage() {
       <main className="min-h-screen">
         <Navbar />
         
-        <section className="pt-32 pb-20">
+        <section className="pt-28 sm:pt-32 pb-20">
           <div className="container mx-auto px-6">
             <div className="max-w-4xl mx-auto text-center mb-20 space-y-4">
-              <h1 className="text-5xl lg:text-6xl font-heading font-bold text-glow">Customer Stories.</h1>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-glow">Customer Stories.</h1>
               <p className="text-xl text-muted-foreground">Authentic feedback from our community across Pakistan.</p>
             </div>
 

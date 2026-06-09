@@ -23,9 +23,16 @@
 }
 
 @layer base {
+  html {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+    overflow-x: hidden;
+    min-height: 100dvh;
   }
 }
 
@@ -36,6 +43,10 @@
 
   .safe-bottom {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .touch-manipulation {
+    touch-action: manipulation;
   }
 
   .glass-card {

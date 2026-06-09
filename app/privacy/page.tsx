@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         <Navbar />
         
         {/* Hero Section */}
-        <section className="pt-32 pb-16 relative overflow-hidden">
+        <section className="pt-28 sm:pt-32 pb-16 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-[50%] h-[50%] bg-primary/10 rounded-full blur-[150px] -z-10" />
           <div className="absolute bottom-0 left-0 w-[30%] h-[30%] bg-primary/5 rounded-full blur-[100px] -z-10" />
           
@@ -29,7 +29,7 @@ export default function PrivacyPage() {
                 <Shield size={16} />
                 Security & Confidentiality
               </div>
-              <h1 className="text-5xl lg:text-7xl font-heading font-bold text-glow leading-tight">
+              <h1 className="text-4xl sm:text-5xl lg:text-7xl font-heading font-bold text-glow leading-tight">
                 Discretion & Security.
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">

@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 sm:pt-28 pb-12">
       {/* Background Glows */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse delay-700" />
@@ -20,7 +20,7 @@ export default function HeroSection() {
             #1 Natural Wellness Solution in Pakistan
           </div>
 
-          <h1 className="text-5xl lg:text-7xl font-heading font-bold leading-tight tracking-tighter">
+          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-heading font-bold leading-tight tracking-tighter">
             Ultimate Sexual <br />
             <span className="text-primary text-glow italic">Performance.</span> <br />
             <span className="text-accent text-glow-gold">Naturally.</span>
@@ -74,7 +74,7 @@ export default function HeroSection() {
               width={500} 
               height={800} 
               priority
-              className="drop-shadow-[0_0_50px_rgba(229,113,0,0.2)]"
+              className="w-full max-w-[280px] sm:max-w-[360px] lg:max-w-none h-auto drop-shadow-[0_0_50px_rgba(229,113,0,0.2)]"
             />
           </div>
         </div>

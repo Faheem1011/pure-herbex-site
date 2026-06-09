@@ -13,13 +13,13 @@ export default function ContactPage() {
           <div className="container mx-auto px-6">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-16 space-y-4">
-                <h1 className="text-5xl lg:text-6xl font-heading font-bold text-glow">Get in Touch.</h1>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-glow">Get in Touch.</h1>
                 <p className="text-xl text-muted-foreground">Have questions? We are here to provide clear, direct answers.</p>
               </div>
 
               <div className="grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
-                  <div className="glass-card p-10 rounded-3xl space-y-8">
+                  <div className="glass-card p-6 sm:p-10 rounded-3xl space-y-8">
                     <h3 className="text-2xl font-bold">Send us a Message</h3>
                     <div className="grid sm:grid-cols-2 gap-6">
                       <div className="space-y-2">
@@ -40,8 +40,8 @@ export default function ContactPage() {
                     </button>
                   </div>
 
-                  <div className="flex gap-4">
-                    <a href="https://www.facebook.com/profile.php?id=61589767019589" target="_blank" rel="noopener noreferrer" className="flex-1 glass-card p-6 rounded-2xl flex items-center justify-center gap-3 hover:border-primary transition-colors">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <a href="https://www.facebook.com/profile.php?id=61589767019589" target="_blank" rel="noopener noreferrer" className="flex-1 glass-card p-5 sm:p-6 rounded-2xl flex items-center justify-center gap-3 hover:border-primary transition-colors min-h-[3rem]">
                       <Facebook size={20} className="text-primary" />
                       <span className="font-bold">Facebook</span>
                     </a>

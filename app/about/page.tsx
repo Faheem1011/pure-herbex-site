@@ -9,10 +9,10 @@ export default function AboutPage() {
       <main className="min-h-screen">
         <Navbar />
         
-        <section className="pt-32 pb-20 relative overflow-hidden">
+        <section className="pt-28 sm:pt-32 pb-20 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-[50%] h-[50%] bg-primary/10 rounded-full blur-[150px] -z-10" />
-          <div className="container mx-auto px-6">
-            <h1 className="text-5xl lg:text-7xl font-heading font-bold mb-12 text-glow">The Source of Potency.</h1>
+          <div className="container mx-auto px-4 sm:px-6">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-heading font-bold mb-12 text-glow">The Source of Potency.</h1>
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
                 <p>

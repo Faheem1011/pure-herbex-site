@@ -15,11 +15,11 @@ export default function BlogPage() {
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
       <Navbar />
       
-      <main className="pt-32 pb-20 px-6">
+      <main className="pt-28 sm:pt-32 pb-20 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
           {/* Hero Section */}
           <header className="max-w-3xl mb-20">
-            <h1 className="text-5xl md:text-7xl font-heading font-bold mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-heading font-bold mb-6">
               Wellness <span className="text-primary">Journal</span>
             </h1>
             <p className="text-xl text-muted-foreground leading-relaxed">
