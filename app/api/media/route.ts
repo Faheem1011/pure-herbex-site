@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
 import { prepareMetaUploadFile } from "@/lib/meta-media";
-import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
+import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
 const MAX_VIDEO_BYTES = 16 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Step A: Get Meta Media Download URL
-    const metaUrl = `https://graph.facebook.com/v20.0/${mediaId}`;
+    const metaUrl = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${mediaId}`;
     const infoRes = await fetch(metaUrl, {
       headers: {
         Authorization: `Bearer ${getWhatsAppAccessToken()}`,
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     metaFormData.append("file", prepared.blob, prepared.filename);
     metaFormData.append("type", prepared.category);
 
-    const uploadUrl = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/media`;
+    const uploadUrl = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberId()}/media`;
     const response = await fetch(uploadUrl, {
       method: "POST",
       headers: {

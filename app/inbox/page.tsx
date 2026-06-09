@@ -12,6 +12,7 @@ interface Message {
   type?: string; // "text" | "image" | "audio" | "voice" | "video" | "document" | "sticker" | "location"
   mediaId?: string;
   fileName?: string;
+  isVoiceNote?: boolean;
   replyTo?: string; // ID of the message being replied to
   isDeleted?: boolean;
   location?: {
@@ -455,6 +456,7 @@ export default function InboxPage() {
           contactName: activeChat?.name,
           type: "audio",
           mediaId: mediaId,
+          fileName: file.name,
           isVoiceNote: true,
         }),
       });
@@ -467,8 +469,10 @@ export default function InboxPage() {
           text: "🎤 Voice Note",
           timestamp: getEpochTime(),
           status: "sent",
-          type: "audio",
+          type: "voice",
           mediaId: mediaId,
+          fileName: file.name,
+          isVoiceNote: true,
         };
 
         if (activeChat) {
@@ -611,10 +615,14 @@ export default function InboxPage() {
               toPhone: phone,
               replyText: msg.type === "text" || !msg.type ? msg.text : undefined,
               contactName: targetContact?.name || "WhatsApp Contact",
-              type: msg.type || "text",
+              type: msg.type === "voice" ? "audio" : msg.type || "text",
               mediaId: msg.mediaId || undefined,
               fileName: msg.fileName || undefined,
               location: msg.location || undefined,
+              isVoiceNote:
+                !!msg.isVoiceNote ||
+                msg.type === "voice" ||
+                msg.text === "🎤 Voice Note",
             }),
           });
 

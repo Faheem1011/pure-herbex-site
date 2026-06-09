@@ -1,3 +1,5 @@
+export const WHATSAPP_GRAPH_API_VERSION = "v22.0";
+
 export function getWhatsAppAccessToken(): string {
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
   if (!token) {

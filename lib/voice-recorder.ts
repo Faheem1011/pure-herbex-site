@@ -8,14 +8,6 @@ export type VoiceRecordingSession = {
   cancel: () => void;
 };
 
-function canRecordOggOpusNative(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof MediaRecorder !== "undefined" &&
-    MediaRecorder.isTypeSupported(VOICE_NOTE_MIME)
-  );
-}
-
 function getWorkerOptions() {
   return {
     encoderWorkerFactory: () =>
@@ -62,19 +54,12 @@ export async function startVoiceRecording(): Promise<VoiceRecordingSession> {
   });
 
   const chunks: Blob[] = [];
-  let recorder: MediaRecorder;
-  const useNativeOgg = canRecordOggOpusNative();
-
-  if (useNativeOgg) {
-    recorder = new MediaRecorder(stream, { mimeType: VOICE_NOTE_MIME });
-  } else {
-    const OpusMediaRecorder = (await import("opus-media-recorder")).default;
-    recorder = new OpusMediaRecorder(
-      stream,
-      { mimeType: "audio/ogg" },
-      getWorkerOptions()
-    ) as unknown as MediaRecorder;
-  }
+  const OpusMediaRecorder = (await import("opus-media-recorder")).default;
+  const recorder = new OpusMediaRecorder(
+    stream,
+    { mimeType: "audio/ogg;codecs=opus", audioBitsPerSecond: 64000 },
+    getWorkerOptions()
+  ) as unknown as MediaRecorder;
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) chunks.push(event.data);

@@ -3,7 +3,8 @@ import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone, setPhoneBlocked } from "@/lib/blocked";
 import { bumpInboxVersion, fetchMainContacts } from "@/lib/inbox-sync";
-import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
+import { isVoiceNoteFile } from "@/lib/meta-media";
+import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
 // 1. GET: Fetch all active chats and message history
 export async function GET(request: NextRequest) {
@@ -47,7 +48,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing latitude or longitude for location" }, { status: 400 });
     }
 
-    const url = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/messages`;
+    const sendAsVoice =
+      msgType === "audio" &&
+      (!!isVoiceNote ||
+        (!!fileName && isVoiceNoteFile({ name: fileName, type: "audio/ogg" })));
+
+    const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberId()}/messages`;
     
     // Build Payload based on Message Type
     let messagePayload: any = {
@@ -67,7 +73,9 @@ export async function POST(request: NextRequest) {
     } else if (msgType === "image") {
       messagePayload.image = { id: mediaId };
     } else if (msgType === "audio") {
-      messagePayload.audio = { id: mediaId, ...(isVoiceNote ? { voice: true } : {}) };
+      messagePayload.audio = sendAsVoice
+        ? { id: mediaId, voice: true }
+        : { id: mediaId };
     } else if (msgType === "video") {
       messagePayload.video = { id: mediaId };
     } else if (msgType === "document") {
@@ -111,7 +119,7 @@ export async function POST(request: NextRequest) {
       // Format text content for logs
       let displayLogText = replyText || "";
       if (msgType === "image") displayLogText = "📷 Photo";
-      else if (msgType === "audio") displayLogText = "🎵 Audio/Voice Note";
+      else if (msgType === "audio") displayLogText = sendAsVoice ? "🎤 Voice Note" : "🎵 Audio";
       else if (msgType === "video") displayLogText = "🎥 Video";
       else if (msgType === "document") displayLogText = fileName ? `📄 File: ${fileName}` : "📄 File";
       else if (msgType === "location") displayLogText = location?.name ? `📍 Location: ${location.name}` : "📍 Location";
@@ -122,11 +130,12 @@ export async function POST(request: NextRequest) {
         text: displayLogText,
         timestamp: Math.floor(Date.now() / 1000),
         status: "sent",
-        type: msgType,
+        type: sendAsVoice ? "voice" : msgType,
         mediaId: mediaId || undefined,
         replyTo: replyTo || undefined,
         location: location || undefined,
-        fileName: fileName || undefined
+        fileName: fileName || undefined,
+        isVoiceNote: sendAsVoice || undefined,
       });
 
       await kv.set(`whatsapp:contact:${toPhone}`, contact);
