@@ -1,11 +1,9 @@
 import type {NextConfig} from 'next';
 
-/** Static export for Hostinger (landing branch). Vercel main branch uses Node server. */
-const isHostingerStatic = process.env.HOSTINGER_STATIC === '1';
-
+/** This branch is Hostinger-only: always static export → out/ */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  output: isHostingerStatic ? 'export' : undefined,
+  output: 'export',
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -13,7 +11,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   images: {
-    unoptimized: isHostingerStatic,
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
@@ -23,15 +21,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  ...(isHostingerStatic
-    ? {}
-    : {
-        experimental: {
-          serverActions: {
-            bodySizeLimit: '16mb',
-          },
-        },
-      }),
   trailingSlash: true,
   transpilePackages: ['motion'],
   webpack: (config, {dev}) => {

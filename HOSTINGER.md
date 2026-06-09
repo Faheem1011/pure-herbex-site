@@ -1,50 +1,44 @@
 # Hostinger deploy (landing site only)
 
-This branch builds a **static site** into the `out/` folder.
+This **`hostinger` branch** always builds a static site into **`out/`** — no env vars needed.
 
-| Branch | Platform | Output |
+| Branch | Platform | Build output |
 |---|---|---|
-| `main` | Vercel (Node) | `.next/` + server |
-| `hostinger` | Hostinger (static) | `out/` |
+| `main` | Vercel (Node server) | `.next/` + `npm start` |
+| `hostinger` | Hostinger (static files) | **`out/`** |
 
-## Hostinger hPanel settings
+## Hostinger hPanel — exact settings
 
-**Websites → pureherbex.com → Git → Deploy:**
+**Websites → pureherbex.com → Deployments → Edit:**
 
 | Setting | Value |
 |---|---|
-| Repository | `https://github.com/Faheem1011/pure-herbex-site` |
+| Repository | `Faheem1011/pure-herbex-site` |
 | Branch | **`hostinger`** |
-| Framework | **Other / Static** (NOT Vite) |
+| Framework | **Other** (NOT Vite, NOT Next.js Node) |
 | Node version | 20.x |
-| Build command | `npm install && npm run build:hostinger` |
+| Install command | `npm install` |
+| Build command | `npm run build` |
 | Output directory | **`out`** |
-| Start command | *(leave empty — static site)* |
+| Start command | *(leave empty)* |
 
-No environment variables required.
+> **Ignore Hostinger’s “use `.next`” suggestion.** `.next` only works with a Node server (`npm start`). Hostinger static hosting needs plain HTML in **`out/`**.
+
+No environment variables required on this branch.
 
 ## Local test
 
 ```bash
-npm run build:hostinger
-# Static files appear in ./out/
-```
-
-## Pages
-
-- `/`, `/product/`, `/blog/`, `/about/`, `/contact/`, `/reviews/`, `/privacy/`
-
-## Not on Hostinger (Vercel only)
-
-- `/inbox/`, `/status/`, `/api/*`
-
-## Sync from main
-
-```bash
 git checkout hostinger
-git merge main
-# Keep deletions — do not restore inbox/api files
-git push origin hostinger
+npm install
+npm run build
+# Must create out/index.html
 ```
 
-Inbox CRM: `https://pure-herbex-site.vercel.app/inbox/`
+## Pages on pureherbex.com
+
+`/`, `/product/`, `/blog/`, `/about/`, `/contact/`, `/reviews/`, `/privacy/`
+
+## Vercel only (not on Hostinger)
+
+`/inbox/`, `/status/`, `/api/*` → `https://pure-herbex-site.vercel.app/inbox/`
