@@ -8,6 +8,8 @@ export interface Message {
   mediaId?: string;
   fileName?: string;
   isVoiceNote?: boolean;
+  /** Private agent label for voice/audio — never sent to WhatsApp */
+  agentNote?: string;
   replyTo?: string;
   isDeleted?: boolean;
   /** false = unread for agent (incoming messages only) */

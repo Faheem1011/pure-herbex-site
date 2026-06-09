@@ -32,7 +32,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { toPhone, replyText, contactName, type, mediaId, location, fileName, replyTo, isVoiceNote } = await request.json();
+    const {
+      toPhone,
+      replyText,
+      contactName,
+      type,
+      mediaId,
+      location,
+      fileName,
+      replyTo,
+      isVoiceNote,
+      agentNote,
+    } = await request.json();
 
     if (!toPhone) {
       return NextResponse.json({ error: "Missing recipient phone number" }, { status: 400 });
@@ -146,6 +157,10 @@ export async function POST(request: NextRequest) {
         location: location || undefined,
         fileName: fileName || undefined,
         isVoiceNote: sendAsVoice || undefined,
+        agentNote:
+          typeof agentNote === "string" && agentNote.trim()
+            ? agentNote.trim().slice(0, 200)
+            : undefined,
       });
 
       await kv.set(`whatsapp:contact:${phone}`, contact);
@@ -202,6 +217,7 @@ export async function PATCH(request: NextRequest) {
       deleteMessageId,
       pinned,
       blocked,
+      agentNote,
     } = await request.json();
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
@@ -247,13 +263,28 @@ export async function PATCH(request: NextRequest) {
           );
         }
       }
+      let noteChanged = false;
+      if (messageId && agentNote !== undefined && contact.messages) {
+        contact.messages = contact.messages.map((m: any) => {
+          if (m.id !== messageId || m.sender !== "me") return m;
+          noteChanged = true;
+          const trimmed =
+            typeof agentNote === "string" ? agentNote.trim().slice(0, 200) : "";
+          if (!trimmed) {
+            const { agentNote: _removed, ...rest } = m;
+            return rest;
+          }
+          return { ...m, agentNote: trimmed };
+        });
+      }
       await kv.set(`whatsapp:contact:${normalized}`, contact);
       if (
         archived !== undefined ||
         pinned !== undefined ||
         blocked !== undefined ||
         deleteMessageId ||
-        readStateChanged
+        readStateChanged ||
+        noteChanged
       ) {
         await bumpInboxVersion();
       }

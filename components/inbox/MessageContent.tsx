@@ -2,14 +2,16 @@
 
 import type { Contact, Message } from "@/app/inbox/types";
 import CustomAudioPlayer from "./CustomAudioPlayer";
+import VoiceAgentNote from "./VoiceAgentNote";
 
 type Props = {
   msg: Message;
   isMe: boolean;
   quoteChat?: Contact | null;
+  onUpdateAgentNote?: (messageId: string, note: string) => void;
 };
 
-export default function MessageContent({ msg, isMe, quoteChat }: Props) {
+export default function MessageContent({ msg, isMe, quoteChat, onUpdateAgentNote }: Props) {
   if (msg.isDeleted) {
     return (
       <p className="italic text-[#8696a0] text-sm flex items-center gap-1.5">
@@ -89,6 +91,11 @@ export default function MessageContent({ msg, isMe, quoteChat }: Props) {
     return (
       <div>
         {renderQuotedMessage()}
+        <VoiceAgentNote
+          note={msg.agentNote}
+          editable={isMe && !!onUpdateAgentNote}
+          onSave={(note) => onUpdateAgentNote?.(msg.id, note)}
+        />
         <CustomAudioPlayer src={`/api/media/?id=${msg.mediaId}`} isMe={isMe} />
         {failureBanner}
       </div>

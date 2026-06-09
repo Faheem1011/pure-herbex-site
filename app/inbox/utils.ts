@@ -13,7 +13,7 @@ export function formatMessagePreview(msg?: Message, empty = "(New Conversation)"
       return "🎭 Sticker";
     case "audio":
     case "voice":
-      return "🎤 Voice message";
+      return msg.agentNote ? `🎤 ${msg.agentNote}` : "🎤 Voice message";
     case "video":
       return "🎥 Video";
     case "document":

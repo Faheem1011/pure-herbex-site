@@ -14,12 +14,14 @@ import {
 } from "@/app/inbox/utils";
 import MessageContent from "@/components/inbox/MessageContent";
 import DeliveryTicks from "@/components/inbox/DeliveryTicks";
+import VoiceMemoField from "@/components/inbox/VoiceMemoField";
 import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
 import "./inbox.css";
 
 const STATUS_PAGE_URL = `${(process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app").replace(/\/$/, "")}/status/`;
+const VOICE_MEMO_DRAFT_KEY = "inbox_voice_memo_draft";
 
 export default function InboxPage() {
   const [password, setPassword] = useState("");
@@ -66,8 +68,22 @@ export default function InboxPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshNote, setRefreshNote] = useState<string | null>(null);
   const [isExportingContacts, setIsExportingContacts] = useState(false);
+  const [voiceMemoDraft, setVoiceMemoDraft] = useState("");
 
   useSafeAreaInsets();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem(VOICE_MEMO_DRAFT_KEY);
+    if (saved) setVoiceMemoDraft(saved);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(VOICE_MEMO_DRAFT_KEY, voiceMemoDraft);
+  }, [voiceMemoDraft]);
+
+  const voiceMemoForSend = () => voiceMemoDraft.trim().slice(0, 200) || undefined;
   const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived" | "blocked">("all");
   const [contactMenuTarget, setContactMenuTarget] = useState<Contact | null>(null);
   const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
@@ -269,6 +285,7 @@ export default function InboxPage() {
           mediaId: mediaId,
           fileName: file.name,
           isVoiceNote: true,
+          agentNote: voiceMemoForSend(),
         }),
       });
 
@@ -284,6 +301,7 @@ export default function InboxPage() {
           mediaId: mediaId,
           fileName: file.name,
           isVoiceNote: true,
+          agentNote: voiceMemoForSend(),
         };
 
         if (activeChat) {
@@ -457,6 +475,7 @@ export default function InboxPage() {
               fileName: fileName || undefined,
               location: msg.location || undefined,
               isVoiceNote: isVoiceNote || undefined,
+              agentNote: msg.agentNote || voiceMemoForSend(),
             }),
           });
 
@@ -477,6 +496,7 @@ export default function InboxPage() {
                     fileName: fileName || undefined,
                     location: msg.location || undefined,
                     isVoiceNote: isVoiceNote || undefined,
+                    agentNote: msg.agentNote || voiceMemoForSend(),
                   };
                   return { ...c, messages: [...c.messages, newMsg] };
                 }
@@ -1309,6 +1329,12 @@ export default function InboxPage() {
             name: pendingLocation.name,
             address: pendingLocation.address,
           } : undefined,
+          isVoiceNote:
+            msgType === "audio" &&
+            (!!uploadFilename?.toLowerCase().startsWith("voice-note-") ||
+              pendingFileType === "audio"),
+          agentNote:
+            msgType === "audio" ? voiceMemoForSend() : undefined,
         }),
       });
 
@@ -1338,6 +1364,7 @@ export default function InboxPage() {
             name: pendingLocation.name,
             address: pendingLocation.address,
           } : undefined,
+          agentNote: msgType === "audio" ? voiceMemoForSend() : undefined,
         };
 
         const updatedChat = {
@@ -1368,6 +1395,39 @@ export default function InboxPage() {
   };
 
   // Tag updating function
+  const saveMessageAgentNote = async (phone: string, messageId: string, note: string) => {
+    const trimmed = note.trim().slice(0, 200);
+    const patchMsg = (c: Contact): Contact => ({
+      ...c,
+      messages: c.messages.map((m) => {
+        if (m.id !== messageId) return m;
+        if (!trimmed) {
+          const { agentNote: _removed, ...rest } = m;
+          return rest as Message;
+        }
+        return { ...m, agentNote: trimmed };
+      }),
+    });
+
+    setContacts((prev) => prev.map((c) => (c.phone === phone ? patchMsg(c) : c)));
+    if (activeChat?.phone === phone) {
+      setActiveChat((prev) => (prev ? patchMsg(prev) : null));
+    }
+
+    try {
+      await fetch("/api/messages/", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ phone, messageId, agentNote: trimmed }),
+      });
+    } catch (e) {
+      console.error("Failed to save voice label", e);
+    }
+  };
+
   const updateContactTag = async (phone: string, tag: "Confirm" | "Potential" | "Important" | "Spam" | null) => {
     try {
       // Optimistic update in state
@@ -2929,7 +2989,14 @@ export default function InboxPage() {
                           !isMe && isMessageUnread(msg) ? "inbox-bubble-unread" : ""
                         }`}
                       >
-                        <MessageContent msg={msg} isMe={isMe} quoteChat={activeChat} />
+                        <MessageContent
+                          msg={msg}
+                          isMe={isMe}
+                          quoteChat={activeChat}
+                          onUpdateAgentNote={(id, note) =>
+                            saveMessageAgentNote(activeChat.phone, id, note)
+                          }
+                        />
                         
                         <div
                           className={`flex items-center justify-end gap-1 mt-0.5 text-[11px] ${
@@ -2994,6 +3061,7 @@ export default function InboxPage() {
                                 setForwardMessage(msg);
                                 setForwardMessages([]);
                                 setSelectedForwardContacts([]);
+                                if (msg.agentNote) setVoiceMemoDraft(msg.agentNote);
                                 setIsForwardModalOpen(true);
                                 setActiveMenuMessageId(null);
                               }}
@@ -3002,6 +3070,29 @@ export default function InboxPage() {
                               <svg className="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
                               Forward
                             </button>
+                            {isMe && (msg.type === "voice" || msg.type === "audio" || msg.isVoiceNote) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = window.prompt(
+                                    "Voice label (only you see this):",
+                                    msg.agentNote || voiceMemoDraft || ""
+                                  );
+                                  if (next !== null) {
+                                    saveMessageAgentNote(activeChat.phone, msg.id, next);
+                                    if (next.trim()) setVoiceMemoDraft(next.trim());
+                                  }
+                                  setActiveMenuMessageId(null);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3"
+                              >
+                                <svg className="w-4 h-4 text-amber-400/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h6m-6 4h10M5 6h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
+                                </svg>
+                                {msg.agentNote ? "Edit voice label" : "Add voice label"}
+                              </button>
+                            )}
                             {msg.text && !msg.isDeleted && (
                               <button
                                 type="button"
@@ -3241,6 +3332,14 @@ export default function InboxPage() {
                   handleFileSelect(e, type);
                 }}
               />
+
+              {!isSelectMode && (
+                <VoiceMemoField
+                  value={voiceMemoDraft}
+                  onChange={setVoiceMemoDraft}
+                  compact={isRecording || pendingFileType === "audio"}
+                />
+              )}
 
               {isRecording ? (
                 <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex-1 animate-pulse">
