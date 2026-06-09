@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
+import { registerPublicStatusMedia } from "@/lib/status-media";
+import { getStatusPublicPageUrl } from "@/lib/site-urls";
 
 const STATUS_KEY = "whatsapp:status_items";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
@@ -24,13 +26,6 @@ async function getActiveItems(): Promise<StatusItem[]> {
   return active.sort((a, b) => b.createdAt - a.createdAt);
 }
 
-function getStatusPageUrl() {
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://pure-herbex-site.vercel.app");
-  return `${siteUrl.replace(/\/$/, "")}/status/`;
-}
-
 // GET: list active status items (public or authed)
 export async function GET(request: NextRequest) {
   try {
@@ -39,7 +34,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const items = await getActiveItems();
-    return NextResponse.json({ items, statusPageUrl: getStatusPageUrl() });
+    return NextResponse.json({ items, statusPageUrl: getStatusPublicPageUrl() });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -70,8 +65,9 @@ export async function POST(request: NextRequest) {
     const items = await getActiveItems();
     items.unshift(item);
     await kv.set(STATUS_KEY, items.slice(0, 30));
+    await registerPublicStatusMedia(mediaId);
 
-    const statusPageUrl = getStatusPageUrl();
+    const statusPageUrl = getStatusPublicPageUrl();
 
     return NextResponse.json({ status: "success", item, statusPageUrl });
   } catch (error: any) {

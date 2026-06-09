@@ -1,4 +1,5 @@
 import type { Message } from "./types";
+export { isMessageUnread } from "@/lib/read-state";
 
 export const getEpochTime = () => Math.floor(Date.now() / 1000);
 
@@ -20,6 +21,11 @@ export function formatMessagePreview(msg?: Message, empty = "(New Conversation)"
       return msg.fileName ? `📄 ${msg.fileName}` : "📄 File";
     case "location":
       return "📍 Location";
+    case "system":
+      if (msg.systemKind === "meta_verification") return "🔐 Verification code (check phone)";
+      if (msg.systemKind === "reaction") return msg.text || "Reaction";
+      if (msg.systemKind === "unsupported") return "⚠️ Unsupported message";
+      return msg.text?.split("\n")[0] || "ℹ️ System message";
     default:
       if (msg.text === "(sticker message)") return "🎭 Sticker";
       return msg.text || "(message)";

@@ -189,6 +189,45 @@ export default function MessageContent({ msg, isMe, quoteChat }: Props) {
     );
   }
 
+  const legacyUnsupported =
+    msg.text === "(unsupported message)" ||
+    (msg.type === "unsupported" && !msg.systemKind);
+
+  if (legacyUnsupported) {
+    return (
+      <div>
+        {renderQuotedMessage()}
+        <div className="rounded-lg px-3 py-2.5 text-[13px] leading-[18px] bg-[#00a884]/15 border border-[#00a884]/30 text-[#d9fdd3]">
+          <p className="whitespace-pre-wrap break-words">
+            🔐 WhatsApp / Meta verification or system message{"\n\n"}
+            The Business API cannot display this message type. Open the WhatsApp app on your phone,
+            find this chat, and read the confirmation code there.
+          </p>
+        </div>
+        {failureBanner}
+      </div>
+    );
+  }
+
+  if (msg.systemKind || msg.type === "system") {
+    const isVerification = msg.systemKind === "meta_verification";
+    return (
+      <div>
+        {renderQuotedMessage()}
+        <div
+          className={`rounded-lg px-3 py-2.5 text-[13px] leading-[18px] ${
+            isVerification
+              ? "bg-[#00a884]/15 border border-[#00a884]/30 text-[#d9fdd3]"
+              : "bg-black/25 border border-[#ffffff14] text-[#e9edef]"
+          }`}
+        >
+          <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+        </div>
+        {failureBanner}
+      </div>
+    );
+  }
+
   return (
     <div>
       {renderQuotedMessage()}

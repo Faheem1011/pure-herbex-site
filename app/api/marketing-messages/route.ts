@@ -10,6 +10,11 @@ import {
   getMarketingContact,
   saveMarketingContact,
 } from "@/lib/marketing-inbox";
+import {
+  markAllMessagesRead,
+  markAllMessagesUnread,
+  setMessageReadState,
+} from "@/lib/read-state";
 
 export async function GET(request: NextRequest) {
   try {
@@ -143,7 +148,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { phone, markRead, promoteToMain } = await request.json();
+    const { phone, markRead, markUnread, messageId, messageRead, promoteToMain } =
+      await request.json();
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
@@ -154,10 +160,22 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
+    let readStateChanged = false;
     if (markRead) {
-      contact.hasUnread = false;
-      contact.unreadCount = 0;
+      markAllMessagesRead(contact);
+      readStateChanged = true;
+    }
+    if (markUnread) {
+      markAllMessagesUnread(contact);
+      readStateChanged = true;
+    }
+    if (messageId !== undefined && typeof messageRead === "boolean") {
+      readStateChanged =
+        setMessageReadState(contact, messageId, messageRead) || readStateChanged;
+    }
+    if (readStateChanged) {
       await saveMarketingContact(contact);
+      await bumpInboxVersion();
     }
 
     if (promoteToMain) {

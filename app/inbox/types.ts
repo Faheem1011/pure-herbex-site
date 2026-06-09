@@ -10,8 +10,13 @@ export interface Message {
   isVoiceNote?: boolean;
   replyTo?: string;
   isDeleted?: boolean;
+  /** false = unread for agent (incoming messages only) */
+  readByAgent?: boolean;
   deliveryError?: string;
   deliveryErrorCode?: number;
+  /** Meta/system messages (verification codes, unsupported API types) */
+  systemKind?: "meta_verification" | "unsupported" | "reaction" | "system";
+  unsupportedCode?: number;
   location?: {
     latitude: number;
     longitude: number;

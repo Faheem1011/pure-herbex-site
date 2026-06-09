@@ -3,6 +3,11 @@ import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone, setPhoneBlocked } from "@/lib/blocked";
 import { bumpInboxVersion, fetchMainContacts } from "@/lib/inbox-sync";
+import {
+  markAllMessagesRead,
+  markAllMessagesUnread,
+  setMessageReadState,
+} from "@/lib/read-state";
 import { isVoiceNoteFile } from "@/lib/meta-media";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
@@ -187,7 +192,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { phone, archived, markRead, deleteMessageId, pinned, blocked } = await request.json();
+    const {
+      phone,
+      archived,
+      markRead,
+      markUnread,
+      messageId,
+      messageRead,
+      deleteMessageId,
+      pinned,
+      blocked,
+    } = await request.json();
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
@@ -205,9 +220,18 @@ export async function PATCH(request: NextRequest) {
       if (archived !== undefined) {
         contact.archived = !!archived;
       }
+      let readStateChanged = false;
       if (markRead) {
-        contact.unreadCount = 0;
-        contact.hasUnread = false;
+        markAllMessagesRead(contact);
+        readStateChanged = true;
+      }
+      if (markUnread) {
+        markAllMessagesUnread(contact);
+        readStateChanged = true;
+      }
+      if (messageId !== undefined && typeof messageRead === "boolean") {
+        readStateChanged =
+          setMessageReadState(contact, messageId, messageRead) || readStateChanged;
       }
       if (pinned !== undefined) {
         contact.pinned = !!pinned;
@@ -224,7 +248,13 @@ export async function PATCH(request: NextRequest) {
         }
       }
       await kv.set(`whatsapp:contact:${normalized}`, contact);
-      if (archived !== undefined || pinned !== undefined || blocked !== undefined || deleteMessageId) {
+      if (
+        archived !== undefined ||
+        pinned !== undefined ||
+        blocked !== undefined ||
+        deleteMessageId ||
+        readStateChanged
+      ) {
         await bumpInboxVersion();
       }
     }

@@ -8,12 +8,17 @@ import {
   formatChatTime,
   formatMessagePreview,
   getEpochTime,
+  isMessageUnread,
   isMessageVoiceNote,
   parseLeadName,
 } from "@/app/inbox/utils";
 import MessageContent from "@/components/inbox/MessageContent";
 import DeliveryTicks from "@/components/inbox/DeliveryTicks";
+import { useAndroidBridge } from "@/hooks/useAndroidBridge";
+import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
 import "./inbox.css";
+
+const STATUS_PAGE_URL = `${(process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app").replace(/\/$/, "")}/status/`;
 
 export default function InboxPage() {
   const [password, setPassword] = useState("");
@@ -58,6 +63,7 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExportingContacts, setIsExportingContacts] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived" | "blocked">("all");
   const [contactMenuTarget, setContactMenuTarget] = useState<Contact | null>(null);
   const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
@@ -155,39 +161,6 @@ export default function InboxPage() {
       markCampaignChatRead(activeCampaignChat.phone);
     }
   }, [activeCampaignChat]);
-
-  // Android back button integration
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      (window as any).handleAndroidBack = () => {
-        if (activeCampaignChatRef.current) setActiveCampaignChat(null);
-        else setActiveChat(null);
-      };
-    }
-    return () => {
-      if (typeof window !== "undefined") {
-        delete (window as any).handleAndroidBack;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const android = (window as any).Android;
-      if (android && typeof android.setChatOpen === "function") {
-        android.setChatOpen(activeChat !== null);
-      }
-    }
-  }, [activeChat]);
-
-  // Keep phone screen awake while inbox is unlocked (Android app)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const android = (window as any).Android;
-    if (android && typeof android.setKeepScreenOn === "function") {
-      android.setKeepScreenOn(isLoggedIn);
-    }
-  }, [isLoggedIn]);
 
   const restoreSession = async (token: string) => {
     try {
@@ -527,13 +500,34 @@ export default function InboxPage() {
     }
   };
 
-  // Mark a chat as read (clear unread indicators)
-  const markChatRead = async (phone: string) => {
-    setContacts((prev) =>
-      prev.map((c) =>
-        c.phone === phone ? { ...c, hasUnread: false, unreadCount: 0 } : c
-      )
+  const applyReadFlags = (contact: Contact, read: boolean): Contact => {
+    const messages = contact.messages.map((m) =>
+      m.sender === "them" && !m.isDeleted ? { ...m, readByAgent: read } : m
     );
+    const unreadCount = read
+      ? 0
+      : messages.filter((m) => m.sender === "them" && !m.isDeleted && m.readByAgent === false).length;
+    return { ...contact, messages, unreadCount, hasUnread: unreadCount > 0 };
+  };
+
+  const applyMessageRead = (contact: Contact, messageId: string, read: boolean): Contact => {
+    const messages = contact.messages.map((m) =>
+      m.id === messageId && m.sender === "them" && !m.isDeleted ? { ...m, readByAgent: read } : m
+    );
+    const unreadCount = messages.filter(
+      (m) => m.sender === "them" && !m.isDeleted && m.readByAgent === false
+    ).length;
+    return { ...contact, messages, unreadCount, hasUnread: unreadCount > 0 };
+  };
+
+  const contactHasIncoming = (c: Contact) =>
+    c.messages.some((m) => m.sender === "them" && !m.isDeleted);
+
+  const markChatRead = async (phone: string) => {
+    setContacts((prev) => prev.map((c) => (c.phone === phone ? applyReadFlags(c, true) : c)));
+    if (activeChat?.phone === phone) {
+      setActiveChat((prev) => (prev ? applyReadFlags(prev, true) : null));
+    }
     try {
       await fetch("/api/messages/", {
         method: "PATCH",
@@ -541,6 +535,55 @@ export default function InboxPage() {
         body: JSON.stringify({ phone, markRead: true }),
       });
     } catch (e) {}
+  };
+
+  const markChatUnread = async (phone: string) => {
+    setContacts((prev) => prev.map((c) => (c.phone === phone ? applyReadFlags(c, false) : c)));
+    if (activeChat?.phone === phone) {
+      setActiveChat((prev) => (prev ? applyReadFlags(prev, false) : null));
+    }
+    try {
+      await fetch("/api/messages/", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ phone, markUnread: true }),
+      });
+    } catch (e) {}
+  };
+
+  const markMessageReadState = async (
+    phone: string,
+    messageId: string,
+    read: boolean,
+    scope: "main" | "campaign" = "main"
+  ) => {
+    const patch = (c: Contact) => applyMessageRead(c, messageId, read);
+    if (scope === "main") {
+      setContacts((prev) => prev.map((c) => (c.phone === phone ? patch(c) : c)));
+      if (activeChat?.phone === phone) {
+        setActiveChat((prev) => (prev ? patch(prev) : null));
+      }
+      try {
+        await fetch("/api/messages/", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({ phone, messageId, messageRead: read }),
+        });
+      } catch (e) {}
+    } else {
+      setCampaignContacts((prev) => prev.map((c) => (c.phone === phone ? patch(c) : c)));
+      if (activeCampaignChat?.phone === phone) {
+        setActiveCampaignChat((prev) => (prev ? patch(prev) : null));
+      }
+      try {
+        await fetch("/api/marketing-messages/", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({ phone, messageId, messageRead: read }),
+        });
+      } catch (e) {}
+    }
+    setActiveMenuMessageId(null);
   };
 
   const handleMessageLongPress = (id: string) => {
@@ -826,7 +869,7 @@ export default function InboxPage() {
             const isOpen = activeChatRef.current?.phone === c.phone;
             if (isOpen && (c.hasUnread || (c.unreadCount || 0) > 0)) {
               markChatRead(c.phone);
-              return { ...c, hasUnread: false, unreadCount: 0 };
+              return applyReadFlags(c, true);
             }
 
             // Otherwise, trust the server-side unread state
@@ -840,7 +883,7 @@ export default function InboxPage() {
         if (currentActive) {
           const updatedActive = sorted.find((c: Contact) => c.phone === currentActive.phone);
           if (updatedActive) {
-            setActiveChat({ ...updatedActive, hasUnread: false, unreadCount: 0 });
+            setActiveChat(applyReadFlags(updatedActive, true));
           }
         }
       }
@@ -874,7 +917,10 @@ export default function InboxPage() {
         if (currentCampaign) {
           const updated = sortedCampaign.find((c: Contact) => c.phone === currentCampaign.phone);
           if (updated) {
-            setActiveCampaignChat({ ...updated, hasUnread: false, unreadCount: 0 });
+            const isCampaignOpen = activeCampaignChatRef.current?.phone === updated.phone;
+            setActiveCampaignChat(
+              isCampaignOpen ? applyReadFlags(updated, true) : updated
+            );
           }
         }
       }
@@ -888,12 +934,30 @@ export default function InboxPage() {
   };
 
   const fetchChats = (silent = false) => fetchInboxSync(silent);
+
+  const handleExportContacts = async (format: "csv" | "json" = "csv") => {
+    if (!sessionToken) return;
+    setIsExportingContacts(true);
+    try {
+      const { count, filename } = await exportMainInboxContacts(sessionToken, format);
+      const exported = count > 0 ? count : contacts.length;
+      alert(`Exported ${exported} contact${exported === 1 ? "" : "s"} to ${filename}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Export failed";
+      alert(message);
+    } finally {
+      setIsExportingContacts(false);
+    }
+  };
   const fetchCampaignChats = (silent = false) => fetchInboxSync(silent);
 
   const markCampaignChatRead = async (phone: string) => {
     setCampaignContacts((prev) =>
-      prev.map((c) => (c.phone === phone ? { ...c, hasUnread: false, unreadCount: 0 } : c))
+      prev.map((c) => (c.phone === phone ? applyReadFlags(c, true) : c))
     );
+    if (activeCampaignChat?.phone === phone) {
+      setActiveCampaignChat((prev) => (prev ? applyReadFlags(prev, true) : null));
+    }
     try {
       await fetch("/api/marketing-messages/", {
         method: "PATCH",
@@ -902,6 +966,51 @@ export default function InboxPage() {
       });
     } catch (e) {}
   };
+
+  const markCampaignChatUnread = async (phone: string) => {
+    setCampaignContacts((prev) =>
+      prev.map((c) => (c.phone === phone ? applyReadFlags(c, false) : c))
+    );
+    if (activeCampaignChat?.phone === phone) {
+      setActiveCampaignChat((prev) => (prev ? applyReadFlags(prev, false) : null));
+    }
+    try {
+      await fetch("/api/marketing-messages/", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ phone, markUnread: true }),
+      });
+    } catch (e) {}
+  };
+
+  useAndroidBridge({
+    isLoggedIn,
+    viewMode,
+    setViewMode,
+    activeChatOpen: activeChat !== null,
+    activeCampaignChatOpen: activeCampaignChat !== null,
+    isSelectMode,
+    setIsSelectMode,
+    setSelectedMessageIds,
+    isForwardModalOpen,
+    setIsForwardModalOpen,
+    isNewChatOpen,
+    setIsNewChatOpen,
+    isLocationModalOpen,
+    setIsLocationModalOpen,
+    contactMenuOpen: contactMenuTarget !== null,
+    setContactMenuOpen: (open) => {
+      if (!open) setContactMenuTarget(null);
+    },
+    showAttachMenu,
+    setShowAttachMenu,
+    showEmojiPicker,
+    setShowEmojiPicker,
+    onCloseActiveChat: () => setActiveChat(null),
+    onCloseCampaignChat: () => setActiveCampaignChat(null),
+    selectedMarketingLeadOpen: selectedMarketingLead !== null,
+    onCloseMarketingLead: () => setSelectedMarketingLead(null),
+  });
 
   const startCampaignChat = (phone: string, name: string) => {
     const cleanPhone = phone.replace(/\D/g, "");
@@ -1320,7 +1429,7 @@ export default function InboxPage() {
       if (!res.ok) throw new Error(data.error || "Failed to publish status");
       setStatusCaption("");
       await fetchStatusItems();
-      const link = data.statusPageUrl || `${window.location.origin}/status/`;
+      const link = data.statusPageUrl || STATUS_PAGE_URL;
       alert(`Status published for 24 hours!\n\nShare this link with customers:\n${link}`);
     } catch (e: any) {
       alert("Failed to publish status: " + e.message);
@@ -1850,7 +1959,10 @@ export default function InboxPage() {
           <div className="p-5 border-b border-zinc-800/60 shrink-0">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100">Status</h1>
             <p className="text-xs text-zinc-500 mt-1">Upload images or videos for your public status page (separate from Promo marketing).</p>
-            <a href="/status/" target="_blank" className="text-xs text-emerald-400 hover:underline mt-1 inline-block">Open status page →</a>
+            <a href={STATUS_PAGE_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:underline mt-1 inline-block">
+              Open customer status page →
+            </a>
+            <p className="text-[10px] text-zinc-600 mt-1 break-all">{STATUS_PAGE_URL}</p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-6">
@@ -1885,9 +1997,8 @@ export default function InboxPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const link = `${window.location.origin}/status/`;
-                  navigator.clipboard.writeText(link);
-                  alert("Status link copied! Share it with customers on WhatsApp manually.");
+                  navigator.clipboard.writeText(STATUS_PAGE_URL);
+                  alert(`Status link copied!\n\n${STATUS_PAGE_URL}`);
                 }}
                 className="w-full py-2.5 mb-3 border border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-xl text-sm font-semibold"
               >
@@ -2253,7 +2364,11 @@ export default function InboxPage() {
                     const msgTime = formatChatTime(msg.timestamp);
                     return (
                       <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} py-0.5`}>
-                        <div className={`max-w-[82%] px-2.5 py-1.5 text-sm ${isMe ? "inbox-bubble-out" : "inbox-bubble-in"}`}>
+                        <div
+                          className={`max-w-[82%] px-2.5 py-1.5 text-sm ${isMe ? "inbox-bubble-out" : "inbox-bubble-in"} ${
+                            !isMe && isMessageUnread(msg) ? "inbox-bubble-unread" : ""
+                          }`}
+                        >
                           <MessageContent msg={msg} isMe={isMe} quoteChat={activeCampaignChat} />
                           <div className={`flex items-center justify-end gap-1 mt-0.5 text-[11px] ${isMe ? "text-[#ffffff99]" : "text-[#8696a0]"}`}>
                             <span>{msgTime}</span>
@@ -2310,6 +2425,17 @@ export default function InboxPage() {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100">{inboxTitle}</h1>
             <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => handleExportContacts("csv")}
+                disabled={isExportingContacts}
+                className="w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-zinc-400 hover:text-zinc-200 active:scale-95 transition-all disabled:opacity-50"
+                title="Export contacts (CSV: name, phone, tag)"
+              >
+                <svg className={`w-4 h-4 ${isExportingContacts ? "animate-pulse text-emerald-400" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+                </svg>
+              </button>
               <button
                 onClick={() => fetchChats(false)}
                 className={`w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-zinc-400 hover:text-zinc-200 active:scale-95 transition-all`}
@@ -2617,15 +2743,23 @@ export default function InboxPage() {
                     >
                       <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
                     </button>
-                    {activeChat.hasUnread && (
+                    {activeChat.hasUnread ? (
                       <button
                         onClick={() => markChatRead(activeChat.phone)}
                         className="p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all"
-                        title="Mark as read"
+                        title="Mark all as read"
                       >
                         <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
                       </button>
-                    )}
+                    ) : contactHasIncoming(activeChat) ? (
+                      <button
+                        onClick={() => markChatUnread(activeChat.phone)}
+                        className="p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all"
+                        title="Mark all as unread"
+                      >
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                      </button>
+                    ) : null}
                     <button
                       onClick={() => setContactMenuTarget(activeChat)}
                       className="md:hidden p-2 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all"
@@ -2754,7 +2888,9 @@ export default function InboxPage() {
                         }}
                         className={`max-w-[82%] sm:max-w-[70%] px-2.5 py-1.5 text-sm relative cursor-pointer select-none transition-all ${
                           selectedMessageIds.has(msg.id) ? "ring-2 ring-[#00a884]/50 opacity-90" : ""
-                        } ${isMe ? "inbox-bubble-out" : "inbox-bubble-in"}`}
+                        } ${isMe ? "inbox-bubble-out" : "inbox-bubble-in"} ${
+                          !isMe && isMessageUnread(msg) ? "inbox-bubble-unread" : ""
+                        }`}
                       >
                         <MessageContent msg={msg} isMe={isMe} quoteChat={activeChat} />
                         
@@ -2783,6 +2919,25 @@ export default function InboxPage() {
                               <svg className="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                               Select
                             </button>
+                            {!isMe && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markMessageReadState(activeChat.phone, msg.id, isMessageUnread(msg));
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3"
+                              >
+                                <svg className="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  {isMessageUnread(msg) ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                  ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                  )}
+                                </svg>
+                                {isMessageUnread(msg) ? "Mark as read" : "Mark as unread"}
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -3405,7 +3560,11 @@ export default function InboxPage() {
             </div>
             {[
               { label: contactMenuTarget.pinned ? "Unpin chat" : "Pin chat", action: () => pinContact(contactMenuTarget.phone, !contactMenuTarget.pinned) },
-              ...(contactMenuTarget.hasUnread ? [{ label: "Mark as read", action: () => markChatRead(contactMenuTarget.phone) }] : []),
+              ...(contactMenuTarget.hasUnread
+                ? [{ label: "Mark as read", action: () => markChatRead(contactMenuTarget.phone) }]
+                : contactHasIncoming(contactMenuTarget)
+                  ? [{ label: "Mark as unread", action: () => markChatUnread(contactMenuTarget.phone) }]
+                  : []),
               { label: contactMenuTarget.archived ? "Unarchive chat" : "Archive chat", action: () => archiveContact(contactMenuTarget.phone, !contactMenuTarget.archived) },
               { label: contactMenuTarget.blocked ? "Unblock" : "Block", action: () => blockContact(contactMenuTarget.phone, !contactMenuTarget.blocked), danger: true },
               { label: "Delete chat", action: () => deleteContact(contactMenuTarget.phone), danger: true },

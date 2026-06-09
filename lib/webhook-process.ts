@@ -7,9 +7,12 @@ import {
   shouldUseMainInboxForIncoming,
   type MarketingContact,
 } from "@/lib/marketing-inbox";
+import { parseWebhookMessage } from "@/lib/parse-webhook-message";
+import { recomputeUnread, type ReadableContact } from "@/lib/read-state";
 
 type WebhookValue = {
   contacts?: Array<{ wa_id?: string; profile?: { name?: string } }>;
+  metadata?: { display_phone_number?: string; phone_number_id?: string };
   messages?: Array<Record<string, unknown>>;
   statuses?: Array<Record<string, unknown>>;
 };
@@ -32,66 +35,31 @@ export async function processIncomingWebhookMessage(
 
   if (await isPhoneBlocked(from)) return;
 
-  const msgType = (message.type as string) || "text";
   const timestamp = (message.timestamp as number) || Math.floor(Date.now() / 1000);
   const msgId = message.id as string;
-
-  let text = (message.text as { body?: string } | undefined)?.body || "";
-  let mediaId = "";
-  let fileName = "";
-  let location: Record<string, unknown> | null = null;
-
-  if (msgType === "image") {
-    mediaId = (message.image as { id?: string })?.id || "";
-    text = (message.image as { caption?: string })?.caption || "📷 Photo";
-  } else if (msgType === "audio" || msgType === "voice") {
-    mediaId =
-      (message.voice as { id?: string })?.id ||
-      (message.audio as { id?: string })?.id ||
-      "";
-    text = "🎤 Voice Note";
-  } else if (msgType === "video") {
-    mediaId = (message.video as { id?: string })?.id || "";
-    text = (message.video as { caption?: string })?.caption || "🎥 Video";
-  } else if (msgType === "document") {
-    mediaId = (message.document as { id?: string })?.id || "";
-    fileName = (message.document as { filename?: string })?.filename || "";
-    text = fileName ? `📄 File: ${fileName}` : "📄 File";
-  } else if (msgType === "sticker") {
-    mediaId = (message.sticker as { id?: string })?.id || "";
-    text = "🎭 Sticker";
-  } else if (msgType === "location") {
-    const loc = message.location as {
-      latitude?: number;
-      longitude?: number;
-      name?: string;
-      address?: string;
-    };
-    location = {
-      latitude: loc?.latitude,
-      longitude: loc?.longitude,
-      name: loc?.name || "",
-      address: loc?.address || "",
-    };
-    text = location.name ? `📍 Location: ${location.name}` : "📍 Location";
-  } else if (!text) {
-    text = `(${msgType} message)`;
-  }
+  const profileName = profileNameFor(value, rawFrom || from);
+  const parsed = parseWebhookMessage(message, {
+    profileName,
+    businessPhone: value.metadata?.display_phone_number,
+  });
 
   const replyToId = (message.context as { id?: string } | undefined)?.id;
 
   const incomingMsg = {
     id: msgId,
     sender: "them" as const,
-    text,
+    text: parsed.text,
     timestamp: parseInt(String(timestamp), 10),
     status: "received",
-    type: msgType === "voice" ? "voice" : msgType,
-    mediaId: mediaId || undefined,
+    type: parsed.type,
+    mediaId: parsed.mediaId,
     replyTo: replyToId,
-    fileName: fileName || undefined,
-    location: location || undefined,
-    isVoiceNote: msgType === "audio" || msgType === "voice" ? true : undefined,
+    fileName: parsed.fileName,
+    location: parsed.location,
+    isVoiceNote: parsed.isVoiceNote,
+    systemKind: parsed.systemKind,
+    unsupportedCode: parsed.unsupportedCode,
+    readByAgent: false,
   };
 
   const mainContact: { messages?: Array<{ id: string }> } | null = await kv.get(
@@ -99,8 +67,6 @@ export async function processIncomingWebhookMessage(
   );
   const fromMarketing = await isMarketingLead(from);
   const useMain = shouldUseMainInboxForIncoming(mainContact, fromMarketing);
-  const profileName = profileNameFor(value, rawFrom || from);
-
   if (useMain) {
     let contact: {
       name: string;
@@ -114,8 +80,7 @@ export async function processIncomingWebhookMessage(
 
     if (!contact.messages.some((m) => m.id === msgId)) {
       contact.messages.push(incomingMsg);
-      contact.unreadCount = (contact.unreadCount || 0) + 1;
-      contact.hasUnread = true;
+      recomputeUnread(contact as unknown as ReadableContact);
       await kv.set(`whatsapp:contact:${from}`, contact);
       await kv.sadd("whatsapp:active_contacts", from);
       await bumpInboxVersion();
@@ -129,8 +94,7 @@ export async function processIncomingWebhookMessage(
     }
     if (!contact.messages.some((m) => m.id === msgId)) {
       contact.messages.push(incomingMsg);
-      contact.unreadCount = (contact.unreadCount || 0) + 1;
-      contact.hasUnread = true;
+      recomputeUnread(contact as unknown as ReadableContact);
       await saveMarketingContact(contact);
       await bumpInboxVersion();
     }
