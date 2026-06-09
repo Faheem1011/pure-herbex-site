@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { registerPublicStatusMedia } from "@/lib/status-media";
+import { publicCorsPreflight, withPublicCors } from "@/lib/public-cors";
 import { getStatusPublicPageUrl } from "@/lib/site-urls";
+
+export async function OPTIONS() {
+  return publicCorsPreflight();
+}
 
 const STATUS_KEY = "whatsapp:status_items";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
@@ -34,7 +39,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const items = await getActiveItems();
-    return NextResponse.json({ items, statusPageUrl: getStatusPublicPageUrl() });
+    const response = NextResponse.json({ items, statusPageUrl: getStatusPublicPageUrl() });
+    return isPublic ? withPublicCors(response) : response;
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

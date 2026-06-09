@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
 import { prepareMetaUploadFile } from "@/lib/meta-media";
 import { isKnownInboxMedia } from "@/lib/inbox-media";
+import { publicCorsPreflight, withPublicCors } from "@/lib/public-cors";
 import { isPublicStatusMedia } from "@/lib/status-media";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
+
+export async function OPTIONS() {
+  return publicCorsPreflight();
+}
 
 const MAX_VIDEO_BYTES = 16 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;
@@ -22,9 +27,10 @@ export async function GET(request: NextRequest) {
     }
 
     const authed = isInboxAuthed(request);
+    const isPublic = await isPublicStatusMedia(mediaId);
     const allowed =
       authed ||
-      (await isPublicStatusMedia(mediaId)) ||
+      isPublic ||
       (await isKnownInboxMedia(mediaId));
     if (!allowed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -68,13 +74,14 @@ export async function GET(request: NextRequest) {
     const contentType = mediaRes.headers.get("content-type") || "application/octet-stream";
     const mediaBuffer = await mediaRes.arrayBuffer();
 
-    return new NextResponse(mediaBuffer, {
+    const response = new NextResponse(mediaBuffer, {
       status: 200,
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400", // Cache for 24h
       },
     });
+    return isPublic ? withPublicCors(response) : response;
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

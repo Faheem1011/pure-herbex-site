@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { resolveStatusClientApiBase } from "@/lib/resolve-status-api-base";
 
 type StatusItem = {
   id: string;
@@ -11,19 +12,18 @@ type StatusItem = {
   expiresAt: number;
 };
 
-const INBOX_API_BASE =
-  process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app";
-
 export default function StatusPage() {
   const [items, setItems] = useState<StatusItem[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const apiBase = useMemo(() => INBOX_API_BASE.replace(/\/$/, ""), []);
+  const [apiBase, setApiBase] = useState("");
 
   useEffect(() => {
-    fetch(`${apiBase}/api/status/?public=1`, { cache: "no-store" })
+    const base = resolveStatusClientApiBase();
+    setApiBase(base);
+
+    fetch(`${base}/api/status/?public=1`, { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -37,10 +37,10 @@ export default function StatusPage() {
         setItems([]);
       })
       .finally(() => setLoading(false));
-  }, [apiBase]);
+  }, []);
 
-  const active = items[activeIndex];
-  const mediaUrl = (id: string) => `${apiBase}/api/media/?id=${encodeURIComponent(id)}`;
+  const mediaUrl = (id: string) =>
+    `${apiBase || resolveStatusClientApiBase()}/api/media/?id=${encodeURIComponent(id)}`;
 
   if (loading) {
     return (
@@ -64,6 +64,8 @@ export default function StatusPage() {
       </div>
     );
   }
+
+  const active = items[activeIndex];
 
   if (!active) {
     return (

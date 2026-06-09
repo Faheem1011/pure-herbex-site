@@ -6,13 +6,12 @@ export function getInboxPublicBaseUrl(): string {
     return inboxOnly.replace(/\/$/, "");
   }
 
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`.replace(/\/$/, "");
-  }
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (siteUrl && /vercel\.app/i.test(siteUrl)) {
-    return siteUrl.replace(/\/$/, "");
+  // Never use preview deployment URLs for customer share links
+  const vercelUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`.replace(/\/$/, "")
+    : "";
+  if (vercelUrl.includes("pure-herbex-site.vercel.app")) {
+    return vercelUrl;
   }
 
   return "https://pure-herbex-site.vercel.app";
