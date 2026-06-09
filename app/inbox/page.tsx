@@ -2060,7 +2060,6 @@ export default function InboxPage() {
               Open customer status page →
             </a>
             <p className="text-[10px] text-zinc-600 mt-1 break-all">{STATUS_PAGE_URL}</p>
-            <p className="text-[10px] text-amber-400/80 mt-1">Share only this Vercel link — pureherbex.com/status does not host status.</p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-6">

@@ -9,11 +9,6 @@ export function resolveStatusClientApiBase(): string {
 
   const { origin, hostname } = window.location;
 
-  // Hostinger / marketing domain has no API — always call Vercel
-  if (hostname === "pureherbex.com" || hostname === "www.pureherbex.com") {
-    return PRODUCTION_INBOX.replace(/\/$/, "");
-  }
-
   // Vercel production + preview + local dev — same-origin avoids CORS failures
   if (
     hostname.endsWith(".vercel.app") ||
