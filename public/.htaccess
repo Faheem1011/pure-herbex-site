@@ -1,0 +1,13 @@
+# Hostinger static hosting — support Next.js trailing-slash routes
+Options -MultiViews
+RewriteEngine On
+RewriteBase /
+
+# Serve existing files and directories
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Map /about to /about/ (trailing slash)
+RewriteCond %{REQUEST_URI} !/$
+RewriteRule ^(.*)$ $1/ [R=301,L]

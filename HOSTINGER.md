@@ -1,51 +1,50 @@
 # Hostinger deploy (landing site only)
 
-This branch is **landing pages only** — no inbox, no WhatsApp API, no Vercel KV.
+This branch builds a **static site** into the `out/` folder.
 
-| Branch | Use |
+| Branch | Platform | Output |
+|---|---|---|
+| `main` | Vercel (Node) | `.next/` + server |
+| `hostinger` | Hostinger (static) | `out/` |
+
+## Hostinger hPanel settings
+
+**Websites → pureherbex.com → Git → Deploy:**
+
+| Setting | Value |
 |---|---|
-| `main` | Vercel — full site + inbox CRM (`pure-herbex-site.vercel.app/inbox/`) |
-| `hostinger` | Hostinger — `pureherbex.com` marketing site only |
+| Repository | `https://github.com/Faheem1011/pure-herbex-site` |
+| Branch | **`hostinger`** |
+| Framework | **Other / Static** (NOT Vite) |
+| Node version | 20.x |
+| Build command | `npm install && npm run build:hostinger` |
+| Output directory | **`out`** |
+| Start command | *(leave empty — static site)* |
 
-## Hostinger Git settings
+No environment variables required.
 
-In **hPanel → Websites → pureherbex.com → Git**:
+## Local test
 
-1. Repository: `https://github.com/Faheem1011/pure-herbex-site`
-2. Branch: **`hostinger`** (not `main`)
-3. Build command: `npm install && npm run build`
-4. Start / output: `npm run start` (Node.js app)
-5. Node version: **20.x**
+```bash
+npm run build:hostinger
+# Static files appear in ./out/
+```
 
-No environment variables are required for the landing site.
+## Pages
 
-## Pages included
+- `/`, `/product/`, `/blog/`, `/about/`, `/contact/`, `/reviews/`, `/privacy/`
 
-- `/` Home
-- `/product/` Shop
-- `/blog/` Blog
-- `/about/`, `/contact/`, `/reviews/`, `/privacy/`
+## Not on Hostinger (Vercel only)
 
-## Pages removed (Vercel only)
+- `/inbox/`, `/status/`, `/api/*`
 
-- `/inbox/` CRM
-- `/status/` WhatsApp status
-- `/api/*` WhatsApp webhooks and messaging
-
-## Updating the landing site from main
-
-When you change marketing pages on `main` and want Hostinger updated:
+## Sync from main
 
 ```bash
 git checkout hostinger
 git merge main
-# Keep hostinger deletions if Git asks — inbox/api files must stay removed
+# Keep deletions — do not restore inbox/api files
 git push origin hostinger
 ```
 
-Or cherry-pick only landing-related commits onto `hostinger`.
-
-## DNS note
-
-Point `pureherbex.com` A/CNAME to Hostinger only.  
-Keep inbox on Vercel: `https://pure-herbex-site.vercel.app/inbox/`
+Inbox CRM: `https://pure-herbex-site.vercel.app/inbox/`
