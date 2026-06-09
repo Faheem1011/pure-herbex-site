@@ -16,9 +16,12 @@ export type MarketingContact = {
     type?: string;
     mediaId?: string;
     fileName?: string;
+    isVoiceNote?: boolean;
     replyTo?: string;
     location?: Record<string, unknown>;
     isDeleted?: boolean;
+    deliveryError?: string;
+    deliveryErrorCode?: number;
   }>;
   unreadCount?: number;
   hasUnread?: boolean;

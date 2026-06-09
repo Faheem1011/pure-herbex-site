@@ -2,185 +2,18 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
-
-interface Message {
-  id: string;
-  sender: "me" | "them";
-  text: string;
-  timestamp: number;
-  status?: string;
-  type?: string; // "text" | "image" | "audio" | "voice" | "video" | "document" | "sticker" | "location"
-  mediaId?: string;
-  fileName?: string;
-  isVoiceNote?: boolean;
-  replyTo?: string; // ID of the message being replied to
-  isDeleted?: boolean;
-  location?: {
-    latitude: number;
-    longitude: number;
-    name?: string;
-    address?: string;
-  };
-}
-
-interface Contact {
-  name: string;
-  phone: string;
-  messages: Message[];
-  tag?: "Confirm" | "Potential" | "Important" | "Spam" | null;
-  archived?: boolean;
-  pinned?: boolean;
-  blocked?: boolean;
-  avatarUrl?: string;
-  unreadCount?: number;
-  hasUnread?: boolean;
-}
-
-type StatusItem = {
-  id: string;
-  type: "image" | "video";
-  mediaId: string;
-  caption?: string;
-  createdAt: number;
-  expiresAt: number;
-};
-
-// Custom Audio Player Component
-function CustomAudioPlayer({ src, isMe }: { src: string; isMe: boolean }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!audioRef.current) return;
-    const t = parseFloat(e.target.value);
-    audioRef.current.currentTime = t;
-    setCurrentTime(t);
-  };
-
-  const fmt = (s: number) => {
-    if (!s || isNaN(s) || !isFinite(s)) return "0:00";
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
-
-  const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  return (
-    <div className={`flex items-center gap-2 py-2 px-2.5 rounded-2xl w-full max-w-[min(100%,240px)] min-w-0 ${
-      isMe
-        ? "bg-emerald-600/30 border border-emerald-400/20"
-        : "bg-zinc-800/60 border border-zinc-700/40"
-    }`}>
-      <audio
-        ref={audioRef}
-        src={src}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
-      />
-      {/* Play/Pause */}
-      <button
-        onClick={togglePlay}
-        className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center transition-all active:scale-90 ${
-          isMe
-            ? "bg-zinc-950 text-emerald-400 hover:bg-zinc-900"
-            : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
-        }`}
-      >
-        {isPlaying ? (
-          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-        ) : (
-          <svg className="w-4 h-4 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        )}
-      </button>
-      {/* Progress */}
-      <div className="flex-1 min-w-0">
-        <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: isMe ? "rgba(52,211,153,0.2)" : "rgba(63,63,70,0.8)" }}>
-          <div
-            className={`absolute inset-y-0 left-0 rounded-full transition-all ${ isMe ? "bg-emerald-400" : "bg-emerald-500" }`}
-            style={{ width: `${pct}%` }}
-          />
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            value={currentTime}
-            onChange={handleSeek}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          />
-        </div>
-        <div className={`flex justify-between mt-1 text-[9px] font-semibold ${ isMe ? "text-emerald-200/70" : "text-zinc-400" }`}>
-          <span>{fmt(currentTime)}</span>
-          <span>{fmt(duration)}</span>
-        </div>
-      </div>
-      {/* Waveform decoration (static bars) */}
-      <div className={`flex items-center gap-[2px] ${ isMe ? "text-emerald-300/60" : "text-zinc-400/60" }`}>
-        {[3, 6, 4, 7, 3, 5, 4].map((h, i) => (
-          <span
-            key={i}
-            className={`w-[2px] rounded-full bg-current ${ isPlaying ? "animate-pulse" : "" }`}
-            style={{ height: `${h}px`, animationDelay: `${i * 80}ms` }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const getEpochTime = () => Math.floor(Date.now() / 1000);
-const MARKETING_TEMPLATE = "herbex_marketing";
-
-function formatMessagePreview(msg?: Message, empty = "(New Conversation)"): string {
-  if (!msg) return empty;
-  if (msg.isDeleted) return "🚫 Deleted";
-  switch (msg.type) {
-    case "image":
-      return "📷 Photo";
-    case "sticker":
-      return "🎭 Sticker";
-    case "audio":
-    case "voice":
-      return "🎵 Voice Note";
-    case "video":
-      return "🎥 Video";
-    case "document":
-      if (msg.fileName && /\.(mp4|m4v|mov|3gp)$/i.test(msg.fileName)) return "🎥 Video";
-      return msg.fileName ? `📄 ${msg.fileName}` : "📄 File";
-    case "location":
-      return "📍 Location";
-    default:
-      if (msg.text === "(sticker message)") return "🎭 Sticker";
-      return msg.text || "(message)";
-  }
-}
-
-function parseLeadName(fullName: string): { name: string; city: string } {
-  const match = fullName.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-  if (match) return { name: match[1].trim(), city: match[2].trim() };
-  return { name: fullName.trim(), city: "" };
-}
-
-const TAGS = [
-  { id: "Confirm", label: "Confirm", color: "bg-emerald-500", text: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/10" },
-  { id: "Potential", label: "Potential Client", color: "bg-blue-500", text: "text-blue-400", border: "border-blue-500/30", bg: "bg-blue-500/10" },
-  { id: "Important", label: "Important", color: "bg-purple-500", text: "text-purple-400", border: "border-purple-500/30", bg: "bg-purple-500/10" },
-  { id: "Spam", label: "Spam", color: "bg-rose-500", text: "text-rose-400", border: "border-rose-500/30", bg: "bg-rose-500/10" }
-];
+import type { Contact, Message, StatusItem } from "@/app/inbox/types";
+import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS } from "@/app/inbox/constants";
+import {
+  formatChatTime,
+  formatMessagePreview,
+  getEpochTime,
+  isMessageVoiceNote,
+  parseLeadName,
+} from "@/app/inbox/utils";
+import MessageContent from "@/components/inbox/MessageContent";
+import DeliveryTicks from "@/components/inbox/DeliveryTicks";
+import "./inbox.css";
 
 export default function InboxPage() {
   const [password, setPassword] = useState("");
@@ -600,7 +433,9 @@ export default function InboxPage() {
 
   const selectAllMessages = () => {
     if (!activeChat) return;
-    setSelectedMessageIds(new Set(activeChat.messages.map(m => m.id)));
+    setSelectedMessageIds(
+      new Set(activeChat.messages.filter((m) => !m.isDeleted).map((m) => m.id))
+    );
   };
 
   const handleForward = async () => {
@@ -608,6 +443,8 @@ export default function InboxPage() {
     if (messagesToForward.length === 0 || selectedForwardContacts.length === 0) return;
     
     setIsForwarding(true);
+    let successCount = 0;
+    let failCount = 0;
     try {
       for (const msg of messagesToForward) {
         let mediaId = msg.mediaId;
@@ -647,6 +484,7 @@ export default function InboxPage() {
           });
 
           if (res.ok) {
+            successCount++;
             const data = await res.json();
             setContacts((prev) => {
               return prev.map((c) => {
@@ -668,6 +506,8 @@ export default function InboxPage() {
                 return c;
               });
             });
+          } else {
+            failCount++;
           }
         }
       }
@@ -675,7 +515,11 @@ export default function InboxPage() {
       setForwardMessage(null);
       setForwardMessages([]);
       setSelectedForwardContacts([]);
-      alert("Messages forwarded successfully!");
+      if (failCount === 0) {
+        alert(`Forwarded ${successCount} message${successCount === 1 ? "" : "s"} successfully.`);
+      } else {
+        alert(`Forwarded ${successCount}, failed ${failCount}. Check connection and try again.`);
+      }
     } catch (err: any) {
       alert("Error forwarding message: " + err.message);
     } finally {
@@ -1126,12 +970,6 @@ export default function InboxPage() {
   };
 
   type UploadResult = { mediaId: string; category?: string; filename?: string };
-
-  const isMessageVoiceNote = (msg: Message): boolean =>
-    !!msg.isVoiceNote ||
-    msg.type === "voice" ||
-    msg.text === "🎤 Voice Note" ||
-    (!!msg.fileName && msg.fileName.toLowerCase().startsWith("voice-note-"));
 
   const refreshMediaForForward = async (
     msg: Message
@@ -1669,8 +1507,6 @@ export default function InboxPage() {
     setShowEmojiPicker(false);
   };
 
-  const COMMON_EMOJIS = ["😀", "😂", "😍", "😊", "🙏", "👍", "🔥", "✨", "💯", "✅", "📍", "📞", "🌿", "💊", "💪", "❤️"];
-
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -1785,165 +1621,6 @@ export default function InboxPage() {
     activeTab === "all" ? "Inbox" :
     TAGS.find((t) => t.id === activeTab)?.label || "Inbox";
 
-  // Render different bubble contents depending on message type
-  const renderMessageContent = (msg: Message, isMe: boolean) => {
-    if (msg.isDeleted) {
-      return <p className="italic text-zinc-500 text-xs">🚫 This message was deleted</p>;
-    }
-
-    const type = msg.type || "text";
-
-    // Quoted message preview
-    const quoteChat = activeChat || activeCampaignChat;
-    const renderQuotedMessage = () => {
-      if (!msg.replyTo) return null;
-      const quotedMsg = quoteChat?.messages.find((m) => m.id === msg.replyTo);
-      if (!quotedMsg) return null;
-
-      return (
-        <div className={`mb-2 p-2 rounded-lg border-l-4 text-xs truncate max-w-full bg-black/20 ${
-          isMe ? "border-emerald-400 text-emerald-100" : "border-emerald-500 text-zinc-300"
-        }`}>
-          <div className="font-bold text-[10px] mb-0.5">
-            {quotedMsg.sender === "me" ? "You" : quoteChat?.name}
-          </div>
-          <div className="truncate opacity-80">
-            {quotedMsg.isDeleted ? "🚫 Deleted" :
-             quotedMsg.type === "image" ? "📷 Photo" :
-             quotedMsg.type === "sticker" ? "🎭 Sticker" :
-             quotedMsg.type === "audio" || quotedMsg.type === "voice" ? "🎵 Voice Note" :
-             quotedMsg.text}
-          </div>
-        </div>
-      );
-    };
-    
-    if (type === "image") {
-      return (
-        <div className="space-y-2">
-          {renderQuotedMessage()}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/api/media?id=${msg.mediaId}`}
-            alt="WhatsApp attachment"
-            className="max-w-full max-h-72 rounded-xl object-contain border border-zinc-800 bg-zinc-950 mt-1 cursor-pointer hover:opacity-90"
-            onClick={() => window.open(`/api/media?id=${msg.mediaId}`, "_blank")}
-          />
-          {msg.text && msg.text !== "📷 Photo" && (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
-          )}
-        </div>
-      );
-    }
-    
-    if (type === "audio" || type === "voice") {
-      return (
-        <div className="pt-0.5">
-          {renderQuotedMessage()}
-          <CustomAudioPlayer
-            src={`/api/media?id=${msg.mediaId}`}
-            isMe={isMe}
-          />
-        </div>
-      );
-    }
-
-    if (type === "video" || (type === "document" && msg.mediaId && /\.(mp4|m4v|mov|3gp|webm)$/i.test(msg.fileName || ""))) {
-      return (
-        <div className="space-y-2">
-          {renderQuotedMessage()}
-          <video
-            controls
-            playsInline
-            preload="metadata"
-            src={`/api/media/?id=${msg.mediaId}`}
-            className="max-w-full max-h-72 rounded-xl border border-zinc-800 bg-zinc-950 mt-1"
-          />
-          {msg.text && msg.text !== "🎥 Video" && (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
-          )}
-        </div>
-      );
-    }
-
-    if (type === "sticker") {
-      return (
-        <div className="space-y-1">
-          {renderQuotedMessage()}
-          {msg.mediaId ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/media/?id=${msg.mediaId}`}
-              alt="WhatsApp sticker"
-              className="w-32 h-32 object-contain"
-              onClick={() => window.open(`/api/media/?id=${msg.mediaId}`, "_blank")}
-            />
-          ) : (
-            <p className="text-sm text-zinc-400">🎭 Sticker</p>
-          )}
-        </div>
-      );
-    }
-
-    if (type === "document") {
-      return (
-        <div className="space-y-2">
-          {renderQuotedMessage()}
-          <a
-            href={`/api/media?id=${msg.mediaId}`}
-            download={msg.fileName || "document"}
-            className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
-          >
-            <div className="w-10 h-10 bg-rose-500/10 text-rose-400 rounded-lg flex items-center justify-center shrink-0 border border-rose-500/20">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="font-semibold text-xs block truncate text-zinc-200">{msg.fileName || "Document"}</span>
-              <span className="text-[9px] text-zinc-500 block">Download Attachment</span>
-            </div>
-          </a>
-        </div>
-      );
-    }
-
-    if (type === "location" && msg.location) {
-      return (
-        <div className="space-y-2">
-          {renderQuotedMessage()}
-          <a
-            href={`https://www.google.com/maps/search/?api=1&query=${msg.location.latitude},${msg.location.longitude}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center space-x-3 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850 hover:bg-zinc-950/70 transition-all text-zinc-100 no-underline mt-1"
-          >
-            <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-lg flex items-center justify-center shrink-0 border border-emerald-500/20">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="font-semibold text-xs block truncate text-zinc-200">{msg.location.name || "Shared Location"}</span>
-              {msg.location.address && (
-                <span className="text-[9px] text-zinc-500 block truncate">{msg.location.address}</span>
-              )}
-              <span className="text-[9px] text-emerald-400 block mt-0.5 font-bold">Open in Google Maps</span>
-            </div>
-          </a>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-1">
-        {renderQuotedMessage()}
-        <p className="leading-relaxed whitespace-pre-wrap text-sm">{msg.text}</p>
-      </div>
-    );
-  };
-
   // Login Screen
   if (!isLoggedIn) {
     return (
@@ -1996,7 +1673,7 @@ export default function InboxPage() {
 
   // Dashboard Screen
   return (
-    <div className="bg-zinc-950 text-zinc-200 min-h-screen flex h-screen overflow-hidden font-sans fixed inset-0">
+    <div className="inbox-shell bg-[#0b141a] text-[#e9edef] min-h-screen flex h-screen overflow-hidden font-sans fixed inset-0">
       
       {/* 1. LEFT SIDEBAR: Navigation / Utility Icons (Linear style) */}
       <aside className="hidden md:flex w-16 bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-6 justify-between shrink-0">
@@ -2570,19 +2247,18 @@ export default function InboxPage() {
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="inbox-chat-wallpaper flex-1 overflow-y-auto px-3 py-4 space-y-1">
                   {activeCampaignChat.messages.map((msg) => {
                     const isMe = msg.sender === "me";
-                    const msgTime = new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                    const msgTime = formatChatTime(msg.timestamp);
                     return (
-                      <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm ${
-                          isMe
-                            ? "bg-amber-500 text-zinc-950 font-medium rounded-tr-none"
-                            : "bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-none"
-                        }`}>
-                          {renderMessageContent(msg, isMe)}
-                          <div className={`text-[9px] mt-1 text-right ${isMe ? "text-amber-950/70" : "text-zinc-500"}`}>{msgTime}</div>
+                      <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"} py-0.5`}>
+                        <div className={`max-w-[82%] px-2.5 py-1.5 text-sm ${isMe ? "inbox-bubble-out" : "inbox-bubble-in"}`}>
+                          <MessageContent msg={msg} isMe={isMe} quoteChat={activeCampaignChat} />
+                          <div className={`flex items-center justify-end gap-1 mt-0.5 text-[11px] ${isMe ? "text-[#ffffff99]" : "text-[#8696a0]"}`}>
+                            <span>{msgTime}</span>
+                            <DeliveryTicks msg={msg} />
+                          </div>
                         </div>
                       </div>
                     );
@@ -2853,7 +2529,7 @@ export default function InboxPage() {
         {activeChat ? (
           <>
             {/* Chat Info Header */}
-            <div className="bg-zinc-900/40 border-b border-zinc-800/80 px-3 pb-2.5 pt-[max(2.75rem,env(safe-area-inset-top,0px))] md:px-6 md:py-4 md:pt-4 flex items-center justify-between shrink-0 backdrop-blur-md relative z-40">
+            <div className="inbox-header-bar px-3 pb-2.5 pt-[max(2.75rem,env(safe-area-inset-top,0px))] md:px-6 md:py-4 md:pt-4 flex items-center justify-between shrink-0 relative z-40">
               {isSelectMode ? (
                 <div className="flex items-center justify-between w-full animate-in slide-in-from-top-4 duration-300">
                   <div className="flex items-center space-x-4">
@@ -2998,7 +2674,7 @@ export default function InboxPage() {
             </div>
 
             {/* Message History Bubble list */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
+            <div className="inbox-chat-wallpaper flex-1 overflow-y-auto px-3 py-4 md:px-6 space-y-1 flex flex-col">
               {activeChat.messages.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-6 my-auto">
                   <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center border border-emerald-500/20 mb-3">
@@ -3014,23 +2690,20 @@ export default function InboxPage() {
               ) : (
                 activeChat.messages.map((msg) => {
                   const isMe = msg.sender === "me";
-                  const msgTime = new Date(msg.timestamp * 1000).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                  const msgTime = formatChatTime(msg.timestamp);
 
                   return (
                     <div
                       key={msg.id}
-                      className={`flex ${isMe ? "justify-end" : "justify-start"} items-center space-x-2`}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} items-center gap-2 py-0.5`}
                     >
                       {isSelectMode && (
                         <div 
                           onClick={() => toggleMessageSelection(msg.id)}
                           className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 cursor-pointer transition-all ${
                             selectedMessageIds.has(msg.id)
-                              ? "bg-emerald-500 border-emerald-500 text-zinc-955"
-                              : "border-zinc-700 hover:border-emerald-500"
+                              ? "bg-[#00a884] border-[#00a884] text-[#0b141a]"
+                              : "border-[#8696a0] hover:border-[#00a884]"
                           }`}
                         >
                           {selectedMessageIds.has(msg.id) && (
@@ -3079,51 +2752,24 @@ export default function InboxPage() {
                             setActiveMenuMessageId(activeMenuMessageId === msg.id ? null : msg.id);
                           }
                         }}
-                        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm relative cursor-pointer select-none transition-all ${
-                          selectedMessageIds.has(msg.id) ? "scale-[0.98] opacity-80 border-emerald-500 ring-2 ring-emerald-500/20" : ""
-                        } ${
-                          isMe
-                            ? "bg-emerald-500 text-zinc-955 font-medium rounded-tr-none shadow-md shadow-emerald-500/10"
-                            : "bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-none shadow-md"
-                        }`}
+                        className={`max-w-[82%] sm:max-w-[70%] px-2.5 py-1.5 text-sm relative cursor-pointer select-none transition-all ${
+                          selectedMessageIds.has(msg.id) ? "ring-2 ring-[#00a884]/50 opacity-90" : ""
+                        } ${isMe ? "inbox-bubble-out" : "inbox-bubble-in"}`}
                       >
-                        {renderMessageContent(msg, isMe)}
+                        <MessageContent msg={msg} isMe={isMe} quoteChat={activeChat} />
                         
                         <div
-                          className={`flex items-center justify-end gap-1 mt-1.5 text-[9px] ${
-                            isMe ? "text-emerald-950/70" : "text-zinc-500"
+                          className={`flex items-center justify-end gap-1 mt-0.5 text-[11px] ${
+                            isMe ? "text-[#ffffff99]" : "text-[#8696a0]"
                           }`}
                         >
                           <span>{msgTime}</span>
-                          {isMe && (() => {
-                            const s = msg.status || "sent";
-                            if (s === "failed") return (
-                              <span className="text-rose-500" title="Failed">
-                                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                              </span>
-                            );
-                            if (s === "read") return (
-                              <span className="text-emerald-400" title="Read">
-                                <svg className="w-4 h-3 fill-current" viewBox="0 0 24 16"><path d="M0 8.5L5.5 14 18 1.5 16.5 0 5.5 11 1.5 7z"/><path d="M6 8.5L11.5 14 24 1.5 22.5 0 11.5 11 7.5 7z" opacity="0.5"/></svg>
-                              </span>
-                            );
-                            if (s === "delivered") return (
-                              <span className="text-zinc-800" title="Delivered">
-                                <svg className="w-4 h-3 fill-current" viewBox="0 0 24 16"><path d="M0 8.5L5.5 14 18 1.5 16.5 0 5.5 11 1.5 7z"/><path d="M6 8.5L11.5 14 24 1.5 22.5 0 11.5 11 7.5 7z" opacity="0.5"/></svg>
-                              </span>
-                            );
-                            // sent
-                            return (
-                              <span className="text-zinc-800" title="Sent">
-                                <svg className="w-3 h-3 fill-current" viewBox="0 0 24 16"><path d="M0 8.5L5.5 14 18 1.5 16.5 0 5.5 11 1.5 7z"/></svg>
-                              </span>
-                            );
-                          })()}
+                          <DeliveryTicks msg={msg} />
                         </div>
 
                         {activeMenuMessageId === msg.id && (
                           <div 
-                            className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl py-1 shadow-2xl z-50 w-36 text-zinc-200"
+                            className="inbox-context-menu absolute right-0 top-full mt-1 rounded-lg py-1 z-50 w-44 text-[#e9edef]"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
@@ -3132,10 +2778,10 @@ export default function InboxPage() {
                                 e.stopPropagation();
                                 startSelectMode(msg.id);
                               }}
-                              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
+                              className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3"
                             >
-                              <span>☑️</span>
-                              <span>Select Messages</span>
+                              <svg className="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                              Select
                             </button>
                             <button
                               type="button"
@@ -3144,38 +2790,38 @@ export default function InboxPage() {
                                 setReplyingTo(msg);
                                 setActiveMenuMessageId(null);
                               }}
-                              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
+                              className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3"
                             >
-                              <span>💬</span>
-                              <span>Reply</span>
+                              <svg className="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                              Reply
                             </button>
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setForwardMessage(msg);
+                                setForwardMessages([]);
                                 setSelectedForwardContacts([]);
                                 setIsForwardModalOpen(true);
                                 setActiveMenuMessageId(null);
                               }}
-                              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
+                              className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3"
                             >
-                              <span>➡️</span>
-                              <span>Forward</span>
+                              <svg className="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                              Forward
                             </button>
-                            {msg.text && (
+                            {msg.text && !msg.isDeleted && (
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigator.clipboard.writeText(msg.text);
                                   setActiveMenuMessageId(null);
-                                  alert("Copied to clipboard!");
                                 }}
-                                className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
+                                className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3"
                               >
-                                <span>📋</span>
-                                <span>Copy Text</span>
+                                <svg className="w-4 h-4 text-[#8696a0]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                Copy
                               </button>
                             )}
                             <button
@@ -3185,10 +2831,10 @@ export default function InboxPage() {
                                 deleteMessage(msg.id);
                                 setActiveMenuMessageId(null);
                               }}
-                              className="w-full text-left px-3 py-2.5 hover:bg-rose-900/40 text-rose-400 text-xs font-semibold flex items-center space-x-2 rounded-b-xl"
+                              className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 text-rose-400"
                             >
-                              <span>🗑️</span>
-                              <span>Delete</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                              Delete
                             </button>
                           </div>
                         )}
@@ -3201,7 +2847,7 @@ export default function InboxPage() {
             </div>
 
             {/* Chat Input Area */}
-            <div className="px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] md:p-4 border-t border-zinc-800/80 bg-zinc-900/10 shrink-0 relative">
+            <div className="inbox-input-bar px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] md:p-4 border-t border-[#ffffff14] shrink-0 relative">
               {isSelectMode ? (
                 <div className="flex items-center justify-between gap-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                   <p className="text-sm text-emerald-300 font-semibold">

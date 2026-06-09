@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
-import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
+import { isVoiceNoteFile } from "@/lib/meta-media";
+import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 import { bumpInboxVersion } from "@/lib/inbox-sync";
 import {
   getAllMarketingContacts,
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { toPhone, replyText, contactName, type, mediaId, location, fileName, replyTo } =
+    const { toPhone, replyText, contactName, type, mediaId, location, fileName, replyTo, isVoiceNote } =
       await request.json();
 
     if (!toPhone) {
@@ -46,7 +47,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing text content" }, { status: 400 });
     }
 
-    const url = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/messages`;
+    const sendAsVoice =
+      msgType === "audio" &&
+      (!!isVoiceNote ||
+        (!!fileName && isVoiceNoteFile({ name: fileName, type: "audio/ogg" })));
+
+    const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberId()}/messages`;
     const messagePayload: Record<string, unknown> = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -61,7 +67,9 @@ export async function POST(request: NextRequest) {
     } else if (msgType === "image") {
       messagePayload.image = { id: mediaId };
     } else if (msgType === "audio") {
-      messagePayload.audio = { id: mediaId };
+      messagePayload.audio = sendAsVoice
+        ? { id: mediaId, voice: true }
+        : { id: mediaId };
     } else if (msgType === "video") {
       messagePayload.video = { id: mediaId };
     } else if (msgType === "document") {
@@ -100,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     let displayLogText = replyText || "";
     if (msgType === "image") displayLogText = "📷 Photo";
-    else if (msgType === "audio") displayLogText = "🎵 Audio/Voice Note";
+    else if (msgType === "audio") displayLogText = sendAsVoice ? "🎤 Voice Note" : "🎵 Audio";
     else if (msgType === "video") displayLogText = "🎥 Video";
     else if (msgType === "document") displayLogText = fileName ? `📄 File: ${fileName}` : "📄 File";
     else if (msgType === "location") {
@@ -113,11 +121,12 @@ export async function POST(request: NextRequest) {
       text: displayLogText,
       timestamp: Math.floor(Date.now() / 1000),
       status: "sent",
-      type: msgType,
+      type: sendAsVoice ? "voice" : msgType,
       mediaId: mediaId || undefined,
       replyTo: replyTo || undefined,
       location: location || undefined,
       fileName: fileName || undefined,
+      isVoiceNote: sendAsVoice || undefined,
     });
 
     await saveMarketingContact(contact);

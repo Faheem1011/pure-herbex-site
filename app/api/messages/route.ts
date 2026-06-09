@@ -33,7 +33,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing recipient phone number" }, { status: 400 });
     }
 
-    if (await isPhoneBlocked(toPhone)) {
+    const phone = normalizePhone(toPhone);
+    if (!phone) {
+      return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
+    }
+
+    if (await isPhoneBlocked(phone)) {
       return NextResponse.json({ error: "This contact is blocked. Unblock them to send messages." }, { status: 403 });
     }
 
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest) {
     let messagePayload: any = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
-      to: toPhone,
+      to: phone,
       type: msgType,
     };
 
@@ -105,11 +110,11 @@ export async function POST(request: NextRequest) {
       const msgId = respData.messages?.[0]?.id || "N/A";
 
       // Save the sent message to KV store
-      let contact: any = await kv.get(`whatsapp:contact:${toPhone}`);
+      let contact: any = await kv.get(`whatsapp:contact:${phone}`);
       if (!contact) {
         contact = {
           name: contactName || "WhatsApp Contact",
-          phone: toPhone,
+          phone: phone,
           messages: []
         };
       } else if (contactName && contact.name === "WhatsApp Contact") {
@@ -138,8 +143,8 @@ export async function POST(request: NextRequest) {
         isVoiceNote: sendAsVoice || undefined,
       });
 
-      await kv.set(`whatsapp:contact:${toPhone}`, contact);
-      await kv.sadd("whatsapp:active_contacts", toPhone);
+      await kv.set(`whatsapp:contact:${phone}`, contact);
+      await kv.sadd("whatsapp:active_contacts", phone);
       await bumpInboxVersion();
 
       return NextResponse.json({ status: "success", msgId });
@@ -164,8 +169,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
 
-    await kv.srem("whatsapp:active_contacts", phone);
-    await kv.del(`whatsapp:contact:${phone}`);
+    const normalized = normalizePhone(phone);
+    await kv.srem("whatsapp:active_contacts", normalized);
+    await kv.del(`whatsapp:contact:${normalized}`);
     await bumpInboxVersion();
 
     return NextResponse.json({ status: "success" });
