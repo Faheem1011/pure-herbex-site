@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { resolveStatusClientApiBase } from "@/lib/resolve-status-api-base";
+import { statusMediaUrl } from "@/lib/status-media-url";
 
 type StatusItem = {
   id: string;
@@ -40,7 +41,7 @@ export default function StatusPage() {
   }, []);
 
   const mediaUrl = (id: string) =>
-    `${apiBase || resolveStatusClientApiBase()}/api/media/?id=${encodeURIComponent(id)}`;
+    statusMediaUrl(apiBase || resolveStatusClientApiBase(), id);
 
   if (loading) {
     return (

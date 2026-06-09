@@ -71,7 +71,9 @@ export async function POST(request: NextRequest) {
     const items = await getActiveItems();
     items.unshift(item);
     await kv.set(STATUS_KEY, items.slice(0, 30));
-    await registerPublicStatusMedia(mediaId);
+    if (!mediaId.startsWith("st_")) {
+      await registerPublicStatusMedia(mediaId);
+    }
 
     const statusPageUrl = getStatusPublicPageUrl();
 

@@ -17,7 +17,15 @@ import DeliveryTicks from "@/components/inbox/DeliveryTicks";
 import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
+import { isStatusStorageId } from "@/lib/status-storage";
 import "./inbox.css";
+
+function inboxStatusMediaSrc(mediaId: string): string {
+  if (isStatusStorageId(mediaId)) {
+    return `/api/status/media/?id=${encodeURIComponent(mediaId)}`;
+  }
+  return `/api/media/?id=${encodeURIComponent(mediaId)}`;
+}
 
 const STATUS_PAGE_URL = `${(process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app").replace(/\/$/, "")}/status/`;
 
@@ -1482,9 +1490,19 @@ export default function InboxPage() {
   const publishStatus = async (file: File) => {
     setStatusUploading(true);
     try {
-      const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|m4v|3gp)$/i.test(file.name);
-      const { mediaId } = await uploadFile(file, isVideo ? "video" : "auto");
-      const type = isVideo ? "video" : "image";
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/status/media/", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        throw new Error(uploadData.error || "Failed to upload status media");
+      }
+
+      const { mediaId, type } = uploadData as { mediaId: string; type: "image" | "video" };
       const res = await fetch("/api/status/", {
         method: "POST",
         headers: {
@@ -2035,11 +2053,14 @@ export default function InboxPage() {
         <main className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
           <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100">Status</h1>
-            <p className="text-xs text-zinc-500 mt-1">Upload images or videos for your public status page (separate from Promo marketing).</p>
+            <p className="text-xs text-zinc-500 mt-1">
+              Web status page for customers (24h). WhatsApp Cloud API cannot post to WhatsApp Stories — share the link below.
+            </p>
             <a href={STATUS_PAGE_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:underline mt-1 inline-block">
               Open customer status page →
             </a>
             <p className="text-[10px] text-zinc-600 mt-1 break-all">{STATUS_PAGE_URL}</p>
+            <p className="text-[10px] text-amber-400/80 mt-1">Share only this Vercel link — pureherbex.com/status does not host status.</p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-6">
@@ -2077,10 +2098,18 @@ export default function InboxPage() {
                   navigator.clipboard.writeText(STATUS_PAGE_URL);
                   alert(`Status link copied!\n\n${STATUS_PAGE_URL}`);
                 }}
-                className="w-full py-2.5 mb-3 border border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-xl text-sm font-semibold"
+                className="w-full py-2.5 border border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-xl text-sm font-semibold"
               >
                 Copy status page link
               </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Check our latest updates: ${STATUS_PAGE_URL}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-2.5 mt-2 mb-3 bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/25 rounded-xl text-sm font-semibold text-center"
+              >
+                Share link on WhatsApp
+              </a>
               <p className="text-[11px] text-zinc-500 mt-2">Status is web-only for 24h. Use the Promo tab to send the herbex_marketing template to leads.</p>
             </div>
 
@@ -2094,9 +2123,9 @@ export default function InboxPage() {
                     <div key={item.id} className="relative group rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900 aspect-[9/16]">
                       {item.type === "image" ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`/api/media/?id=${item.mediaId}`} alt="" className="w-full h-full object-cover" />
+                        <img src={inboxStatusMediaSrc(item.mediaId)} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <video src={`/api/media/?id=${item.mediaId}`} className="w-full h-full object-cover" muted />
+                        <video src={inboxStatusMediaSrc(item.mediaId)} className="w-full h-full object-cover" muted />
                       )}
                       <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                         <p className="text-[10px] text-zinc-300 truncate">{item.caption || "No caption"}</p>
