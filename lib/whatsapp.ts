@@ -23,3 +23,11 @@ export function getWhatsAppVerifyToken(): string {
   }
   return verifyToken;
 }
+
+export function getWhatsAppAppSecret(): string {
+  const secret = process.env.WHATSAPP_APP_SECRET;
+  if (!secret) {
+    throw new Error("WHATSAPP_APP_SECRET is not configured");
+  }
+  return secret;
+}

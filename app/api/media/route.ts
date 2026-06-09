@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
 import { prepareMetaUploadFile } from "@/lib/meta-media";
+import { isPublicStatusMedia } from "@/lib/status-media";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
 const MAX_VIDEO_BYTES = 16 * 1024 * 1024;
@@ -17,6 +18,11 @@ export async function GET(request: NextRequest) {
 
     if (!mediaId) {
       return NextResponse.json({ error: "Missing media ID" }, { status: 400 });
+    }
+
+    const authed = isInboxAuthed(request);
+    if (!authed && !(await isPublicStatusMedia(mediaId))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Step A: Get Meta Media Download URL

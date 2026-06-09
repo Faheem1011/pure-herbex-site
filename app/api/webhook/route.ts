@@ -7,6 +7,7 @@ import {
   saveMarketingContact,
   shouldUseMainInboxForIncoming,
 } from "@/lib/marketing-inbox";
+import { verifyMetaWebhookSignature } from "@/lib/webhook-signature";
 import { getWhatsAppVerifyToken } from "@/lib/whatsapp";
 
 export async function GET(request: NextRequest) {
@@ -31,7 +32,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    const signature = request.headers.get("x-hub-signature-256");
+
+    if (!verifyMetaWebhookSignature(rawBody, signature)) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+
+    const body = JSON.parse(rawBody);
 
     if (body.object === "whatsapp_business_account") {
       const entry = body.entry?.[0];
