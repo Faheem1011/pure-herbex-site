@@ -249,6 +249,7 @@ export default function InboxPage() {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -515,6 +516,12 @@ export default function InboxPage() {
   };
 
   // Multi-select handlers
+  const startSelectMode = (messageId?: string) => {
+    setIsSelectMode(true);
+    setActiveMenuMessageId(null);
+    setSelectedMessageIds(messageId ? new Set([messageId]) : new Set());
+  };
+
   const toggleMessageSelection = (messageId: string) => {
     setSelectedMessageIds((prev) => {
       const newSet = new Set(prev);
@@ -580,7 +587,7 @@ export default function InboxPage() {
     if (selectedMessageIds.size === 0 || !activeChat) return;
     
     const selectedMsgs = activeChat.messages
-      .filter(m => selectedMessageIds.has(m.id))
+      .filter(m => selectedMessageIds.has(m.id) && !m.isDeleted)
       .sort((a, b) => a.timestamp - b.timestamp);
       
     setForwardMessages(selectedMsgs);
@@ -679,10 +686,18 @@ export default function InboxPage() {
   };
 
   const handleMessageLongPress = (id: string) => {
+    longPressTriggeredRef.current = true;
     if (isSelectMode) {
       toggleMessageSelection(id);
     } else {
-      setActiveMenuMessageId(id);
+      startSelectMode(id);
+    }
+  };
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
   };
 
@@ -2638,7 +2653,12 @@ export default function InboxPage() {
               return (
                 <div
                   key={c.phone}
-                  onClick={() => { setActiveChat(c); if (c.hasUnread && !c.blocked) markChatRead(c.phone); }}
+                  onClick={() => {
+                    setIsSelectMode(false);
+                    setSelectedMessageIds(new Set());
+                    setActiveChat(c);
+                    if (c.hasUnread && !c.blocked) markChatRead(c.phone);
+                  }}
                   className={`group w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-all border cursor-pointer relative ${
                     isActive
                       ? "bg-zinc-800 border-zinc-700 text-zinc-100 shadow-lg scale-[1.02] z-10"
@@ -2968,22 +2988,26 @@ export default function InboxPage() {
                         }}
                         onMouseDown={() => {
                           if (!isSelectMode) {
-                            longPressTimerRef.current = setTimeout(() => handleMessageLongPress(msg.id), 600);
+                            clearLongPressTimer();
+                            longPressTimerRef.current = setTimeout(() => handleMessageLongPress(msg.id), 500);
                           }
                         }}
-                        onMouseUp={() => {
-                          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-                        }}
+                        onMouseUp={clearLongPressTimer}
+                        onMouseLeave={clearLongPressTimer}
                         onTouchStart={() => {
                           if (!isSelectMode) {
-                            longPressTimerRef.current = setTimeout(() => handleMessageLongPress(msg.id), 600);
+                            clearLongPressTimer();
+                            longPressTimerRef.current = setTimeout(() => handleMessageLongPress(msg.id), 500);
                           }
                         }}
-                        onTouchEnd={() => {
-                          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-                        }}
+                        onTouchEnd={clearLongPressTimer}
+                        onTouchMove={clearLongPressTimer}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (longPressTriggeredRef.current) {
+                            longPressTriggeredRef.current = false;
+                            return;
+                          }
                           if (isSelectMode) {
                             toggleMessageSelection(msg.id);
                           } else {
@@ -3037,6 +3061,17 @@ export default function InboxPage() {
                             className="absolute right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl py-1 shadow-2xl z-50 w-36 text-zinc-200"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startSelectMode(msg.id);
+                              }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-zinc-800 text-xs font-semibold flex items-center space-x-2 border-b border-zinc-800/50"
+                            >
+                              <span>☑️</span>
+                              <span>Select Messages</span>
+                            </button>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -3102,7 +3137,20 @@ export default function InboxPage() {
 
             {/* Chat Input Area */}
             <div className="px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] md:p-4 border-t border-zinc-800/80 bg-zinc-900/10 shrink-0 relative">
-              {activeChat.blocked ? (
+              {isSelectMode ? (
+                <div className="flex items-center justify-between gap-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <p className="text-sm text-emerald-300 font-semibold">
+                    Tap messages to select, then use Forward above
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setIsSelectMode(false); setSelectedMessageIds(new Set()); }}
+                    className="px-3 py-1.5 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-200 shrink-0"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : activeChat.blocked ? (
                 <div className="flex items-center justify-between gap-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-rose-300">Contact blocked</p>
@@ -3733,13 +3781,14 @@ export default function InboxPage() {
       )}
 
       {/* Forward Message Modal */}
-      {isForwardModalOpen && forwardMessage && (
+      {isForwardModalOpen && (forwardMessage || forwardMessages.length > 0) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
           <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl relative flex flex-col max-h-[85vh]">
             <button
               onClick={() => {
                 setIsForwardModalOpen(false);
                 setForwardMessage(null);
+                setForwardMessages([]);
                 setSelectedForwardContacts([]);
               }}
               className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-200 p-1"
@@ -3749,17 +3798,36 @@ export default function InboxPage() {
               </svg>
             </button>
 
-            <h2 className="text-xl font-bold mb-2 pr-8 text-zinc-100">Forward Message</h2>
+            <h2 className="text-xl font-bold mb-2 pr-8 text-zinc-100">
+              {forwardMessages.length > 1
+                ? `Forward ${forwardMessages.length} Messages`
+                : "Forward Message"}
+            </h2>
             
             {/* Message preview snippet */}
-            <div className="bg-zinc-950 p-3.5 rounded-2xl border border-zinc-800/80 mb-4 text-zinc-400 text-xs truncate max-w-full">
-              <span className="font-bold text-zinc-300 block mb-1">Message Preview:</span>
-              {forwardMessage.type === "image" ? "📷 Image Attachment" :
-               forwardMessage.type === "audio" || forwardMessage.type === "voice" ? "🎵 Voice Note" :
-               forwardMessage.type === "video" ? "🎥 Video Attachment" :
-               forwardMessage.type === "document" ? `📄 Document: ${forwardMessage.fileName}` :
-               forwardMessage.type === "location" ? "📍 Location Share" :
-               forwardMessage.text || ""}
+            <div className="bg-zinc-950 p-3.5 rounded-2xl border border-zinc-800/80 mb-4 text-zinc-400 text-xs max-w-full max-h-32 overflow-y-auto">
+              <span className="font-bold text-zinc-300 block mb-1">Preview:</span>
+              {forwardMessages.length > 1 ? (
+                <ul className="space-y-1">
+                  {forwardMessages.map((m, i) => (
+                    <li key={m.id} className="truncate">
+                      {i + 1}. {m.type === "image" ? "📷 Photo" :
+                        m.type === "audio" || m.type === "voice" ? "🎵 Voice Note" :
+                        m.type === "video" ? "🎥 Video" :
+                        m.type === "document" ? `📄 ${m.fileName || "Document"}` :
+                        m.type === "location" ? "📍 Location" :
+                        m.text || "Message"}
+                    </li>
+                  ))}
+                </ul>
+              ) : forwardMessage ? (
+                forwardMessage.type === "image" ? "📷 Image Attachment" :
+                forwardMessage.type === "audio" || forwardMessage.type === "voice" ? "🎵 Voice Note" :
+                forwardMessage.type === "video" ? "🎥 Video Attachment" :
+                forwardMessage.type === "document" ? `📄 Document: ${forwardMessage.fileName}` :
+                forwardMessage.type === "location" ? "📍 Location Share" :
+                forwardMessage.text || ""
+              ) : null}
             </div>
 
             <input
@@ -3819,7 +3887,13 @@ export default function InboxPage() {
               disabled={isForwarding || selectedForwardContacts.length === 0}
               className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed active:scale-95 text-zinc-955 font-bold rounded-2xl shadow-lg transition-all text-sm flex items-center justify-center space-x-2"
             >
-              <span>{isForwarding ? "Forwarding..." : `Forward to ${selectedForwardContacts.length} Contacts`}</span>
+              <span>
+                {isForwarding
+                  ? "Forwarding..."
+                  : forwardMessages.length > 1
+                    ? `Forward ${forwardMessages.length} msgs to ${selectedForwardContacts.length} contact${selectedForwardContacts.length === 1 ? "" : "s"}`
+                    : `Forward to ${selectedForwardContacts.length} contact${selectedForwardContacts.length === 1 ? "" : "s"}`}
+              </span>
             </button>
           </div>
         </div>
