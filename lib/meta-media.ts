@@ -21,11 +21,13 @@ export function isVoiceNoteFile(file: { name: string; type?: string }): boolean 
   return name.endsWith(".ogg") || mime.includes("ogg") || name.startsWith("voice-note-");
 }
 
+export const VOICE_NOTE_MIME = "audio/ogg; codecs=opus";
+
 export function normalizeVoiceNoteFile(file: File): File {
   const filename = file.name.toLowerCase().endsWith(".ogg")
     ? file.name
     : `voice-note-${Date.now()}.ogg`;
-  return new File([file], filename, { type: "audio/ogg" });
+  return new File([file], filename, { type: VOICE_NOTE_MIME });
 }
 
 export function prepareMetaUploadFile(

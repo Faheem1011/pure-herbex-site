@@ -1157,7 +1157,7 @@ export default function InboxPage() {
       blob.type && blob.type !== "application/octet-stream"
         ? blob.type
         : isVoice
-          ? "audio/ogg"
+          ? "audio/ogg; codecs=opus"
           : msgType === "image"
             ? "image/jpeg"
             : msgType === "video"

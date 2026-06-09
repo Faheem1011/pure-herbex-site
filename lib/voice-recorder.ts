@@ -1,62 +1,55 @@
-export const VOICE_NOTE_MIME = "audio/ogg;codecs=opus";
-export const VOICE_NOTE_UPLOAD_MIME = "audio/ogg";
-const WORKER_BASE = "/opus-media-recorder";
+import { remuxWebmToOgg } from "@/lib/webm-opus-to-ogg";
+
+export const VOICE_NOTE_UPLOAD_MIME = "audio/ogg; codecs=opus";
 const MIN_VOICE_NOTE_BYTES = 500;
+
+const PREFERRED_MIMES = [
+  "audio/webm;codecs=opus",
+  "audio/ogg;codecs=opus",
+  "audio/webm",
+];
 
 export type VoiceRecordingSession = {
   stopAndGetFile: () => Promise<File>;
   cancel: () => void;
 };
 
-function getWorkerOptions() {
-  return {
-    encoderWorkerFactory: () =>
-      new Worker(`${WORKER_BASE}/encoderWorker.umd.js`),
-    OggOpusEncoderWasmPath: `${WORKER_BASE}/OggOpusEncoder.wasm`,
-    WebMOpusEncoderWasmPath: `${WORKER_BASE}/WebMOpusEncoder.wasm`,
-  };
+function pickRecorderMimeType(): string {
+  if (typeof MediaRecorder === "undefined") {
+    throw new Error("MediaRecorder is not supported in this browser");
+  }
+  for (const mime of PREFERRED_MIMES) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime;
+  }
+  throw new Error("This browser cannot record Opus audio for voice notes");
 }
 
-function isValidOggContainer(buffer: ArrayBuffer): boolean {
-  if (buffer.byteLength < 4) return false;
-  const header = new Uint8Array(buffer, 0, 4);
-  return (
-    header[0] === 0x4f &&
-    header[1] === 0x67 &&
-    header[2] === 0x67 &&
-    header[3] === 0x53
-  );
+function hasOpusHead(buffer: ArrayBuffer): boolean {
+  const bytes = new Uint8Array(buffer);
+  const head = new TextDecoder().decode(bytes.slice(0, Math.min(bytes.length, 64)));
+  return head.includes("OpusHead");
 }
 
-function buildOggBlob(chunks: Blob[]): Blob {
-  if (chunks.length === 0) {
-    throw new Error("No audio recorded");
-  }
-  if (chunks.length === 1) {
-    return chunks[0];
-  }
+async function toWhatsAppVoiceFile(recordedBlob: Blob): Promise<File> {
+  const oggBlob = await remuxWebmToOgg(recordedBlob);
 
-  // Multiple chunks usually means a partial flush plus the final file.
-  // Concatenating separate OGG segments breaks playback on WhatsApp.
-  const last = chunks[chunks.length - 1];
-  if (last.size >= MIN_VOICE_NOTE_BYTES) {
-    return last;
-  }
-
-  return new Blob(chunks, { type: VOICE_NOTE_UPLOAD_MIME });
-}
-
-async function blobToValidatedVoiceFile(blob: Blob): Promise<File> {
-  if (blob.size < MIN_VOICE_NOTE_BYTES) {
+  if (oggBlob.size < MIN_VOICE_NOTE_BYTES) {
     throw new Error("Recording too short. Hold the mic for at least 1 second.");
   }
 
-  const buffer = await blob.arrayBuffer();
-  if (!isValidOggContainer(buffer)) {
+  const buffer = await oggBlob.arrayBuffer();
+  const header = new Uint8Array(buffer, 0, 4);
+  const isOgg =
+    header[0] === 0x4f &&
+    header[1] === 0x67 &&
+    header[2] === 0x67 &&
+    header[3] === 0x53;
+
+  if (!isOgg || !hasOpusHead(buffer)) {
     throw new Error("Recording format error. Please try again.");
   }
 
-  return new File([blob], `voice-note-${Date.now()}.ogg`, {
+  return new File([oggBlob], `voice-note-${Date.now()}.ogg`, {
     type: VOICE_NOTE_UPLOAD_MIME,
     lastModified: Date.now(),
   });
@@ -71,13 +64,9 @@ export async function startVoiceRecording(): Promise<VoiceRecordingSession> {
     },
   });
 
+  const mimeType = pickRecorderMimeType();
   const chunks: Blob[] = [];
-  const OpusMediaRecorder = (await import("opus-media-recorder")).default;
-  const recorder = new OpusMediaRecorder(
-    stream,
-    { mimeType: "audio/ogg", audioBitsPerSecond: 32000 },
-    getWorkerOptions()
-  ) as unknown as MediaRecorder;
+  const recorder = new MediaRecorder(stream, { mimeType });
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) chunks.push(event.data);
@@ -95,8 +84,8 @@ export async function startVoiceRecording(): Promise<VoiceRecordingSession> {
         recorder.onstop = async () => {
           cleanup();
           try {
-            const blob = buildOggBlob(chunks);
-            const file = await blobToValidatedVoiceFile(blob);
+            const recorded = new Blob(chunks, { type: mimeType });
+            const file = await toWhatsAppVoiceFile(recorded);
             resolve(file);
           } catch (err) {
             reject(err);
