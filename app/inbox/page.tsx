@@ -14,14 +14,12 @@ import {
 } from "@/app/inbox/utils";
 import MessageContent from "@/components/inbox/MessageContent";
 import DeliveryTicks from "@/components/inbox/DeliveryTicks";
-import VoiceMemoField from "@/components/inbox/VoiceMemoField";
 import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
 import "./inbox.css";
 
 const STATUS_PAGE_URL = `${(process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app").replace(/\/$/, "")}/status/`;
-const VOICE_MEMO_DRAFT_KEY = "inbox_voice_memo_draft";
 
 export default function InboxPage() {
   const [password, setPassword] = useState("");
@@ -68,22 +66,9 @@ export default function InboxPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshNote, setRefreshNote] = useState<string | null>(null);
   const [isExportingContacts, setIsExportingContacts] = useState(false);
-  const [voiceMemoDraft, setVoiceMemoDraft] = useState("");
 
   useSafeAreaInsets();
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = localStorage.getItem(VOICE_MEMO_DRAFT_KEY);
-    if (saved) setVoiceMemoDraft(saved);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(VOICE_MEMO_DRAFT_KEY, voiceMemoDraft);
-  }, [voiceMemoDraft]);
-
-  const voiceMemoForSend = () => voiceMemoDraft.trim().slice(0, 200) || undefined;
   const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived" | "blocked">("all");
   const [contactMenuTarget, setContactMenuTarget] = useState<Contact | null>(null);
   const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
@@ -285,7 +270,6 @@ export default function InboxPage() {
           mediaId: mediaId,
           fileName: file.name,
           isVoiceNote: true,
-          agentNote: voiceMemoForSend(),
         }),
       });
 
@@ -301,7 +285,6 @@ export default function InboxPage() {
           mediaId: mediaId,
           fileName: file.name,
           isVoiceNote: true,
-          agentNote: voiceMemoForSend(),
         };
 
         if (activeChat) {
@@ -475,7 +458,7 @@ export default function InboxPage() {
               fileName: fileName || undefined,
               location: msg.location || undefined,
               isVoiceNote: isVoiceNote || undefined,
-              agentNote: msg.agentNote || voiceMemoForSend(),
+              agentNote: msg.agentNote,
             }),
           });
 
@@ -496,7 +479,7 @@ export default function InboxPage() {
                     fileName: fileName || undefined,
                     location: msg.location || undefined,
                     isVoiceNote: isVoiceNote || undefined,
-                    agentNote: msg.agentNote || voiceMemoForSend(),
+                    agentNote: msg.agentNote,
                   };
                   return { ...c, messages: [...c.messages, newMsg] };
                 }
@@ -1333,8 +1316,6 @@ export default function InboxPage() {
             msgType === "audio" &&
             (!!uploadFilename?.toLowerCase().startsWith("voice-note-") ||
               pendingFileType === "audio"),
-          agentNote:
-            msgType === "audio" ? voiceMemoForSend() : undefined,
         }),
       });
 
@@ -1364,7 +1345,6 @@ export default function InboxPage() {
             name: pendingLocation.name,
             address: pendingLocation.address,
           } : undefined,
-          agentNote: msgType === "audio" ? voiceMemoForSend() : undefined,
         };
 
         const updatedChat = {
@@ -3061,7 +3041,6 @@ export default function InboxPage() {
                                 setForwardMessage(msg);
                                 setForwardMessages([]);
                                 setSelectedForwardContacts([]);
-                                if (msg.agentNote) setVoiceMemoDraft(msg.agentNote);
                                 setIsForwardModalOpen(true);
                                 setActiveMenuMessageId(null);
                               }}
@@ -3077,11 +3056,10 @@ export default function InboxPage() {
                                   e.stopPropagation();
                                   const next = window.prompt(
                                     "Voice label (only you see this):",
-                                    msg.agentNote || voiceMemoDraft || ""
+                                    msg.agentNote || ""
                                   );
                                   if (next !== null) {
                                     saveMessageAgentNote(activeChat.phone, msg.id, next);
-                                    if (next.trim()) setVoiceMemoDraft(next.trim());
                                   }
                                   setActiveMenuMessageId(null);
                                 }}
@@ -3332,14 +3310,6 @@ export default function InboxPage() {
                   handleFileSelect(e, type);
                 }}
               />
-
-              {!isSelectMode && (
-                <VoiceMemoField
-                  value={voiceMemoDraft}
-                  onChange={setVoiceMemoDraft}
-                  compact={isRecording || pendingFileType === "audio"}
-                />
-              )}
 
               {isRecording ? (
                 <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex-1 animate-pulse">
