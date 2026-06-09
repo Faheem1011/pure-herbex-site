@@ -28,6 +28,24 @@ function isValidOggContainer(buffer: ArrayBuffer): boolean {
   );
 }
 
+function buildOggBlob(chunks: Blob[]): Blob {
+  if (chunks.length === 0) {
+    throw new Error("No audio recorded");
+  }
+  if (chunks.length === 1) {
+    return chunks[0];
+  }
+
+  // Multiple chunks usually means a partial flush plus the final file.
+  // Concatenating separate OGG segments breaks playback on WhatsApp.
+  const last = chunks[chunks.length - 1];
+  if (last.size >= MIN_VOICE_NOTE_BYTES) {
+    return last;
+  }
+
+  return new Blob(chunks, { type: VOICE_NOTE_UPLOAD_MIME });
+}
+
 async function blobToValidatedVoiceFile(blob: Blob): Promise<File> {
   if (blob.size < MIN_VOICE_NOTE_BYTES) {
     throw new Error("Recording too short. Hold the mic for at least 1 second.");
@@ -57,7 +75,7 @@ export async function startVoiceRecording(): Promise<VoiceRecordingSession> {
   const OpusMediaRecorder = (await import("opus-media-recorder")).default;
   const recorder = new OpusMediaRecorder(
     stream,
-    { mimeType: "audio/ogg;codecs=opus", audioBitsPerSecond: 64000 },
+    { mimeType: "audio/ogg", audioBitsPerSecond: 32000 },
     getWorkerOptions()
   ) as unknown as MediaRecorder;
 
@@ -77,7 +95,7 @@ export async function startVoiceRecording(): Promise<VoiceRecordingSession> {
         recorder.onstop = async () => {
           cleanup();
           try {
-            const blob = new Blob(chunks, { type: VOICE_NOTE_UPLOAD_MIME });
+            const blob = buildOggBlob(chunks);
             const file = await blobToValidatedVoiceFile(blob);
             resolve(file);
           } catch (err) {
@@ -89,9 +107,6 @@ export async function startVoiceRecording(): Promise<VoiceRecordingSession> {
           reject(new Error("Voice recording failed"));
         };
         try {
-          if (typeof recorder.requestData === "function") {
-            recorder.requestData();
-          }
           recorder.stop();
         } catch (err) {
           cleanup();

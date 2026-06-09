@@ -609,9 +609,25 @@ export default function InboxPage() {
     
     setIsForwarding(true);
     try {
-      for (const phone of selectedForwardContacts) {
-        const targetContact = contacts.find(c => c.phone === phone);
-        for (const msg of messagesToForward) {
+      for (const msg of messagesToForward) {
+        let mediaId = msg.mediaId;
+        let fileName = msg.fileName;
+        let isVoiceNote = isMessageVoiceNote(msg);
+        const msgType = msg.type === "voice" ? "audio" : msg.type || "text";
+
+        if (
+          msg.mediaId &&
+          msgType !== "text" &&
+          msgType !== "location"
+        ) {
+          const fresh = await refreshMediaForForward(msg);
+          mediaId = fresh.mediaId;
+          fileName = fresh.fileName;
+          isVoiceNote = fresh.isVoiceNote;
+        }
+
+        for (const phone of selectedForwardContacts) {
+          const targetContact = contacts.find(c => c.phone === phone);
           const res = await fetch("/api/messages/", {
             method: "POST",
             headers: {
@@ -620,16 +636,13 @@ export default function InboxPage() {
             },
             body: JSON.stringify({
               toPhone: phone,
-              replyText: msg.type === "text" || !msg.type ? msg.text : undefined,
+              replyText: msgType === "text" ? msg.text : undefined,
               contactName: targetContact?.name || "WhatsApp Contact",
-              type: msg.type === "voice" ? "audio" : msg.type || "text",
-              mediaId: msg.mediaId || undefined,
-              fileName: msg.fileName || undefined,
+              type: msgType,
+              mediaId: mediaId || undefined,
+              fileName: fileName || undefined,
               location: msg.location || undefined,
-              isVoiceNote:
-                !!msg.isVoiceNote ||
-                msg.type === "voice" ||
-                msg.text === "🎤 Voice Note",
+              isVoiceNote: isVoiceNote || undefined,
             }),
           });
 
@@ -644,10 +657,11 @@ export default function InboxPage() {
                     text: msg.text,
                     timestamp: getEpochTime(),
                     status: "sent",
-                    type: msg.type || "text",
-                    mediaId: msg.mediaId || undefined,
-                    fileName: msg.fileName || undefined,
+                    type: isVoiceNote ? "voice" : msg.type || "text",
+                    mediaId: mediaId || undefined,
+                    fileName: fileName || undefined,
                     location: msg.location || undefined,
+                    isVoiceNote: isVoiceNote || undefined,
                   };
                   return { ...c, messages: [...c.messages, newMsg] };
                 }
@@ -1112,6 +1126,57 @@ export default function InboxPage() {
   };
 
   type UploadResult = { mediaId: string; category?: string; filename?: string };
+
+  const isMessageVoiceNote = (msg: Message): boolean =>
+    !!msg.isVoiceNote ||
+    msg.type === "voice" ||
+    msg.text === "🎤 Voice Note" ||
+    (!!msg.fileName && msg.fileName.toLowerCase().startsWith("voice-note-"));
+
+  const refreshMediaForForward = async (
+    msg: Message
+  ): Promise<{ mediaId: string; fileName?: string; isVoiceNote: boolean }> => {
+    if (!msg.mediaId) {
+      throw new Error("Missing media for forward");
+    }
+
+    const isVoice = isMessageVoiceNote(msg);
+    const res = await fetch(`/api/media/?id=${encodeURIComponent(msg.mediaId)}`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    if (!res.ok) {
+      throw new Error("Could not prepare media for forwarding");
+    }
+
+    const blob = await res.blob();
+    const fileName =
+      msg.fileName ||
+      (isVoice ? `voice-note-${Date.now()}.ogg` : `forward-${Date.now()}`);
+    const msgType = msg.type === "voice" ? "audio" : msg.type || "document";
+    const mime =
+      blob.type && blob.type !== "application/octet-stream"
+        ? blob.type
+        : isVoice
+          ? "audio/ogg"
+          : msgType === "image"
+            ? "image/jpeg"
+            : msgType === "video"
+              ? "video/mp4"
+              : "application/octet-stream";
+
+    const file = new File([blob], fileName, { type: mime });
+    const upload = await uploadFile(
+      file,
+      msgType === "video" ? "video" : "auto",
+      isVoice
+    );
+
+    return {
+      mediaId: upload.mediaId,
+      fileName: upload.filename || fileName,
+      isVoiceNote: isVoice,
+    };
+  };
 
   const uploadFile = async (
     file: File,
