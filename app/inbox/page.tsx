@@ -14,7 +14,8 @@ import {
 } from "@/app/inbox/utils";
 import MessageContent from "@/components/inbox/MessageContent";
 import DeliveryTicks from "@/components/inbox/DeliveryTicks";
-import { useAndroidBridge } from "@/hooks/useAndroidBridge";
+import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
+import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
 import "./inbox.css";
 
@@ -63,7 +64,10 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshNote, setRefreshNote] = useState<string | null>(null);
   const [isExportingContacts, setIsExportingContacts] = useState(false);
+
+  useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived" | "blocked">("all");
   const [contactMenuTarget, setContactMenuTarget] = useState<Contact | null>(null);
   const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
@@ -809,17 +813,24 @@ export default function InboxPage() {
     failed: marketingLeads.filter((l) => getLeadStatus(l.phone) === "failed").length,
   };
 
-  const fetchInboxSync = async (silent = false, forceFull = false) => {
+  const fetchInboxSync = async (silent = false, forceFull = false): Promise<boolean> => {
+    if (!sessionToken) return false;
     if (!silent) setIsRefreshing(true);
     try {
       const since = forceFull ? 0 : inboxVersionRef.current;
       const res = await fetch(`/api/inbox/sync/?since=${since}`, {
         headers: { Authorization: `Bearer ${sessionToken}` },
+        cache: "no-store",
       });
-      if (!res.ok) return;
+      if (res.status === 401) {
+        setIsLoggedIn(false);
+        setSessionToken(null);
+        return false;
+      }
+      if (!res.ok) return false;
       const data = await res.json();
       inboxVersionRef.current = data.version ?? inboxVersionRef.current;
-      if (data.unchanged) return;
+      if (data.unchanged && !forceFull) return true;
 
       if (data.contacts) {
         // Handle notifications for new messages
@@ -924,8 +935,10 @@ export default function InboxPage() {
           }
         }
       }
+      return true;
     } catch (err) {
       console.error("Failed to sync inbox", err);
+      return false;
     } finally {
       if (!silent) {
         setTimeout(() => setIsRefreshing(false), 600);
@@ -934,6 +947,20 @@ export default function InboxPage() {
   };
 
   const fetchChats = (silent = false) => fetchInboxSync(silent);
+
+  const handleRefresh = async () => {
+    if (!sessionToken) return;
+    const ok = await fetchInboxSync(false, true);
+    try {
+      if (viewMode === "status") await fetchStatusItems();
+      if (viewMode === "promo") await fetchCampaignStatus();
+    } catch (e) {
+      console.error("Refresh extras failed", e);
+    }
+    setRefreshNote(ok ? "Updated" : "Refresh failed — check connection");
+    window.setTimeout(() => setRefreshNote(null), 2200);
+    getAndroidBridge()?.onRefreshComplete?.();
+  };
 
   const handleExportContacts = async (format: "csv" | "json" = "csv") => {
     if (!sessionToken) return;
@@ -1010,6 +1037,7 @@ export default function InboxPage() {
     onCloseCampaignChat: () => setActiveCampaignChat(null),
     selectedMarketingLeadOpen: selectedMarketingLead !== null,
     onCloseMarketingLead: () => setSelectedMarketingLead(null),
+    onRefresh: handleRefresh,
   });
 
   const startCampaignChat = (phone: string, name: string) => {
@@ -1783,7 +1811,16 @@ export default function InboxPage() {
   // Dashboard Screen
   return (
     <div className="inbox-shell bg-[#0b141a] text-[#e9edef] min-h-screen flex h-screen overflow-hidden font-sans fixed inset-0">
-      
+      {refreshNote && (
+        <div className="md:hidden fixed left-1/2 -translate-x-1/2 z-[60] inbox-refresh-toast pointer-events-none"
+          style={{ top: "calc(var(--inbox-safe-top) + 0.25rem)" }}
+        >
+          <span className="px-3 py-1.5 rounded-full bg-[#202c33] border border-[#ffffff14] text-xs text-[#e9edef] shadow-lg">
+            {refreshNote}
+          </span>
+        </div>
+      )}
+
       {/* 1. LEFT SIDEBAR: Navigation / Utility Icons (Linear style) */}
       <aside className="hidden md:flex w-16 bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-6 justify-between shrink-0">
         <div className="flex flex-col items-center space-y-8 w-full">
@@ -1956,7 +1993,7 @@ export default function InboxPage() {
 
       {viewMode === "status" ? (
         <main className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
-          <div className="p-5 border-b border-zinc-800/60 shrink-0">
+          <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100">Status</h1>
             <p className="text-xs text-zinc-500 mt-1">Upload images or videos for your public status page (separate from Promo marketing).</p>
             <a href={STATUS_PAGE_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:underline mt-1 inline-block">
@@ -2044,16 +2081,16 @@ export default function InboxPage() {
         <>
           {/* MARKETING: Lead list */}
           <section className={`w-full md:w-96 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${selectedMarketingLead ? "hidden md:flex" : "flex"}`}>
-            <div className="p-5 border-b border-zinc-800/60 shrink-0">
+            <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h1 className="text-xl font-bold tracking-tight text-zinc-100">Promo</h1>
                   <p className="text-xs text-zinc-500 mt-0.5">Send template: {MARKETING_TEMPLATE}</p>
                 </div>
                 <button
-                  onClick={fetchCampaignStatus}
+                  onClick={() => void handleRefresh()}
                   className="w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-zinc-400 hover:text-zinc-200"
-                  title="Refresh status"
+                  title="Refresh"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"/>
@@ -2258,14 +2295,14 @@ export default function InboxPage() {
       ) : viewMode === "campaign" ? (
         <>
           <section className={`w-full md:w-80 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${activeCampaignChat ? "hidden md:flex" : "flex"}`}>
-            <div className="p-5 border-b border-zinc-800/60 shrink-0">
+            <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h1 className="text-xl font-bold tracking-tight text-amber-400">Campaign Inbox</h1>
                   <p className="text-xs text-zinc-500 mt-0.5">Marketing sends &amp; replies only</p>
                 </div>
                 <button
-                  onClick={() => fetchCampaignChats(false)}
+                  onClick={() => void handleRefresh()}
                   className="w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-zinc-400 hover:text-zinc-200"
                   title="Refresh"
                 >
@@ -2334,7 +2371,7 @@ export default function InboxPage() {
           <main className={`flex-1 flex flex-col bg-zinc-950 overflow-hidden ${activeCampaignChat ? "flex max-md:fixed max-md:inset-0 max-md:z-50" : "hidden md:flex"}`}>
             {activeCampaignChat ? (
               <>
-                <div className="bg-zinc-900/40 border-b border-zinc-800/80 px-3 pb-2.5 pt-[max(2.75rem,env(safe-area-inset-top,0px))] md:px-6 md:py-4 flex items-center justify-between shrink-0">
+                <div className="inbox-header-bar inbox-mobile-top px-3 pb-2.5 md:px-6 md:py-4 md:pt-4 flex items-center justify-between shrink-0">
                   <div className="flex items-center">
                     <button
                       onClick={() => setActiveCampaignChat(null)}
@@ -2421,7 +2458,7 @@ export default function InboxPage() {
       <section className={`w-full md:w-80 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${activeChat ? "hidden md:flex" : "flex"}`}>
         
         {/* Header Section */}
-        <div className="p-5 border-b border-zinc-800/60 shrink-0">
+        <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0 relative">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100">{inboxTitle}</h1>
             <div className="flex items-center space-x-2">
@@ -2437,7 +2474,7 @@ export default function InboxPage() {
                 </svg>
               </button>
               <button
-                onClick={() => fetchChats(false)}
+                onClick={() => void handleRefresh()}
                 className={`w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-zinc-400 hover:text-zinc-200 active:scale-95 transition-all`}
                 title="Refresh Chats"
               >
@@ -2655,7 +2692,7 @@ export default function InboxPage() {
         {activeChat ? (
           <>
             {/* Chat Info Header */}
-            <div className="inbox-header-bar px-3 pb-2.5 pt-[max(2.75rem,env(safe-area-inset-top,0px))] md:px-6 md:py-4 md:pt-4 flex items-center justify-between shrink-0 relative z-40">
+            <div className="inbox-header-bar inbox-mobile-top px-3 pb-2.5 md:px-6 md:py-4 md:pt-4 flex items-center justify-between shrink-0 relative z-40">
               {isSelectMode ? (
                 <div className="flex items-center justify-between w-full animate-in slide-in-from-top-4 duration-300">
                   <div className="flex items-center space-x-4">
@@ -3585,7 +3622,7 @@ export default function InboxPage() {
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
       {!activeChat && !activeCampaignChat && !selectedMarketingLead && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-stretch justify-around z-40 px-1 safe-bottom">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 min-h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-stretch justify-around z-40 px-1 inbox-mobile-bottom pt-2">
           <button
             onClick={() => { setViewMode("inbox"); setActiveTab("all"); setActiveCampaignChat(null); }}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${

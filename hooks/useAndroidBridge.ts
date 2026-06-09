@@ -8,8 +8,12 @@ type AndroidBridge = {
   setKeepScreenOn?: (on: boolean) => void;
   getSession?: () => string | null;
   saveSession?: (token: string) => void;
+  clearSession?: () => void;
   requestMicrophonePermission?: () => boolean;
   openAppSettings?: () => void;
+  getStatusBarInsetPx?: () => number;
+  getNavigationBarInsetPx?: () => number;
+  onRefreshComplete?: () => void;
 };
 
 export function getAndroidBridge(): AndroidBridge | undefined {
@@ -42,6 +46,7 @@ type AndroidBridgeOptions = {
   onCloseCampaignChat: () => void;
   selectedMarketingLeadOpen?: boolean;
   onCloseMarketingLead?: () => void;
+  onRefresh: () => Promise<void> | void;
 };
 
 export function useAndroidBridge(options: AndroidBridgeOptions) {
@@ -70,6 +75,7 @@ export function useAndroidBridge(options: AndroidBridgeOptions) {
     onCloseCampaignChat,
     selectedMarketingLeadOpen = false,
     onCloseMarketingLead,
+    onRefresh,
   } = options;
 
   useEffect(() => {
@@ -87,6 +93,28 @@ export function useAndroidBridge(options: AndroidBridgeOptions) {
       android.setChatOpen(activeChatOpen || activeCampaignChatOpen);
     }
   }, [activeChatOpen, activeCampaignChatOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleRefresh = async () => {
+      try {
+        await onRefresh();
+      } finally {
+        getAndroidBridge()?.onRefreshComplete?.();
+      }
+    };
+
+    (window as Window & { handleAndroidRefresh?: () => void }).handleAndroidRefresh =
+      () => {
+        void handleRefresh();
+      };
+
+    return () => {
+      delete (window as Window & { handleAndroidRefresh?: () => void })
+        .handleAndroidRefresh;
+    };
+  }, [onRefresh]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

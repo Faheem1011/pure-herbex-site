@@ -1,5 +1,14 @@
 /* WhatsApp-inspired inbox theme */
 .inbox-shell {
+  --inbox-safe-top: max(
+    env(safe-area-inset-top, 0px),
+    var(--android-safe-top, 0px),
+    32px
+  );
+  --inbox-safe-bottom: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--android-safe-bottom, 0px)
+  );
   --wa-bg: #0b141a;
   --wa-panel: #111b21;
   --wa-panel-2: #1f2c34;
@@ -63,4 +72,33 @@
 
 .inbox-context-menu button:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.inbox-mobile-top {
+  padding-top: calc(var(--inbox-safe-top) + 0.625rem);
+}
+
+@media (min-width: 768px) {
+  .inbox-mobile-top {
+    padding-top: 1rem;
+  }
+}
+
+.inbox-mobile-bottom {
+  padding-bottom: calc(var(--inbox-safe-bottom) + 0.5rem);
+}
+
+.inbox-refresh-toast {
+  animation: inbox-toast-in 0.2s ease-out;
+}
+
+@keyframes inbox-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
