@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
 
 interface Message {
   id: string;
@@ -251,7 +252,7 @@ export default function InboxPage() {
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [mp3Recorder, setMp3Recorder] = useState<any>(null);
+  const voiceSessionRef = useRef<VoiceRecordingSession | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Media & Location features
@@ -403,7 +404,6 @@ export default function InboxPage() {
     return () => window.removeEventListener("click", handleWindowClick);
   }, []);
 
-  // Load mic-recorder-to-mp3 module but create a FRESH instance per recording
   const startRecording = async () => {
     try {
       const android = (window as any).Android;
@@ -412,10 +412,7 @@ export default function InboxPage() {
         return;
       }
 
-      const MicRecorderModule = await import("mic-recorder-to-mp3");
-      const freshRecorder = new MicRecorderModule.default({ bitRate: 128 });
-      setMp3Recorder(freshRecorder);
-      await freshRecorder.start();
+      voiceSessionRef.current = await startVoiceRecording();
       setIsRecording(true);
       setRecordingDuration(0);
 
@@ -423,6 +420,7 @@ export default function InboxPage() {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);
     } catch (err: any) {
+      voiceSessionRef.current = null;
       const android = (window as any).Android;
       const settingsHint = android?.openAppSettings
         ? "\n\nIf blocked, open App Settings and enable Microphone."
@@ -432,90 +430,78 @@ export default function InboxPage() {
     }
   };
 
-  const stopAndSendRecording = () => {
-    if (mp3Recorder && isRecording) {
-      setIsRecording(false);
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
+  const stopAndSendRecording = async () => {
+    const session = voiceSessionRef.current;
+    if (!session || !isRecording) return;
+
+    setIsRecording(false);
+    voiceSessionRef.current = null;
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+    }
+
+    setSending(true);
+    try {
+      const file = await session.stopAndGetFile();
+      const { mediaId } = await uploadFile(file, "auto", true);
+      const res = await fetch("/api/messages/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          toPhone: activeChat?.phone,
+          contactName: activeChat?.name,
+          type: "audio",
+          mediaId: mediaId,
+          isVoiceNote: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.status === "success") {
+        const newMsg: Message = {
+          id: data.msgId,
+          sender: "me",
+          text: "🎤 Voice Note",
+          timestamp: getEpochTime(),
+          status: "sent",
+          type: "audio",
+          mediaId: mediaId,
+        };
+
+        if (activeChat) {
+          const updatedChat = {
+            ...activeChat,
+            messages: [...activeChat.messages, newMsg],
+          };
+          setActiveChat(updatedChat);
+          setContacts((prev) =>
+            prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
+          );
+        }
+      } else {
+        alert("Failed to send voice note: " + (data.error || "Unknown error"));
       }
-
-      mp3Recorder
-        .stop()
-        .getMp3()
-        .then(async ([buffer, blob]: [any, any]) => {
-          // Construct the File object using the actual binary Blob instead of the buffer array.
-          // This creates a valid, playable MP3 file.
-          const file = new File([blob], `voice-note-${Date.now()}.mp3`, {
-            type: "audio/mpeg",
-            lastModified: Date.now(),
-          });
-
-          setSending(true);
-          try {
-            const { mediaId } = await uploadFile(file);
-            const res = await fetch("/api/messages/", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${sessionToken}`,
-              },
-              body: JSON.stringify({
-                toPhone: activeChat?.phone,
-                contactName: activeChat?.name,
-                type: "audio",
-                mediaId: mediaId,
-              }),
-            });
-
-            const data = await res.json();
-            if (res.ok && data.status === "success") {
-              const newMsg: Message = {
-                id: data.msgId,
-                sender: "me",
-                text: "🎤 Voice Note",
-                timestamp: getEpochTime(),
-                status: "sent",
-                type: "audio",
-                mediaId: mediaId,
-              };
-
-              if (activeChat) {
-                const updatedChat = {
-                  ...activeChat,
-                  messages: [...activeChat.messages, newMsg],
-                };
-                setActiveChat(updatedChat);
-                setContacts((prev) =>
-                  prev.map((c) => (c.phone === activeChat.phone ? updatedChat : c))
-                );
-              }
-            } else {
-              alert("Failed to send voice note: " + (data.error || "Unknown error"));
-            }
-          } catch (err: any) {
-            alert("Error sending voice note: " + err.message);
-          } finally {
-            setSending(false);
-          }
-        })
-        .catch((e: any) => {
-          alert("Error processing MP3: " + e.message);
-          console.error(e);
-        });
+    } catch (err: any) {
+      alert("Error sending voice note: " + err.message);
+      console.error(err);
+    } finally {
+      setSending(false);
     }
   };
 
   const cancelRecording = () => {
-    if (mp3Recorder && isRecording) {
-      setIsRecording(false);
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-      }
-      try {
-        mp3Recorder.stop();
-      } catch (e) {}
-      alert("Voice recording cancelled.");
+    const session = voiceSessionRef.current;
+    if (!session || !isRecording) return;
+
+    setIsRecording(false);
+    voiceSessionRef.current = null;
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
     }
+    session.cancel();
   };
 
   const formatDuration = (seconds: number) => {
@@ -1104,10 +1090,15 @@ export default function InboxPage() {
 
   type UploadResult = { mediaId: string; category?: string; filename?: string };
 
-  const uploadFile = async (file: File, sendAs: "auto" | "document" | "video" = "auto"): Promise<UploadResult> => {
+  const uploadFile = async (
+    file: File,
+    sendAs: "auto" | "document" | "video" = "auto",
+    voiceNote = false
+  ): Promise<UploadResult> => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("sendAs", sendAs);
+    if (voiceNote) formData.append("voiceNote", "true");
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
@@ -3296,7 +3287,7 @@ export default function InboxPage() {
                 <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex-1 animate-pulse">
                   <div className="flex items-center space-x-3">
                     <span className="w-3.5 h-3.5 rounded-full bg-rose-500 animate-ping"></span>
-                    <span className="text-zinc-300 text-sm font-semibold">Recording: {formatDuration(recordingDuration)}</span>
+                    <span className="text-zinc-300 text-sm font-semibold">Recording voice note: {formatDuration(recordingDuration)}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <button

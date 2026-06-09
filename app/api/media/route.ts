@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const sendAs = (formData.get("sendAs") as string) || "auto";
+    const voiceNote = formData.get("voiceNote") === "true";
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
 
     const prepared = prepareMetaUploadFile(file, {
       sendAs: sendAs === "document" || sendAs === "video" ? sendAs : "auto",
+      voiceNote,
     });
 
     if (prepared.category === "document" && file.size > MAX_DOCUMENT_BYTES) {

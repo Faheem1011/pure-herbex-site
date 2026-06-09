@@ -15,9 +15,22 @@ export function normalizeVideoFilename(name: string): string {
   return VIDEO_EXT.test(base) ? base : `${base.replace(/\.[^.]+$/, "") || "video"}.mp4`;
 }
 
+export function isVoiceNoteFile(file: { name: string; type?: string }): boolean {
+  const mime = (file.type || "").toLowerCase();
+  const name = file.name.toLowerCase();
+  return name.endsWith(".ogg") || mime.includes("ogg") || name.startsWith("voice-note-");
+}
+
+export function normalizeVoiceNoteFile(file: File): File {
+  const filename = file.name.toLowerCase().endsWith(".ogg")
+    ? file.name
+    : `voice-note-${Date.now()}.ogg`;
+  return new File([file], filename, { type: "audio/ogg" });
+}
+
 export function prepareMetaUploadFile(
   file: File,
-  options: { sendAs?: "video" | "document" | "auto" } = {}
+  options: { sendAs?: "video" | "document" | "auto"; voiceNote?: boolean } = {}
 ): { blob: Blob; filename: string; category: string } {
   const sendAs = options.sendAs || "auto";
 
@@ -38,7 +51,11 @@ export function prepareMetaUploadFile(
   if (file.type?.startsWith("image/")) {
     return { blob: file, filename: file.name, category: "image" };
   }
-  if (file.type?.startsWith("audio/")) {
+  if (file.type?.startsWith("audio/") || options.voiceNote || isVoiceNoteFile(file)) {
+    if (options.voiceNote || isVoiceNoteFile(file)) {
+      const normalized = normalizeVoiceNoteFile(file);
+      return { blob: normalized, filename: normalized.name, category: "audio" };
+    }
     return { blob: file, filename: file.name, category: "audio" };
   }
   if (file.type?.startsWith("video/") || VIDEO_EXT.test(file.name)) {

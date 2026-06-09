@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { toPhone, replyText, contactName, type, mediaId, location, fileName, replyTo } = await request.json();
+    const { toPhone, replyText, contactName, type, mediaId, location, fileName, replyTo, isVoiceNote } = await request.json();
 
     if (!toPhone) {
       return NextResponse.json({ error: "Missing recipient phone number" }, { status: 400 });
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     } else if (msgType === "image") {
       messagePayload.image = { id: mediaId };
     } else if (msgType === "audio") {
-      messagePayload.audio = { id: mediaId };
+      messagePayload.audio = { id: mediaId, ...(isVoiceNote ? { voice: true } : {}) };
     } else if (msgType === "video") {
       messagePayload.video = { id: mediaId };
     } else if (msgType === "document") {
