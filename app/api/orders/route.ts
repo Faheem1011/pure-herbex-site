@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
+import { scheduleOrdersSheetSync } from "@/lib/crm-auto-sync";
 import {
   archiveOrder,
   createOrder,
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const phone = searchParams.get("phone") || undefined;
 
     if (id) {
       const order = await getOrderById(id);
@@ -28,9 +30,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ order });
     }
 
-    const status = (searchParams.get("status") || "active") as OrderStatus | "active" | "all";
+    const status = (searchParams.get("status") || "active") as
+      | OrderStatus
+      | "active"
+      | "all"
+      | "archived";
     const search = searchParams.get("search") || undefined;
-    const orders = await listOrders({ status, search });
+    const includeArchived = searchParams.get("includeArchived") === "1";
+
+    const orders = await listOrders({
+      status,
+      search,
+      phone,
+      includeArchived: includeArchived || status === "all",
+    });
     return NextResponse.json({ orders });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to load orders";
@@ -46,6 +59,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const order = await createOrder(body);
+    scheduleOrdersSheetSync();
     return NextResponse.json({ status: "success", order });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to create order";
@@ -77,6 +91,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const order = await updateOrder(id, { ...patch, statusNote });
+    scheduleOrdersSheetSync();
     return NextResponse.json({ status: "success", order });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to update order";
@@ -96,6 +111,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await archiveOrder(id);
+    scheduleOrdersSheetSync();
     return NextResponse.json({ status: "success" });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to archive order";

@@ -4,9 +4,11 @@
   --crm-surface: rgba(15, 23, 42, 0.72);
   --crm-border: rgba(148, 163, 184, 0.14);
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(245, 158, 11, 0.08), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(99, 102, 241, 0.06), transparent),
+    radial-gradient(ellipse 90% 55% at 50% -15%, rgba(245, 158, 11, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 45% at 0% 100%, rgba(56, 189, 248, 0.05), transparent),
+    radial-gradient(ellipse 45% 40% at 100% 80%, rgba(99, 102, 241, 0.07), transparent),
     #09090b;
+  contain: layout style;
 }
 
 .crm-glass {

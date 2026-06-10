@@ -80,6 +80,16 @@ export const ORDER_STATUS_META: Record<
   },
 };
 
+export const PAKISTAN_PROVINCES = [
+  "Punjab",
+  "Sindh",
+  "KPK",
+  "Balochistan",
+  "Islamabad",
+  "GB",
+  "AJK",
+] as const;
+
 export const COURIERS = [
   "TCS",
   "Leopards",
@@ -97,8 +107,10 @@ export type CrmOrder = {
   status: OrderStatus;
   address?: string;
   city?: string;
+  province?: string;
   area?: string;
   landmark?: string;
+  deliveredAt?: number;
   trackingNumber?: string;
   courier?: string;
   product?: string;
@@ -113,7 +125,30 @@ export type CrmOrder = {
   statusHistory: Array<{ status: OrderStatus; at: number; note?: string }>;
 };
 
-export type CrmOrderStats = Record<OrderStatus, number> & { total: number; active: number };
+export type CrmOrderStats = Record<OrderStatus, number> & {
+  total: number;
+  active: number;
+  needsAddress: number;
+  needsTracking: number;
+  needsAction: number;
+};
+
+export type CrmPhoneSummary = {
+  orderId: string;
+  status: OrderStatus;
+  needsAddress: boolean;
+  needsTracking: boolean;
+};
+
+export type CrmOrdersSummary = {
+  byPhone: Record<string, CrmPhoneSummary>;
+  counts: {
+    active: number;
+    needsAddress: number;
+    needsTracking: number;
+    needsAction: number;
+  };
+};
 
 export type CrmOrderInput = Partial<
   Omit<CrmOrder, "id" | "phone" | "createdAt" | "updatedAt" | "statusHistory">

@@ -1,10 +1,16 @@
 import { kv } from "@vercel/kv";
 import { normalizePhone } from "@/lib/blocked";
 import {
+  orderNeedsAction,
+  orderNeedsAddress,
+  orderNeedsTracking,
+} from "@/lib/crm-order-utils";
+import {
   ACTIVE_ORDER_STATUSES,
   type CrmOrder,
   type CrmOrderInput,
   type CrmOrderStats,
+  type CrmOrdersSummary,
   ORDER_STATUSES,
   type OrderStatus,
 } from "@/lib/crm-types";
@@ -15,9 +21,33 @@ const orderKey = (id: string) => `crm:order:${id}`;
 const phoneIndexKey = (phone: string) => `crm:phone:${normalizePhone(phone)}`;
 
 function emptyStats(): CrmOrderStats {
-  const stats = { total: 0, active: 0 } as CrmOrderStats;
+  const stats = {
+    total: 0,
+    active: 0,
+    needsAddress: 0,
+    needsTracking: 0,
+    needsAction: 0,
+  } as CrmOrderStats;
   for (const s of ORDER_STATUSES) stats[s] = 0;
   return stats;
+}
+
+function applyStats(order: CrmOrder, stats: CrmOrderStats): void {
+  stats.total += 1;
+  stats[order.status] += 1;
+  if (ACTIVE_ORDER_STATUSES.includes(order.status)) {
+    stats.active += 1;
+    if (orderNeedsAddress(order)) stats.needsAddress += 1;
+    if (orderNeedsTracking(order)) stats.needsTracking += 1;
+    if (orderNeedsAction(order)) stats.needsAction += 1;
+  }
+}
+
+async function loadOrdersByIds(ids: string[]): Promise<CrmOrder[]> {
+  if (ids.length === 0) return [];
+  const unique = [...new Set(ids)];
+  const batch = await kv.mget(unique.map(orderKey));
+  return batch.filter((o): o is CrmOrder => !!o);
 }
 
 export async function findActiveOrderByPhone(phone: string): Promise<CrmOrder | null> {
@@ -32,6 +62,14 @@ export async function findActiveOrderByPhone(phone: string): Promise<CrmOrder | 
     }
   }
   return null;
+}
+
+export async function getOrdersByPhone(phone: string): Promise<CrmOrder[]> {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return [];
+  const ids: string[] = (await kv.get(phoneIndexKey(normalized))) || [];
+  const orders = await loadOrdersByIds(ids);
+  return orders.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function createOrder(input: CrmOrderInput): Promise<CrmOrder> {
@@ -52,6 +90,7 @@ export async function createOrder(input: CrmOrderInput): Promise<CrmOrder> {
     status,
     address: input.address?.trim() || "",
     city: input.city?.trim() || "",
+    province: input.province?.trim() || "",
     area: input.area?.trim() || "",
     landmark: input.landmark?.trim() || "",
     trackingNumber: input.trackingNumber?.trim() || "",
@@ -63,6 +102,7 @@ export async function createOrder(input: CrmOrderInput): Promise<CrmOrder> {
     agentNotes: input.agentNotes?.trim() || "",
     priority: input.priority || "normal",
     source: input.source || "manual",
+    deliveredAt: input.deliveredAt,
     createdAt: now,
     updatedAt: now,
     statusHistory: [{ status, at: now, note: "Order created" }],
@@ -82,17 +122,41 @@ export async function getOrderById(id: string): Promise<CrmOrder | null> {
 }
 
 export async function listOrders(options?: {
-  status?: OrderStatus | "active" | "all";
+  status?: OrderStatus | "active" | "all" | "archived";
   search?: string;
+  phone?: string;
   limit?: number;
+  includeArchived?: boolean;
 }): Promise<CrmOrder[]> {
-  const ids: string[] = (await kv.smembers(ORDERS_SET)) || [];
-  const orders = (await kv.mget(ids.map(orderKey))) as (CrmOrder | null)[];
-  let list = orders.filter((o): o is CrmOrder => !!o);
+  if (options?.phone) {
+    let list = await getOrdersByPhone(options.phone);
+    const statusFilter = options.status || "all";
+    if (statusFilter === "active") {
+      list = list.filter((o) => ACTIVE_ORDER_STATUSES.includes(o.status));
+    } else if (statusFilter === "archived") {
+      const archivedIds = new Set(await kv.smembers(ARCHIVED_SET));
+      list = list.filter((o) => archivedIds.has(o.id));
+    } else if (statusFilter !== "all") {
+      list = list.filter((o) => o.status === statusFilter);
+    }
+    return list.slice(0, options.limit ?? 100);
+  }
+
+  const activeIds: string[] = (await kv.smembers(ORDERS_SET)) || [];
+  const archivedIds: string[] =
+    options?.includeArchived || options?.status === "archived"
+      ? (await kv.smembers(ARCHIVED_SET)) || []
+      : [];
+
+  const idSet = new Set([...activeIds, ...archivedIds]);
+  let list = await loadOrdersByIds([...idSet]);
 
   const statusFilter = options?.status || "active";
   if (statusFilter === "active") {
     list = list.filter((o) => ACTIVE_ORDER_STATUSES.includes(o.status));
+  } else if (statusFilter === "archived") {
+    const archived = new Set(archivedIds);
+    list = list.filter((o) => archived.has(o.id));
   } else if (statusFilter !== "all") {
     list = list.filter((o) => o.status === statusFilter);
   }
@@ -105,6 +169,7 @@ export async function listOrders(options?: {
         o.phone.includes(q) ||
         (o.trackingNumber || "").toLowerCase().includes(q) ||
         (o.city || "").toLowerCase().includes(q) ||
+        (o.province || "").toLowerCase().includes(q) ||
         (o.address || "").toLowerCase().includes(q)
     );
   }
@@ -115,8 +180,7 @@ export async function listOrders(options?: {
     return b.updatedAt - a.updatedAt;
   });
 
-  const limit = options?.limit ?? 500;
-  return list.slice(0, limit);
+  return list.slice(0, options?.limit ?? 500);
 }
 
 export async function updateOrder(
@@ -147,6 +211,9 @@ export async function updateOrder(
     if (next.statusHistory.length > 50) {
       next.statusHistory = next.statusHistory.slice(0, 50);
     }
+    if (fields.status === "delivered" && !next.deliveredAt) {
+      next.deliveredAt = now;
+    }
   }
 
   await kv.set(orderKey(id), next);
@@ -162,17 +229,50 @@ export async function archiveOrder(id: string): Promise<void> {
 
 export async function getOrderStats(): Promise<CrmOrderStats> {
   const ids: string[] = (await kv.smembers(ORDERS_SET)) || [];
-  const orders = (await kv.mget(ids.map(orderKey))) as (CrmOrder | null)[];
+  const orders = await loadOrdersByIds(ids);
   const stats = emptyStats();
 
   for (const order of orders) {
-    if (!order) continue;
-    stats.total += 1;
-    stats[order.status] += 1;
-    if (ACTIVE_ORDER_STATUSES.includes(order.status)) stats.active += 1;
+    applyStats(order, stats);
   }
 
   return stats;
+}
+
+export async function getOrdersSummary(): Promise<CrmOrdersSummary> {
+  const ids: string[] = (await kv.smembers(ORDERS_SET)) || [];
+  const orders = await loadOrdersByIds(ids);
+  const byPhone: CrmOrdersSummary["byPhone"] = {};
+  const counts = {
+    active: 0,
+    needsAddress: 0,
+    needsTracking: 0,
+    needsAction: 0,
+  };
+
+  const activeOrders = orders
+    .filter((o) => ACTIVE_ORDER_STATUSES.includes(o.status))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  for (const order of activeOrders) {
+    counts.active += 1;
+    const needsAddress = orderNeedsAddress(order);
+    const needsTracking = orderNeedsTracking(order);
+    if (needsAddress) counts.needsAddress += 1;
+    if (needsTracking) counts.needsTracking += 1;
+    if (needsAddress || needsTracking) counts.needsAction += 1;
+
+    if (!byPhone[order.phone]) {
+      byPhone[order.phone] = {
+        orderId: order.id,
+        status: order.status,
+        needsAddress,
+        needsTracking,
+      };
+    }
+  }
+
+  return { byPhone, counts };
 }
 
 export async function getOrderIdsByPhone(phone: string): Promise<string[]> {

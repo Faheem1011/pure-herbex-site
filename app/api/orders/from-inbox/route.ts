@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
+import { scheduleOrdersSheetSync } from "@/lib/crm-auto-sync";
 import { createOrder, findActiveOrderByPhone } from "@/lib/crm-orders";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
       status: "pending_details",
     });
 
+    scheduleOrdersSheetSync();
     return NextResponse.json({ status: "success", order });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to create order from inbox";

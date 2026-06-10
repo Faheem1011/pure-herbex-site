@@ -8,6 +8,7 @@ export const ORDER_EXPORT_HEADERS = [
   "status",
   "address",
   "city",
+  "province",
   "area",
   "landmark",
   "tracking_number",
@@ -21,7 +22,9 @@ export const ORDER_EXPORT_HEADERS = [
   "agent_notes",
   "created_at",
   "updated_at",
+  "delivered_at",
   "last_status_at",
+  "archived",
 ] as const;
 
 export type OrderExportRow = Record<(typeof ORDER_EXPORT_HEADERS)[number], string>;
@@ -34,7 +37,10 @@ function fmtDate(ms: number): string {
   });
 }
 
-export function orderToExportRow(order: CrmOrder): OrderExportRow {
+export function orderToExportRow(
+  order: CrmOrder,
+  archived = false
+): OrderExportRow {
   const lastStatus = order.statusHistory?.[0];
   return {
     order_id: order.id,
@@ -43,6 +49,7 @@ export function orderToExportRow(order: CrmOrder): OrderExportRow {
     status: ORDER_STATUS_META[order.status]?.label || order.status,
     address: order.address || "",
     city: order.city || "",
+    province: order.province || "",
     area: order.area || "",
     landmark: order.landmark || "",
     tracking_number: order.trackingNumber || "",
@@ -56,18 +63,26 @@ export function orderToExportRow(order: CrmOrder): OrderExportRow {
     agent_notes: order.agentNotes || "",
     created_at: fmtDate(order.createdAt),
     updated_at: fmtDate(order.updatedAt),
+    delivered_at: order.deliveredAt ? fmtDate(order.deliveredAt) : "",
     last_status_at: lastStatus ? fmtDate(lastStatus.at) : "",
+    archived: archived ? "yes" : "no",
   };
 }
 
-export function ordersToExportRows(orders: CrmOrder[]): OrderExportRow[] {
+export function ordersToExportRows(
+  orders: CrmOrder[],
+  archivedIds?: Set<string>
+): OrderExportRow[] {
   return [...orders]
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .map(orderToExportRow);
+    .map((o) => orderToExportRow(o, archivedIds?.has(o.id)));
 }
 
-export function ordersToSheetValues(orders: CrmOrder[]): string[][] {
-  const rows = ordersToExportRows(orders);
+export function ordersToSheetValues(
+  orders: CrmOrder[],
+  archivedIds?: Set<string>
+): string[][] {
+  const rows = ordersToExportRows(orders, archivedIds);
   return [
     [...ORDER_EXPORT_HEADERS],
     ...rows.map((r) => ORDER_EXPORT_HEADERS.map((h) => r[h])),

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { listOrders } from "@/lib/crm-orders";
 import { ordersToCsv } from "@/lib/export-orders";
+
+const ARCHIVED_SET = "crm:orders:archived";
 import {
   getGoogleSheetUrl,
   isGoogleSheetsConfigured,
@@ -19,7 +22,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = (searchParams.get("status") || "all") as "all" | "active";
-    const orders = await listOrders({ status, limit: 2000 });
+    const orders = await listOrders({
+      status: "all",
+      includeArchived: true,
+      limit: 3000,
+    });
     const stamp = new Date().toISOString().slice(0, 10);
 
     return new NextResponse(ordersToCsv(orders), {
@@ -53,10 +60,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json().catch(() => ({}));
-    const status = (body.status || "all") as "all" | "active";
-    const orders = await listOrders({ status, limit: 2000 });
-    const result = await syncOrdersToGoogleSheet(orders);
+    const archivedIds = new Set<string>(
+      ((await kv.smembers(ARCHIVED_SET)) as string[]) || []
+    );
+    const orders = await listOrders({
+      status: "all",
+      includeArchived: true,
+      limit: 3000,
+    });
+    const result = await syncOrdersToGoogleSheet(orders, archivedIds);
 
     return NextResponse.json({
       status: "success",

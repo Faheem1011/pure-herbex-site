@@ -2,17 +2,19 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { CrmOrder, CrmOrderStats, OrderStatus } from "@/lib/crm-types";
-import { COURIERS, ORDER_STATUS_META, ORDER_STATUSES } from "@/lib/crm-types";
+import { COURIERS, ORDER_STATUS_META, ORDER_STATUSES, PAKISTAN_PROVINCES } from "@/lib/crm-types";
+import OrderListItem from "@/components/crm/OrderListItem";
 import OrderStatusBadge from "@/components/crm/OrderStatusBadge";
 import "@/components/crm/crm.css";
 
-type Filter = "active" | "all" | OrderStatus;
+type Filter = "active" | "all" | "archived" | OrderStatus;
 
 type Props = {
   sessionToken: string | null;
   onOpenChat: (phone: string, name: string) => void;
   focusOrderId?: string | null;
   onFocusHandled?: () => void;
+  onOrdersChanged?: () => void;
 };
 
 const EMPTY_FORM = {
@@ -20,6 +22,7 @@ const EMPTY_FORM = {
   phone: "",
   address: "",
   city: "",
+  province: "",
   area: "",
   landmark: "",
   trackingNumber: "",
@@ -39,6 +42,7 @@ function orderToForm(order: CrmOrder) {
     phone: order.phone,
     address: order.address || "",
     city: order.city || "",
+    province: order.province || "",
     area: order.area || "",
     landmark: order.landmark || "",
     trackingNumber: order.trackingNumber || "",
@@ -58,6 +62,7 @@ export default function OrdersPanel({
   onOpenChat,
   focusOrderId,
   onFocusHandled,
+  onOrdersChanged,
 }: Props) {
   const [orders, setOrders] = useState<CrmOrder[]>([]);
   const [stats, setStats] = useState<CrmOrderStats | null>(null);
@@ -77,6 +82,10 @@ export default function OrdersPanel({
     tab: string;
     serviceAccountEmail: string | null;
   } | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [phoneHistory, setPhoneHistory] = useState<CrmOrder[]>([]);
+  const [notifying, setNotifying] = useState(false);
+  const [sheetSyncNote, setSheetSyncNote] = useState("");
 
   const authHeaders = useMemo(
     () => ({
@@ -88,13 +97,19 @@ export default function OrdersPanel({
 
   const selected = orders.find((o) => o.id === selectedId) || null;
 
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 280);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
   const load = useCallback(async () => {
     if (!sessionToken) return;
     setLoading(true);
     try {
-      const q = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
+      const q = debouncedSearch.trim() ? `&search=${encodeURIComponent(debouncedSearch.trim())}` : "";
+      const archived = filter === "archived" ? "&includeArchived=1" : "";
       const [listRes, statsRes] = await Promise.all([
-        fetch(`/api/orders/?status=${filter}${q}`, { headers: authHeaders }),
+        fetch(`/api/orders/?status=${filter}${q}${archived}`, { headers: authHeaders }),
         fetch("/api/orders/stats/", { headers: authHeaders }),
       ]);
       const listData = await listRes.json();
@@ -106,7 +121,7 @@ export default function OrdersPanel({
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, filter, search, authHeaders]);
+  }, [sessionToken, filter, debouncedSearch, authHeaders]);
 
   useEffect(() => {
     load();
@@ -141,6 +156,19 @@ export default function OrdersPanel({
     }
   }, [selected?.id, selected?.updatedAt]);
 
+  useEffect(() => {
+    if (!selected?.phone || !sessionToken) {
+      setPhoneHistory([]);
+      return;
+    }
+    fetch(`/api/orders/?phone=${encodeURIComponent(selected.phone)}&status=all`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    })
+      .then((r) => r.json())
+      .then((d) => setPhoneHistory(d.orders || []))
+      .catch(() => setPhoneHistory([]));
+  }, [selected?.phone, selected?.updatedAt, sessionToken]);
+
   const selectOrder = (order: CrmOrder) => {
     setSelectedId(order.id);
     setForm(orderToForm(order));
@@ -164,6 +192,7 @@ export default function OrdersPanel({
         phone: form.phone.trim(),
         address: form.address.trim(),
         city: form.city.trim(),
+        province: form.province.trim(),
         area: form.area.trim(),
         landmark: form.landmark.trim(),
         trackingNumber: form.trackingNumber.trim(),
@@ -206,8 +235,58 @@ export default function OrdersPanel({
         if (!res.ok) throw new Error(data.error || "Save failed");
       }
       await load();
+      onOrdersChanged?.();
+      if (sheetsConfig?.configured) {
+        setSheetSyncNote("Syncing to Google Sheet…");
+        window.setTimeout(() => setSheetSyncNote(""), 4000);
+      }
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendTrackingWhatsApp = async () => {
+    if (!selectedId || !sessionToken) return;
+    if (!form.trackingNumber.trim()) {
+      alert("Add a tracking number first.");
+      return;
+    }
+    if (!confirm(`Send tracking to +${form.phone} on WhatsApp?`)) return;
+    setNotifying(true);
+    try {
+      const res = await fetch("/api/orders/notify-tracking/", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ orderId: selectedId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Send failed");
+      alert("Tracking message sent!");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Could not send tracking");
+    } finally {
+      setNotifying(false);
+    }
+  };
+
+  const archiveSelected = async () => {
+    if (!selectedId || !sessionToken) return;
+    if (!confirm("Archive this order? It stays in exports but leaves the active list.")) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/orders/?id=${encodeURIComponent(selectedId)}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+      setSelectedId(null);
+      setShowNew(false);
+      setMobileShowDetail(false);
+      await load();
+      onOrdersChanged?.();
+    } catch {
+      alert("Could not archive order");
     } finally {
       setSaving(false);
     }
@@ -225,6 +304,7 @@ export default function OrdersPanel({
       });
       if (!res.ok) throw new Error("Status update failed");
       await load();
+      onOrdersChanged?.();
     } catch {
       alert("Could not update status");
     } finally {
@@ -289,12 +369,15 @@ export default function OrdersPanel({
     }
   };
 
-  const statCards = [
-    { label: "Active", value: stats?.active ?? 0, accent: "text-amber-400" },
-    { label: "Needs details", value: stats?.pending_details ?? 0, accent: "text-slate-300" },
-    { label: "Shipped", value: (stats?.shipped ?? 0) + (stats?.in_transit ?? 0), accent: "text-orange-300" },
-    { label: "Delivered", value: stats?.delivered ?? 0, accent: "text-emerald-400" },
-  ];
+  const statCards = useMemo(
+    () => [
+      { label: "Action needed", value: stats?.needsAction ?? 0, accent: "text-rose-300" },
+      { label: "No address", value: stats?.needsAddress ?? 0, accent: "text-sky-300" },
+      { label: "No tracking", value: stats?.needsTracking ?? 0, accent: "text-orange-300" },
+      { label: "Delivered", value: stats?.delivered ?? 0, accent: "text-emerald-400" },
+    ],
+    [stats]
+  );
 
   return (
     <div className="crm-shell flex-1 flex overflow-hidden min-h-0">
@@ -344,7 +427,7 @@ export default function OrdersPanel({
           />
 
           <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
-            {(["active", "pending_details", "shipped", "delivered", "all"] as Filter[]).map((f) => (
+            {(["active", "pending_details", "shipped", "delivered", "archived", "all"] as Filter[]).map((f) => (
               <button
                 key={f}
                 type="button"
@@ -355,7 +438,13 @@ export default function OrdersPanel({
                     : "text-zinc-500 hover:text-zinc-300 border border-transparent"
                 }`}
               >
-                {f === "active" ? "Active" : f === "all" ? "All" : ORDER_STATUS_META[f as OrderStatus]?.label || f}
+                {f === "active"
+                  ? "Active"
+                  : f === "all"
+                    ? "All"
+                    : f === "archived"
+                      ? "Archived"
+                      : ORDER_STATUS_META[f as OrderStatus]?.label || f}
               </button>
             ))}
           </div>
@@ -397,6 +486,9 @@ export default function OrdersPanel({
               Google Sheet sync needs Vercel env vars. CSV works now; import into Sheets manually.
             </p>
           )}
+          {sheetSyncNote && (
+            <p className="mt-2 text-[10px] text-[#34A853] animate-pulse">{sheetSyncNote}</p>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
@@ -411,34 +503,12 @@ export default function OrdersPanel({
             </div>
           ) : (
             orders.map((order) => (
-              <button
+              <OrderListItem
                 key={order.id}
-                type="button"
-                onClick={() => selectOrder(order)}
-                className={`crm-order-row w-full text-left p-3.5 rounded-2xl border transition-all ${
-                  selectedId === order.id
-                    ? "border-amber-500/40 bg-amber-500/8"
-                    : "border-white/5 bg-zinc-900/30"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm text-zinc-100 truncate">{order.customerName}</p>
-                    <p className="text-[11px] text-zinc-500">+{order.phone}</p>
-                  </div>
-                  <OrderStatusBadge status={order.status} />
-                </div>
-                {order.trackingNumber ? (
-                  <p className="text-[10px] text-amber-400/80 font-mono truncate">#{order.trackingNumber}</p>
-                ) : order.city ? (
-                  <p className="text-[10px] text-zinc-500 truncate">{order.city}</p>
-                ) : (
-                  <p className="text-[10px] text-zinc-600 italic">No tracking yet</p>
-                )}
-                {order.priority === "urgent" && (
-                  <span className="inline-block mt-1 text-[9px] font-black text-rose-400 uppercase">Urgent</span>
-                )}
-              </button>
+                order={order}
+                selected={selectedId === order.id}
+                onSelect={selectOrder}
+              />
             ))
           )}
         </div>
@@ -480,13 +550,26 @@ export default function OrdersPanel({
                   {!showNew && <p className="text-xs text-zinc-500">+{form.phone}</p>}
                 </div>
                 {!showNew && selected && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenChat(selected.phone, selected.customerName)}
-                    className="shrink-0 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 transition-all"
-                  >
-                    Open chat
-                  </button>
+                  <div className="flex gap-1.5 shrink-0">
+                    {form.trackingNumber && (
+                      <button
+                        type="button"
+                        disabled={notifying}
+                        onClick={sendTrackingWhatsApp}
+                        className="px-2.5 py-2 rounded-xl bg-[#25D366]/15 border border-[#25D366]/25 text-[#25D366] text-[10px] font-bold hover:bg-[#25D366]/25 disabled:opacity-50"
+                        title="Send tracking on WhatsApp"
+                      >
+                        {notifying ? "…" : "📦 Send"}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => onOpenChat(selected.phone, selected.customerName)}
+                      className="px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 transition-all"
+                    >
+                      Chat
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -546,7 +629,7 @@ export default function OrdersPanel({
                     className="mt-1 w-full px-3 py-2.5 rounded-xl bg-zinc-950/60 border border-white/8 text-sm text-zinc-100 focus:outline-none focus:border-amber-500/40 resize-none"
                   />
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <label className="block">
                     <span className="text-[10px] text-zinc-500 font-medium">City</span>
                     <input
@@ -554,6 +637,19 @@ export default function OrdersPanel({
                       onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                       className="mt-1 w-full px-3 py-2.5 rounded-xl bg-zinc-950/60 border border-white/8 text-sm text-zinc-100 focus:outline-none focus:border-amber-500/40"
                     />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] text-zinc-500 font-medium">Province</span>
+                    <select
+                      value={form.province}
+                      onChange={(e) => setForm((f) => ({ ...f, province: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2.5 rounded-xl bg-zinc-950/60 border border-white/8 text-sm text-zinc-100 focus:outline-none focus:border-amber-500/40"
+                    >
+                      <option value="">Select</option>
+                      {PAKISTAN_PROVINCES.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
                   </label>
                   <label className="block">
                     <span className="text-[10px] text-zinc-500 font-medium">Area</span>
@@ -675,6 +771,49 @@ export default function OrdersPanel({
                 </label>
               </div>
 
+              {selected?.deliveredAt && (
+                <div className="crm-glass rounded-2xl px-4 py-3 flex items-center gap-3 border-emerald-500/20">
+                  <span className="text-emerald-400 text-lg">✓</span>
+                  <div>
+                    <p className="text-xs font-bold text-emerald-300">Delivered</p>
+                    <p className="text-[10px] text-zinc-500">
+                      {new Date(selected.deliveredAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {phoneHistory.length > 1 && (
+                <div className="crm-glass rounded-2xl p-5">
+                  <h3 className="text-xs font-bold text-amber-400/90 uppercase tracking-wider mb-3">
+                    Customer history ({phoneHistory.length} orders)
+                  </h3>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {phoneHistory.map((h) => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => selectOrder(h)}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs border transition-all ${
+                          h.id === selectedId
+                            ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                            : "border-white/5 text-zinc-400 hover:border-white/10"
+                        }`}
+                      >
+                        <span className="font-semibold">{ORDER_STATUS_META[h.status].label}</span>
+                        <span className="text-zinc-600 mx-1">·</span>
+                        <span>{new Date(h.createdAt).toLocaleDateString()}</span>
+                        {h.trackingNumber && (
+                          <span className="block text-[10px] font-mono text-zinc-500 mt-0.5">
+                            #{h.trackingNumber}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {selected && selected.statusHistory.length > 0 && (
                 <div className="crm-glass rounded-2xl p-5">
                   <h3 className="text-xs font-bold text-amber-400/90 uppercase tracking-wider mb-4">Activity</h3>
@@ -698,7 +837,7 @@ export default function OrdersPanel({
               )}
             </div>
 
-            <div className="shrink-0 p-4 border-t border-white/5 crm-glass safe-bottom">
+            <div className="shrink-0 p-4 border-t border-white/5 crm-glass safe-bottom space-y-2">
               <button
                 type="button"
                 disabled={saving || !form.phone.trim()}
@@ -707,6 +846,16 @@ export default function OrdersPanel({
               >
                 {saving ? "Saving…" : showNew ? "Create order" : "Save changes"}
               </button>
+              {!showNew && selectedId && (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={archiveSelected}
+                  className="w-full py-2 rounded-xl border border-zinc-700 text-zinc-500 hover:text-rose-400 hover:border-rose-500/30 text-xs font-semibold transition-all"
+                >
+                  Archive order
+                </button>
+              )}
             </div>
           </>
         )}

@@ -141,7 +141,10 @@ export function getGoogleSheetUrl(): string | null {
   return `https://docs.google.com/spreadsheets/d/${id}/edit`;
 }
 
-export async function syncOrdersToGoogleSheet(orders: CrmOrder[]): Promise<{
+export async function syncOrdersToGoogleSheet(
+  orders: CrmOrder[],
+  archivedIds?: Set<string>
+): Promise<{
   rowCount: number;
   sheetUrl: string;
   tab: string;
@@ -154,7 +157,7 @@ export async function syncOrdersToGoogleSheet(orders: CrmOrder[]): Promise<{
 
   await ensureSheetTab(spreadsheetId, token, tab);
 
-  const values = ordersToSheetValues(orders);
+  const values = ordersToSheetValues(orders, archivedIds);
 
   const clearRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(

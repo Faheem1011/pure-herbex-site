@@ -121,7 +121,10 @@ export default function InboxPage() {
   // Marketing CRM states
   const [viewMode, setViewMode] = useState<"inbox" | "promo" | "campaign" | "status" | "orders">("inbox");
   const [crmFocusOrderId, setCrmFocusOrderId] = useState<string | null>(null);
-  const [orderPhones, setOrderPhones] = useState<Set<string>>(new Set());
+  const [orderSummary, setOrderSummary] = useState<{
+    byPhone: Record<string, { orderId: string; needsAddress: boolean; needsTracking: boolean }>;
+    counts: { active: number; needsAction: number };
+  }>({ byPhone: {}, counts: { active: 0, needsAction: 0 } });
   const [campaignContacts, setCampaignContacts] = useState<Contact[]>([]);
   const campaignContactsRef = useRef<Contact[]>([]);
   const [activeCampaignChat, setActiveCampaignChat] = useState<Contact | null>(null);
@@ -1419,19 +1422,37 @@ export default function InboxPage() {
     }
   };
 
-  const fetchOrderPhones = async () => {
+  const fetchOrderSummary = async () => {
     if (!sessionToken) return;
     try {
-      const res = await fetch("/api/orders/?status=active", {
+      const res = await fetch("/api/orders/summary/", {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       const data = await res.json();
-      if (data.orders) {
-        setOrderPhones(new Set(data.orders.map((o: { phone: string }) => o.phone)));
+      if (data.byPhone) {
+        setOrderSummary({
+          byPhone: data.byPhone,
+          counts: {
+            active: data.counts?.active ?? 0,
+            needsAction: data.counts?.needsAction ?? 0,
+          },
+        });
       }
     } catch (e) {
-      console.error("Failed to load order phones", e);
+      console.error("Failed to load order summary", e);
     }
+  };
+
+  const openCrmForPhone = async (phone: string, customerName: string) => {
+    const meta = orderSummary.byPhone[phone];
+    if (meta?.orderId) {
+      setViewMode("orders");
+      setActiveChat(null);
+      setCrmFocusOrderId(meta.orderId);
+      return;
+    }
+    await addToOrdersCrm(phone, customerName, true);
+    void fetchOrderSummary();
   };
 
   const addToOrdersCrm = async (phone: string, customerName: string, openAfter = false) => {
@@ -1447,7 +1468,7 @@ export default function InboxPage() {
       });
       const data = await res.json();
       if (data.order) {
-        setOrderPhones((prev) => new Set([...prev, data.order.phone]));
+        void fetchOrderSummary();
         if (openAfter) {
           setViewMode("orders");
           setActiveChat(null);
@@ -1469,7 +1490,7 @@ export default function InboxPage() {
   };
 
   useEffect(() => {
-    if (isLoggedIn && sessionToken) void fetchOrderPhones();
+    if (isLoggedIn && sessionToken) void fetchOrderSummary();
   }, [isLoggedIn, sessionToken]);
 
   const openChatFromCrm = (phone: string, name: string) => {
@@ -1515,7 +1536,7 @@ export default function InboxPage() {
         throw new Error("Failed to sync tag with database");
       }
 
-      if (tag === "Confirm" && contact && !orderPhones.has(phone)) {
+      if (tag === "Confirm" && contact && !orderSummary.byPhone[phone]) {
         if (confirm(`Add ${contact.name} to Orders CRM?`)) {
           await addToOrdersCrm(phone, contact.name, true);
         }
@@ -2039,11 +2060,15 @@ export default function InboxPage() {
               <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
-              {orderPhones.size > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-amber-500 text-[9px] font-black text-zinc-950 rounded-full flex items-center justify-center">
-                  {orderPhones.size > 9 ? "9+" : orderPhones.size}
+              {orderSummary.counts.needsAction > 0 ? (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-rose-500 text-[9px] font-black text-white rounded-full flex items-center justify-center animate-pulse">
+                  {orderSummary.counts.needsAction > 9 ? "9+" : orderSummary.counts.needsAction}
                 </span>
-              )}
+              ) : orderSummary.counts.active > 0 ? (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-amber-500 text-[9px] font-black text-zinc-950 rounded-full flex items-center justify-center">
+                  {orderSummary.counts.active > 9 ? "9+" : orderSummary.counts.active}
+                </span>
+              ) : null}
             </button>
 
             <button
@@ -2156,6 +2181,7 @@ export default function InboxPage() {
           onOpenChat={openChatFromCrm}
           focusOrderId={crmFocusOrderId}
           onFocusHandled={() => setCrmFocusOrderId(null)}
+          onOrdersChanged={() => void fetchOrderSummary()}
         />
       ) : viewMode === "status" ? (
         <main className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
@@ -2775,6 +2801,21 @@ export default function InboxPage() {
                           <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
                         )}
                         {c.name}
+                        {orderSummary.byPhone[c.phone] && (
+                          <span
+                            className={`inline-flex items-center justify-center w-4 h-4 rounded-md shrink-0 ${
+                              orderSummary.byPhone[c.phone].needsAddress ||
+                              orderSummary.byPhone[c.phone].needsTracking
+                                ? "bg-amber-500/25 text-amber-300"
+                                : "bg-amber-500/15 text-amber-400/80"
+                            }`}
+                            title="Active order in CRM"
+                          >
+                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                          </span>
+                        )}
                       </h3>
                       <div className="flex items-center gap-1 ml-1 shrink-0">
                         {c.hasUnread && (
@@ -3813,14 +3854,11 @@ export default function InboxPage() {
             </div>
             {[
               {
-                label: orderPhones.has(contactMenuTarget.phone) ? "Open in Orders CRM" : "Add to Orders CRM",
+                label: orderSummary.byPhone[contactMenuTarget.phone]
+                  ? "Open in Orders CRM"
+                  : "Add to Orders CRM",
                 action: () => {
-                  if (orderPhones.has(contactMenuTarget.phone)) {
-                    setViewMode("orders");
-                    setActiveChat(null);
-                  } else {
-                    void addToOrdersCrm(contactMenuTarget.phone, contactMenuTarget.name, true);
-                  }
+                  void openCrmForPhone(contactMenuTarget.phone, contactMenuTarget.name);
                 },
               },
               { label: contactMenuTarget.pinned ? "Unpin chat" : "Pin chat", action: () => pinContact(contactMenuTarget.phone, !contactMenuTarget.pinned) },
