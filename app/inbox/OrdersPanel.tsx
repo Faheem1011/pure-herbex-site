@@ -69,6 +69,14 @@ export default function OrdersPanel({
   const [form, setForm] = useState(EMPTY_FORM);
   const [showNew, setShowNew] = useState(false);
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
+  const [exportingSheets, setExportingSheets] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [sheetsConfig, setSheetsConfig] = useState<{
+    configured: boolean;
+    sheetUrl: string | null;
+    tab: string;
+    serviceAccountEmail: string | null;
+  } | null>(null);
 
   const authHeaders = useMemo(
     () => ({
@@ -103,6 +111,16 @@ export default function OrdersPanel({
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!sessionToken) return;
+    fetch("/api/orders/export/config/", {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    })
+      .then((r) => r.json())
+      .then(setSheetsConfig)
+      .catch(() => setSheetsConfig(null));
+  }, [sessionToken]);
 
   useEffect(() => {
     if (!focusOrderId || orders.length === 0) return;
@@ -214,6 +232,63 @@ export default function OrdersPanel({
     }
   };
 
+  const downloadCsv = async () => {
+    if (!sessionToken) return;
+    setExportingCsv(true);
+    try {
+      const res = await fetch(`/api/orders/export/?status=all`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (!res.ok) throw new Error("CSV export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pure-herbex-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Could not download CSV");
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
+  const syncToGoogleSheets = async () => {
+    if (!sessionToken) return;
+    if (!sheetsConfig?.configured) {
+      alert(
+        "Google Sheets is not set up yet.\n\n" +
+          "1. Create a Google Sheet\n" +
+          "2. Create a Google Cloud service account with Sheets API enabled\n" +
+          "3. Share the sheet with the service account email (Editor)\n" +
+          "4. Add GOOGLE_SHEETS_SPREADSHEET_ID and GOOGLE_SERVICE_ACCOUNT_JSON on Vercel\n\n" +
+          "Use Download CSV until then — you can import that file into Google Sheets manually."
+      );
+      return;
+    }
+
+    setExportingSheets(true);
+    try {
+      const res = await fetch("/api/orders/export/", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ status: "all" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+
+      const open = confirm(
+        `Synced ${data.rowCount} orders to Google Sheets tab "${data.tab}".\n\nOpen the sheet now?`
+      );
+      if (open && data.sheetUrl) window.open(data.sheetUrl, "_blank", "noopener,noreferrer");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Google Sheets sync failed");
+    } finally {
+      setExportingSheets(false);
+    }
+  };
+
   const statCards = [
     { label: "Active", value: stats?.active ?? 0, accent: "text-amber-400" },
     { label: "Needs details", value: stats?.pending_details ?? 0, accent: "text-slate-300" },
@@ -284,6 +359,44 @@ export default function OrdersPanel({
               </button>
             ))}
           </div>
+
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              disabled={exportingSheets}
+              onClick={syncToGoogleSheets}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#0F9D58]/15 border border-[#0F9D58]/30 text-[#34A853] hover:bg-[#0F9D58]/25 disabled:opacity-50 text-[11px] font-bold transition-all"
+            >
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.5 3.5H13v6h6.5c.8 0 1.5.7 1.5 1.5v11c0 .8-.7 1.5-1.5 1.5h-11c-.8 0-1.5-.7-1.5-1.5v-11c0-.8.7-1.5 1.5-1.5H11v-6H4.5C3.7 3.5 3 4.2 3 5v14c0 .8.7 1.5 1.5 1.5h15c.8 0 1.5-.7 1.5-1.5V5c0-.8-.7-1.5-1.5-1.5zM9 3.5h6v6H9v-6z" />
+              </svg>
+              {exportingSheets ? "Syncing…" : "Google Sheet"}
+            </button>
+            <button
+              type="button"
+              disabled={exportingCsv}
+              onClick={downloadCsv}
+              className="flex-1 py-2.5 rounded-xl border border-white/10 text-zinc-400 hover:text-zinc-200 hover:border-white/20 disabled:opacity-50 text-[11px] font-bold transition-all"
+            >
+              {exportingCsv ? "…" : "CSV"}
+            </button>
+          </div>
+
+          {sheetsConfig?.configured && sheetsConfig.sheetUrl && (
+            <a
+              href={sheetsConfig.sheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block mt-2 text-[10px] text-[#34A853]/80 hover:text-[#34A853] truncate"
+            >
+              Open linked sheet →
+            </a>
+          )}
+          {sheetsConfig && !sheetsConfig.configured && (
+            <p className="mt-2 text-[10px] text-zinc-600 leading-snug">
+              Google Sheet sync needs Vercel env vars. CSV works now; import into Sheets manually.
+            </p>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
