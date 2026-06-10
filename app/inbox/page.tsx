@@ -17,6 +17,7 @@ import DeliveryTicks from "@/components/inbox/DeliveryTicks";
 import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
+import OrdersPanel from "@/app/inbox/OrdersPanel";
 import { isStatusStorageId } from "@/lib/status-storage";
 import "./inbox.css";
 
@@ -118,7 +119,9 @@ export default function InboxPage() {
   const [customPhone, setCustomPhone] = useState("");
 
   // Marketing CRM states
-  const [viewMode, setViewMode] = useState<"inbox" | "promo" | "campaign" | "status">("inbox");
+  const [viewMode, setViewMode] = useState<"inbox" | "promo" | "campaign" | "status" | "orders">("inbox");
+  const [crmFocusOrderId, setCrmFocusOrderId] = useState<string | null>(null);
+  const [orderPhones, setOrderPhones] = useState<Set<string>>(new Set());
   const [campaignContacts, setCampaignContacts] = useState<Contact[]>([]);
   const campaignContactsRef = useRef<Contact[]>([]);
   const [activeCampaignChat, setActiveCampaignChat] = useState<Contact | null>(null);
@@ -1416,7 +1419,75 @@ export default function InboxPage() {
     }
   };
 
+  const fetchOrderPhones = async () => {
+    if (!sessionToken) return;
+    try {
+      const res = await fetch("/api/orders/?status=active", {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      const data = await res.json();
+      if (data.orders) {
+        setOrderPhones(new Set(data.orders.map((o: { phone: string }) => o.phone)));
+      }
+    } catch (e) {
+      console.error("Failed to load order phones", e);
+    }
+  };
+
+  const addToOrdersCrm = async (phone: string, customerName: string, openAfter = false) => {
+    if (!sessionToken) return;
+    try {
+      const res = await fetch("/api/orders/from-inbox/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ phone, customerName }),
+      });
+      const data = await res.json();
+      if (data.order) {
+        setOrderPhones((prev) => new Set([...prev, data.order.phone]));
+        if (openAfter) {
+          setViewMode("orders");
+          setActiveChat(null);
+          setCrmFocusOrderId(data.order.id);
+        } else {
+          alert(
+            data.status === "exists"
+              ? "This customer already has an active order in CRM."
+              : "Order created in CRM. Open Orders tab to add delivery details."
+          );
+        }
+        return data.order;
+      }
+      throw new Error(data.error || "Failed to create order");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Could not add to CRM");
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (isLoggedIn && sessionToken) void fetchOrderPhones();
+  }, [isLoggedIn, sessionToken]);
+
+  const openChatFromCrm = (phone: string, name: string) => {
+    const contact = contacts.find((c) => c.phone === phone);
+    setViewMode("inbox");
+    setActiveTab("all");
+    setActiveChat(
+      contact || {
+        name,
+        phone,
+        messages: [],
+      }
+    );
+    setCrmFocusOrderId(null);
+  };
+
   const updateContactTag = async (phone: string, tag: "Confirm" | "Potential" | "Important" | "Spam" | null) => {
+    const contact = contacts.find((c) => c.phone === phone) || activeChat;
     try {
       // Optimistic update in state
       setContacts((prev) =>
@@ -1442,6 +1513,12 @@ export default function InboxPage() {
       });
       if (!res.ok) {
         throw new Error("Failed to sync tag with database");
+      }
+
+      if (tag === "Confirm" && contact && !orderPhones.has(phone)) {
+        if (confirm(`Add ${contact.name} to Orders CRM?`)) {
+          await addToOrdersCrm(phone, contact.name, true);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -1947,6 +2024,30 @@ export default function InboxPage() {
 
             <button
               onClick={() => {
+                setViewMode("orders");
+                setActiveChat(null);
+                setActiveCampaignChat(null);
+                setSelectedMarketingLead(null);
+              }}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all relative ${
+                viewMode === "orders"
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                  : "text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10"
+              }`}
+              title="Orders CRM"
+            >
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              {orderPhones.size > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-amber-500 text-[9px] font-black text-zinc-950 rounded-full flex items-center justify-center">
+                  {orderPhones.size > 9 ? "9+" : orderPhones.size}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
                 setViewMode("status");
                 setActiveChat(null);
                 fetchStatusItems();
@@ -2049,7 +2150,14 @@ export default function InboxPage() {
         </div>
       </aside>
 
-      {viewMode === "status" ? (
+      {viewMode === "orders" ? (
+        <OrdersPanel
+          sessionToken={sessionToken}
+          onOpenChat={openChatFromCrm}
+          focusOrderId={crmFocusOrderId}
+          onFocusHandled={() => setCrmFocusOrderId(null)}
+        />
+      ) : viewMode === "status" ? (
         <main className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
           <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100">Status</h1>
@@ -2896,6 +3004,17 @@ export default function InboxPage() {
                       </svg>
                       <span className="hidden sm:inline">Delete</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => addToOrdersCrm(activeChat.phone, activeChat.name, true)}
+                      className="p-2 hover:bg-amber-500/10 border border-zinc-800 hover:border-amber-500/30 rounded-xl text-zinc-500 hover:text-amber-400 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                      title="Add to Orders CRM"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                      <span className="hidden sm:inline">CRM</span>
+                    </button>
                     <select
                       value={activeChat.tag || ""}
                       onChange={(e) => updateContactTag(activeChat.phone, (e.target.value as any) || null)}
@@ -3693,6 +3812,17 @@ export default function InboxPage() {
               <p className="text-xs text-zinc-500">+{contactMenuTarget.phone}</p>
             </div>
             {[
+              {
+                label: orderPhones.has(contactMenuTarget.phone) ? "Open in Orders CRM" : "Add to Orders CRM",
+                action: () => {
+                  if (orderPhones.has(contactMenuTarget.phone)) {
+                    setViewMode("orders");
+                    setActiveChat(null);
+                  } else {
+                    void addToOrdersCrm(contactMenuTarget.phone, contactMenuTarget.name, true);
+                  }
+                },
+              },
               { label: contactMenuTarget.pinned ? "Unpin chat" : "Pin chat", action: () => pinContact(contactMenuTarget.phone, !contactMenuTarget.pinned) },
               ...(contactMenuTarget.hasUnread
                 ? [{ label: "Mark as read", action: () => markChatRead(contactMenuTarget.phone) }]
@@ -3751,18 +3881,19 @@ export default function InboxPage() {
 
           <button
             onClick={() => {
-              setViewMode("status");
+              setViewMode("orders");
               setActiveChat(null);
-              fetchStatusItems();
+              setActiveCampaignChat(null);
+              setSelectedMarketingLead(null);
             }}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
-              viewMode === "status" ? "text-emerald-400" : "text-zinc-500"
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 relative ${
+              viewMode === "orders" ? "text-amber-400" : "text-zinc-500"
             }`}
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
-            <span className="text-[9px] font-bold">Status</span>
+            <span className="text-[9px] font-bold">Orders</span>
           </button>
 
           <button

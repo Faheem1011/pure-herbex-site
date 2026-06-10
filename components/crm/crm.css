@@ -1,0 +1,30 @@
+.crm-shell {
+  --crm-accent: #f59e0b;
+  --crm-accent-soft: rgba(245, 158, 11, 0.12);
+  --crm-surface: rgba(15, 23, 42, 0.72);
+  --crm-border: rgba(148, 163, 184, 0.14);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(245, 158, 11, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(99, 102, 241, 0.06), transparent),
+    #09090b;
+}
+
+.crm-glass {
+  background: var(--crm-surface);
+  border: 1px solid var(--crm-border);
+  backdrop-filter: blur(12px);
+}
+
+.crm-stat-card {
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.35));
+  border: 1px solid var(--crm-border);
+}
+
+.crm-order-row:hover {
+  background: rgba(245, 158, 11, 0.04);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.crm-timeline-dot {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
