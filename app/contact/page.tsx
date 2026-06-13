@@ -1,7 +1,20 @@
+import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import SmoothScroll from '@/components/SmoothScroll';
 import { MessageSquare, Phone, Mail, MapPin, Facebook, Instagram, Music2 } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'Contact Pure Herbex | WhatsApp Support Pakistan',
+  description:
+    'Contact Pure Herbex for orders and support. WhatsApp +92 316 0924151, Okara Punjab. Discreet COD delivery across Pakistan.',
+  alternates: { canonical: 'https://pureherbex.com/contact/' },
+  openGraph: {
+    title: 'Contact Pure Herbex',
+    description: 'Get in touch via WhatsApp — fast, private support for orders and delivery.',
+    url: 'https://pureherbex.com/contact/',
+  },
+};
 
 export default function ContactPage() {
   return (

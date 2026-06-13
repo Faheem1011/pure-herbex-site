@@ -1,7 +1,20 @@
+import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import SmoothScroll from '@/components/SmoothScroll';
 import Image from 'next/image';
+
+export const metadata: Metadata = {
+  title: 'About Pure Herbex | Herbal Male Wellness Pakistan',
+  description:
+    'Our story: medical-grade herbal research from Okara, Punjab. 32 potent extracts for natural male vitality — no chemical shortcuts.',
+  alternates: { canonical: 'https://pureherbex.com/about/' },
+  openGraph: {
+    title: 'About Pure Herbex',
+    description: 'The source of potency — authentic herbal wellness for men in Pakistan.',
+    url: 'https://pureherbex.com/about/',
+  },
+};
 
 export default function AboutPage() {
   return (

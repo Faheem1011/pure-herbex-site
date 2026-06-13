@@ -1,7 +1,20 @@
+import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import SmoothScroll from '@/components/SmoothScroll';
 import { Star, Quote } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'Customer Reviews | Pure Herbex Ultra Force Pakistan',
+  description:
+    'Real Pure Herbex reviews from Lahore, Karachi, Islamabad and across Pakistan. 4.9★ rating — discreet COD delivery, herbal stamina results.',
+  alternates: { canonical: 'https://pureherbex.com/reviews/' },
+  openGraph: {
+    title: 'Pure Herbex Customer Reviews',
+    description: 'Verified customer feedback on herbal stamina and discreet delivery in Pakistan.',
+    url: 'https://pureherbex.com/reviews/',
+  },
+};
 
 const reviews = [
   {
