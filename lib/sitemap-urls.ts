@@ -2,6 +2,7 @@ import { blogPosts } from "@/app/blog/data";
 import { deliveryAreas } from "@/lib/delivery-areas";
 import { deliveryCities, PROVINCES } from "@/lib/delivery-locations";
 import { ingredients } from "@/lib/ingredients-data";
+import { urduBlogPosts } from "@/lib/urdu-blog-data";
 import { SITE_URL } from "@/lib/search-config";
 
 /** All public URLs for sitemap + IndexNow pings. */
@@ -13,6 +14,7 @@ export function getAllPublicUrls(): string[] {
     "/blog/",
     "/delivery/",
     "/ur/delivery/",
+    "/ur/blog/",
     "/faq/",
     "/reviews/",
     "/about/",
@@ -37,6 +39,9 @@ export function getAllPublicUrls(): string[] {
   }
   for (const area of deliveryAreas) {
     urls.add(`${SITE_URL}/delivery/area/${area.slug}/`);
+  }
+  for (const post of urduBlogPosts) {
+    urls.add(`${SITE_URL}/ur/blog/${post.slug}/`);
   }
 
   return [...urls];

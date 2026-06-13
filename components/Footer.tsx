@@ -68,6 +68,7 @@ export default function Footer() {
               <li><Link href="/delivery/islamabad/" className="hover:text-primary transition-colors">Islamabad (1–2 Days)</Link></li>
               <li><Link href="/delivery/peshawar/" className="hover:text-primary transition-colors">Peshawar (2–3 Days)</Link></li>
               <li><Link href="/ur/delivery/" className="hover:text-primary transition-colors">اردو ڈیلیوری</Link></li>
+              <li><Link href="/ur/blog/" className="hover:text-primary transition-colors">اردو بلاگ</Link></li>
               <li><Link href="/delivery/" className="hover:text-primary transition-colors text-primary font-medium">82 cities nationwide →</Link></li>
             </ul>
           </div>

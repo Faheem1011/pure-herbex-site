@@ -7,6 +7,8 @@ import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
 import BlogShareBar from '@/components/BlogShareBar';
 import { getPostShareUrls, getRelatedPosts } from '@/lib/blog-seo';
+import { urduBlogPosts } from '@/lib/urdu-blog-data';
+import { absoluteUrl } from '@/lib/search-config';
 import { Calendar, User, Clock, ChevronLeft, MessageCircle, ArrowRight } from 'lucide-react';
 
 interface Props {
@@ -26,12 +28,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const metaTitle = post.seoTitle || `${post.title} | Pure Herbex`;
 
+  const urduPair = urduBlogPosts.find((p) => p.englishSlug === slug);
+  const languages: Record<string, string> = { 'en-PK': absoluteUrl(`/blog/${slug}/`) };
+  if (urduPair) languages['ur-PK'] = absoluteUrl(`/ur/blog/${urduPair.slug}/`);
+
   return {
     title: metaTitle,
     description: post.seoDescription,
     keywords: post.seoKeywords.join(', '),
     alternates: {
-      canonical: `https://pureherbex.com/blog/${slug}`,
+      canonical: absoluteUrl(`/blog/${slug}/`),
+      languages,
     },
     openGraph: {
       title: metaTitle,
@@ -76,6 +83,7 @@ export default async function BlogPostPage({ params }: Props) {
 
   const relatedPosts = getRelatedPosts(post);
   const shareUrls = getPostShareUrls(post.slug, post.title);
+  const urduPair = urduBlogPosts.find((p) => p.englishSlug === slug);
 
   // Safe ISO date formatting
   const getSafeISODate = (dateStr: string) => {
@@ -158,6 +166,15 @@ export default async function BlogPostPage({ params }: Props) {
               <ChevronLeft size={18} />
               Back to Wellness Journal
             </Link>
+
+            {urduPair && (
+              <Link
+                href={`/ur/blog/${urduPair.slug}/`}
+                className="block mb-6 text-sm text-primary font-semibold hover:underline"
+              >
+                اردو میں پڑھیں — {urduPair.titleRoman} →
+              </Link>
+            )}
   
             {/* Header */}
             <header className="space-y-6 mb-12">

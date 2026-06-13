@@ -4,6 +4,7 @@ import { deliveryCities } from "@/lib/delivery-locations";
 import { deliveryAreas } from "@/lib/delivery-areas";
 import { PROVINCES } from "@/lib/delivery-locations";
 import { ingredients } from "@/lib/ingredients-data";
+import { urduBlogPosts } from "@/lib/urdu-blog-data";
 import { SITE_URL } from "@/lib/search-config";
 
 export const dynamic = "force-static";
@@ -23,6 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE}/blog/`, changeFrequency: "weekly", priority: 0.85 },
     { url: `${SITE}/delivery/`, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE}/ur/delivery/`, changeFrequency: "weekly", priority: 0.85 },
+    { url: `${SITE}/ur/blog/`, changeFrequency: "weekly", priority: 0.84 },
     { url: `${SITE}/faq/`, changeFrequency: "monthly", priority: 0.82 },
     { url: `${SITE}/reviews/`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/about/`, changeFrequency: "monthly", priority: 0.75 },
@@ -79,6 +81,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.68,
   }));
 
+  const urduBlogPages: MetadataRoute.Sitemap = urduBlogPosts.map((post) => ({
+    url: `${SITE}/ur/blog/${post.slug}/`,
+    changeFrequency: "monthly",
+    priority: 0.72,
+    alternates: post.englishSlug
+      ? {
+          languages: {
+            en: `${SITE}/blog/${post.englishSlug}/`,
+            ur: `${SITE}/ur/blog/${post.slug}/`,
+          },
+        }
+      : undefined,
+  }));
+
   return [
     ...staticPages,
     ...blogPages,
@@ -87,5 +103,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...urduDeliveryPages,
     ...provincePages,
     ...areaPages,
+    ...urduBlogPages,
   ];
 }
