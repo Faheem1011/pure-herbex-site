@@ -6,6 +6,7 @@
     "dev": "next dev",
     "prebuild": "npx --yes tsx scripts/generate-rss.ts",
     "build": "next build",
+    "indexnow": "npx --yes tsx scripts/ping-indexnow.ts",
     "postbuild": "node scripts/verify-static-export.mjs",
     "start": "next start",
     "lint": "eslint .",

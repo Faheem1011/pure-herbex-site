@@ -51,6 +51,7 @@ export default function Footer() {
               <li><Link href="/ingredients" className="hover:text-primary transition-colors">32 Ingredients</Link></li>
               <li><Link href="/blog" className="hover:text-primary transition-colors">Wellness Journal</Link></li>
               <li><Link href="/delivery" className="hover:text-primary transition-colors">Delivery — All Pakistan</Link></li>
+              <li><Link href="/faq/" className="hover:text-primary transition-colors">FAQ</Link></li>
               <li><Link href="/reviews" className="hover:text-primary transition-colors">Customer Reviews</Link></li>
               <li><Link href="/about" className="hover:text-primary transition-colors">Our Story</Link></li>
               <li><Link href="/contact" className="hover:text-primary transition-colors">Contact Support</Link></li>
