@@ -7,6 +7,10 @@ import {
   shouldUseMainInboxForIncoming,
   type MarketingContact,
 } from "@/lib/marketing-inbox";
+import {
+  normalizeDeliveryStatus,
+  shouldUpgradeDeliveryStatus,
+} from "@/lib/message-status";
 import { parseWebhookMessage } from "@/lib/parse-webhook-message";
 import { recomputeUnread, type ReadableContact } from "@/lib/read-state";
 
@@ -101,6 +105,51 @@ export async function processIncomingWebhookMessage(
   }
 }
 
+function applyDeliveryStatus(
+  msg: Record<string, unknown>,
+  msg_status: string,
+  errorTitle?: string,
+  errorCode?: number
+): boolean {
+  const current = String(msg.status || "sent");
+  if (!shouldUpgradeDeliveryStatus(current, msg_status)) return false;
+
+  msg.status = normalizeDeliveryStatus(msg_status);
+  if (msg_status === "failed") {
+    msg.deliveryError = errorTitle || "Delivery failed";
+    if (errorCode != null) msg.deliveryErrorCode = errorCode;
+  } else {
+    delete msg.deliveryError;
+    delete msg.deliveryErrorCode;
+  }
+  return true;
+}
+
+function findMessageForStatus(
+  messages: Array<Record<string, unknown>>,
+  msg_id: string,
+  statusTimestamp?: number
+): Record<string, unknown> | null {
+  for (const msg of messages) {
+    if (msg.id === msg_id) return msg;
+  }
+
+  if (!statusTimestamp) return null;
+
+  let best: { msg: Record<string, unknown>; diff: number } | null = null;
+  for (const msg of messages) {
+    if (msg.sender !== "me") continue;
+    const ts = Number(msg.timestamp);
+    if (!Number.isFinite(ts)) continue;
+    const diff = Math.abs(ts - statusTimestamp);
+    if (diff > 180) continue;
+    if (!best || diff < best.diff) {
+      best = { msg, diff };
+    }
+  }
+  return best?.msg ?? null;
+}
+
 export async function processIncomingWebhookStatus(
   status: Record<string, unknown>
 ): Promise<void> {
@@ -109,32 +158,35 @@ export async function processIncomingWebhookStatus(
 
   const msg_id = status.id as string;
   const msg_status = status.status as string;
+  if (!msg_id || !msg_status) return;
+
+  const statusTimestamp = parseInt(String(status.timestamp ?? ""), 10);
   const errors = status.errors as Array<{ code?: number; title?: string; message?: string }> | undefined;
   const errorCode = errors?.[0]?.code;
   const errorTitle = errors?.[0]?.title || errors?.[0]?.message;
 
   const updateMessageStatus = async (contact: unknown, storageKey: string) => {
     const record = contact as { messages?: Array<Record<string, unknown>> } | null;
-    if (!record?.messages) return false;
-    let updated = false;
-    for (const msg of record.messages) {
-      if (msg.id === msg_id) {
-        msg.status = msg_status;
-        if (msg_status === "failed") {
-          msg.deliveryError = errorTitle || "Delivery failed";
-          if (errorCode != null) msg.deliveryErrorCode = errorCode;
-        } else {
-          delete msg.deliveryError;
-          delete msg.deliveryErrorCode;
-        }
-        updated = true;
-        break;
-      }
+    if (!record?.messages?.length) return false;
+
+    const target = findMessageForStatus(
+      record.messages,
+      msg_id,
+      Number.isFinite(statusTimestamp) ? statusTimestamp : undefined
+    );
+    if (!target) return false;
+
+    const updated = applyDeliveryStatus(target, msg_status, errorTitle, errorCode);
+    if (!updated) return false;
+
+    if (target.id !== msg_id) {
+      console.warn(
+        `Delivery status ${msg_status} for ${msg_id} applied via timestamp fallback to ${target.id}`
+      );
     }
-    if (updated) {
-      await kv.set(storageKey, record);
-    }
-    return updated;
+
+    await kv.set(storageKey, record);
+    return true;
   };
 
   const mainKey = `whatsapp:contact:${recipient_id}`;
@@ -148,6 +200,10 @@ export async function processIncomingWebhookStatus(
 
   if (updatedMain || updatedMarketing) {
     await bumpInboxVersion();
+  } else {
+    console.warn(
+      `Delivery status ${msg_status} for ${msg_id} (${recipient_id}) — no matching outbound message`
+    );
   }
 
   if (msg_status === "failed") {
