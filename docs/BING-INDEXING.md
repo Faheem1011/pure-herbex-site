@@ -90,5 +90,7 @@ Redeploy — tracking loads automatically from `app/layout.tsx`.
 | Issue | Fix |
 |-------|-----|
 | Bing won't verify | Set `NEXT_PUBLIC_BING_SITE_VERIFICATION`, redeploy, wait 2 min |
+| robots.txt 404 | Use **`https://pureherbex.com/robots.txt`** (with **s**, no trailing slash) |
+| Bing `Host:` line error | Removed — file uses only standard directives now |
 | IndexNow 403 | Confirm key file loads: `/phxindexnow2026pureherbex.txt` |
 | Low Bing index count | Wait 7 days; re-run `npm run indexnow`; check robots.txt allows `/` |
