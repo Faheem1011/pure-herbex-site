@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Facebook, Instagram, Music2 } from 'lucide-react'; // Music2 for TikTok
+import { Facebook, Instagram, Music2 } from 'lucide-react';
 
 export default function Footer() {
   const socials = [
@@ -48,7 +48,9 @@ export default function Footer() {
             <ul className="space-y-4 text-sm text-muted-foreground">
               <li><Link href="/" className="hover:text-primary transition-colors">Home</Link></li>
               <li><Link href="/product" className="hover:text-primary transition-colors">Shop Ultra Force</Link></li>
+              <li><Link href="/ingredients" className="hover:text-primary transition-colors">32 Ingredients</Link></li>
               <li><Link href="/blog" className="hover:text-primary transition-colors">Wellness Journal</Link></li>
+              <li><Link href="/delivery" className="hover:text-primary transition-colors">Delivery — All Pakistan</Link></li>
               <li><Link href="/reviews" className="hover:text-primary transition-colors">Customer Reviews</Link></li>
               <li><Link href="/about" className="hover:text-primary transition-colors">Our Story</Link></li>
               <li><Link href="/contact" className="hover:text-primary transition-colors">Contact Support</Link></li>
@@ -56,12 +58,16 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="font-bold mb-6">Delivery Areas</h4>
+            <h4 className="font-bold mb-6">
+              <Link href="/delivery" className="hover:text-primary transition-colors">Delivery Areas</Link>
+            </h4>
             <ul className="space-y-4 text-sm text-muted-foreground">
-              <li>Lahore & Karachi (2 Days)</li>
-              <li>Islamabad & Rawalpindi (2 Days)</li>
-              <li>Faisalabad & Multan (3 Days)</li>
-              <li>All Pakistan (3-4 Days)</li>
+              <li><Link href="/delivery/lahore/" className="hover:text-primary transition-colors">Lahore (1–2 Days)</Link></li>
+              <li><Link href="/delivery/karachi/" className="hover:text-primary transition-colors">Karachi (2–3 Days)</Link></li>
+              <li><Link href="/delivery/islamabad/" className="hover:text-primary transition-colors">Islamabad (1–2 Days)</Link></li>
+              <li><Link href="/delivery/peshawar/" className="hover:text-primary transition-colors">Peshawar (2–3 Days)</Link></li>
+              <li><Link href="/ur/delivery/" className="hover:text-primary transition-colors">اردو ڈیلیوری</Link></li>
+              <li><Link href="/delivery/" className="hover:text-primary transition-colors text-primary font-medium">82 cities nationwide →</Link></li>
             </ul>
           </div>
         </div>

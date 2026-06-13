@@ -37,7 +37,20 @@ npm run build
 
 ## Pages on pureherbex.com
 
-`/`, `/product/`, `/blog/`, `/about/`, `/contact/`, `/reviews/`, `/privacy/`
+**Core:** `/`, `/product/`, `/blog/`, `/about/`, `/contact/`, `/reviews/`, `/privacy/`
+
+**SEO hubs (269+ URLs):**
+- `/ingredients/` + 32 ingredient pages
+- `/delivery/` + 82 city pages + 7 province hubs + 31 area pages
+- `/ur/delivery/` + 82 Urdu city pages
+- `/sitemap.xml`, `/robots.txt`, `/blog/feed.xml`
+- IndexNow key: `/phxindexnow2026pureherbex.txt`
+
+**Optional env (Bing verification only):**
+```env
+NEXT_PUBLIC_BING_SITE_VERIFICATION=your_bing_code
+```
+Rebuild after setting in Hostinger hPanel → Environment variables.
 
 ## Vercel only (not on Hostinger)
 

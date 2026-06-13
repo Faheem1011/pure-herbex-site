@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://pureherbex.com/sitemap.xml

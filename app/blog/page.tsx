@@ -1,13 +1,23 @@
-import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { blogPosts } from './data';
-import { Calendar, Clock, ChevronRight, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, ChevronRight, ArrowRight, Rss } from 'lucide-react';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Wellness Journal | Pure Herbex Ultra Force',
   description: 'Expert insights on male vitality, herbal science, and natural performance. Professional guides from the Pure Herbex research team.',
+  alternates: {
+    canonical: 'https://pureherbex.com/blog/',
+  },
+  openGraph: {
+    title: 'Wellness Journal | Pure Herbex',
+    description: 'Science-backed research on herbal vitality and male performance in Pakistan.',
+    url: 'https://pureherbex.com/blog/',
+    siteName: 'Pure Herbex',
+    type: 'website',
+  },
 };
 
 export default function BlogPage() {
@@ -26,6 +36,12 @@ export default function BlogPage() {
               Transparent, science-backed research on herbal vitality and male performance. 
               Our mission is to provide the knowledge you need for a healthier, more confident life.
             </p>
+            <a
+              href="/blog/feed.xml"
+              className="inline-flex items-center gap-2 mt-6 text-sm text-primary font-semibold hover:underline"
+            >
+              <Rss size={16} /> Subscribe via RSS
+            </a>
           </header>
 
           {/* Featured Post */}

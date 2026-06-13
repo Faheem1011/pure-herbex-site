@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npx --yes tsx scripts/generate-rss.ts",
     "build": "next build",
     "postbuild": "node scripts/verify-static-export.mjs",
     "start": "next start",

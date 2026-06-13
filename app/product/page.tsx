@@ -75,7 +75,7 @@ export default function ProductPage() {
     },
     "offers": {
       "@type": "Offer",
-      "url": "https://pureherbex.com/product",
+      "url": "https://pureherbex.com/product/",
       "priceCurrency": "PKR",
       "price": "3000",
       "priceValidUntil": "2027-12-31",

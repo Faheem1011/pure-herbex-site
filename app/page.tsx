@@ -5,6 +5,7 @@ import IngredientsGrid from '@/components/IngredientsGrid';
 import Footer from '@/components/Footer';
 import SmoothScroll from '@/components/SmoothScroll';
 import JsonLd from '@/components/JsonLd';
+import Link from 'next/link';
 
 export default function Home() {
   const homepageFaqSchema = {
@@ -60,7 +61,7 @@ export default function Home() {
                 <div className="flex gap-8 text-sm text-muted-foreground font-medium">
                   <span>✅ Cash on Delivery</span>
                   <span>✅ Discreet Packaging</span>
-                  <span>✅ All Pakistan</span>
+                  <Link href="/delivery/" className="hover:text-primary transition-colors">✅ 82 Cities — All Pakistan</Link>
                 </div>
               </div>
             </div>

@@ -5,7 +5,9 @@ import { blogPosts } from '../data';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
-import { Calendar, User, Clock, ChevronLeft, MessageCircle, Share2, Facebook, Twitter, Link as LinkIcon } from 'lucide-react';
+import BlogShareBar from '@/components/BlogShareBar';
+import { getPostShareUrls, getRelatedPosts } from '@/lib/blog-seo';
+import { Calendar, User, Clock, ChevronLeft, MessageCircle, ArrowRight } from 'lucide-react';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -71,6 +73,9 @@ export default async function BlogPostPage({ params }: Props) {
       </div>
     );
   }
+
+  const relatedPosts = getRelatedPosts(post);
+  const shareUrls = getPostShareUrls(post.slug, post.title);
 
   // Safe ISO date formatting
   const getSafeISODate = (dateStr: string) => {
@@ -191,28 +196,46 @@ export default async function BlogPostPage({ params }: Props) {
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
   
-            {/* Social Sharing */}
-            <div className="mt-16 py-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Share Article</span>
-                <div className="flex items-center gap-2">
-                  <button className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all">
-                    <Facebook size={18} />
-                  </button>
-                  <button className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all">
-                    <Twitter size={18} />
-                  </button>
-                  <button className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all">
-                    <LinkIcon size={18} />
-                  </button>
+            <BlogShareBar
+              facebook={shareUrls.facebook}
+              twitter={shareUrls.twitter}
+              whatsapp={shareUrls.whatsapp}
+              url={shareUrls.url}
+            />
+
+            {/* Related articles — internal backlinks */}
+            {relatedPosts.length > 0 && (
+              <section className="mt-12 py-10 border-t border-white/5">
+                <h2 className="text-2xl font-heading font-bold mb-6">Related Research</h2>
+                <div className="grid gap-4 md:grid-cols-3">
+                  {relatedPosts.map((related) => (
+                    <Link
+                      key={related.slug}
+                      href={`/blog/${related.slug}/`}
+                      className="glass-card rounded-2xl p-5 hover:border-primary/50 transition-all group"
+                    >
+                      <p className="text-xs font-bold text-primary uppercase tracking-widest mb-2">{related.category}</p>
+                      <h3 className="font-bold mb-2 group-hover:text-primary transition-colors line-clamp-2">{related.title}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{related.excerpt}</p>
+                    </Link>
+                  ))}
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <Share2 size={16} />
-                <span>1.2k Shares</span>
-              </div>
-            </div>
+              </section>
+            )}
+
+            {/* Product internal link */}
+            <section className="mt-8 p-6 rounded-2xl border border-primary/20 bg-primary/5">
+              <p className="text-muted-foreground mb-4">
+                Ready to apply what you learned? <strong className="text-white">Pure Herbex Ultra Force</strong> combines
+                Shilajit, Ashwagandha, Tribulus, and 29 other herbs in one medical-grade formula — Rs. 3,000 with discreet COD across Pakistan.
+              </p>
+              <Link
+                href="/product/"
+                className="inline-flex items-center gap-2 text-primary font-bold hover:underline"
+              >
+                View Ultra Force formula <ArrowRight size={18} />
+              </Link>
+            </section>
   
             {/* WhatsApp CTA */}
             <section className="mt-20 glass-card p-8 md:p-12 rounded-[2rem] relative overflow-hidden group">

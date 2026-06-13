@@ -2,6 +2,14 @@ import type { Metadata } from 'next';
 import { Inter, Sora } from 'next/font/google';
 import Script from 'next/script';
 import JsonLd from '@/components/JsonLd';
+import {
+  GA4_MEASUREMENT_ID,
+  GTM_CONTAINER_ID,
+  CLARITY_PROJECT_ID,
+  GOOGLE_SITE_VERIFICATION,
+  BING_UET_TAG_ID,
+  buildVerificationMetadata,
+} from '@/lib/search-config';
 import './globals.css';
 
 const inter = Inter({
@@ -22,7 +30,8 @@ export const metadata: Metadata = {
     canonical: 'https://pureherbex.com',
   },
   verification: {
-    google: 'r6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU',
+    google: GOOGLE_SITE_VERIFICATION,
+    other: buildVerificationMetadata(),
   },
   icons: {
     icon: '/logo.png',
@@ -116,7 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
             j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-            })(window,document,'script','dataLayer','GTM-MV6QT5V3');
+            })(window,document,'script','dataLayer','${GTM_CONTAINER_ID}');
           `}
         </Script>
       </head>
@@ -124,7 +133,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe
-            src="https://www.googletagmanager.com/ns.html?id=GTM-MV6QT5V3"
+            src={`https://www.googletagmanager.com/ns.html?id=${GTM_CONTAINER_ID}`}
             height="0"
             width="0"
             style={{ display: 'none', visibility: 'hidden' }}
@@ -132,7 +141,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </noscript>
         {/* Google Analytics Tag */}
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-SRYQF0G350"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA4_MEASUREMENT_ID}`}
           strategy="afterInteractive"
         />
         <Script id="google-analytics" strategy="afterInteractive">
@@ -141,7 +150,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
 
-            gtag('config', 'G-SRYQF0G350');
+            gtag('config', '${GA4_MEASUREMENT_ID}', {
+              send_page_view: true,
+              anonymize_ip: false
+            });
           `}
         </Script>
         {/* Microsoft Clarity Tag */}
@@ -151,9 +163,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
                 t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i+"?ref=bwt";
                 y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-            })(window, document, "clarity", "script", "wsyc5zjml5");
+            })(window, document, "clarity", "script", "${CLARITY_PROJECT_ID}");
           `}
         </Script>
+        {/* WhatsApp & outbound click tracking for GA4 */}
+        <Script id="analytics-events" strategy="afterInteractive">
+          {`
+            document.addEventListener('click', function(e) {
+              var a = e.target && e.target.closest ? e.target.closest('a') : null;
+              if (!a || !a.href) return;
+              var href = a.href;
+              if (typeof gtag !== 'function') return;
+              if (href.indexOf('wa.me') !== -1 || href.indexOf('whatsapp.com') !== -1) {
+                gtag('event', 'whatsapp_click', {
+                  event_category: 'conversion',
+                  event_label: href,
+                  link_url: href
+                });
+              }
+            });
+          `}
+        </Script>
+        {BING_UET_TAG_ID ? (
+          <Script id="bing-uet" strategy="afterInteractive">
+            {`
+              (function(w,d,t,r,u){var f,n,i;w[u]=w[u]||[];f=function(){var o={ti:"${BING_UET_TAG_ID}",enableAutoSpaTracking:true};o.q=w[u];w[u]=new UET(o);w[u].push("pageLoad")};n=d.createElement(t);n.src=r;n.async=1;n.onload=n.onreadystatechange=function(){var s=this.readyState;s&&s!=="loaded"&&s!=="complete"||(f(),n.onload=n.onreadystatechange=null)};i=d.getElementsByTagName(t)[0];i.parentNode.insertBefore(n,i)})(window,document,"script","//bat.bing.com/bat.js","uetq");
+            `}
+          </Script>
+        ) : null}
         {children}
       </body>
     </html>
