@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone, setPhoneBlocked } from "@/lib/blocked";
+import { getWhatsAppPhoneNumberIdForLine } from "@/lib/inbox-line";
+import { resolveInboxLine } from "@/lib/inbox-request";
 import { bumpInboxVersion, fetchMainContacts } from "@/lib/inbox-sync";
+import { activeContactsKey, contactKey } from "@/lib/kv-keys";
 import {
   markAllMessagesRead,
   markAllMessagesUnread,
   setMessageReadState,
 } from "@/lib/read-state";
 import { isVoiceNoteFile } from "@/lib/meta-media";
-import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
+import { getWhatsAppAccessToken, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
 // 1. GET: Fetch all active chats and message history
 export async function GET(request: NextRequest) {
@@ -18,7 +21,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const contacts = await fetchMainContacts();
+    const line = resolveInboxLine(request);
+    const contacts = await fetchMainContacts(line);
     return NextResponse.json({ contacts });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -32,6 +36,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const body = await request.json();
+    const line = resolveInboxLine(request, body);
     const {
       toPhone,
       replyText,
@@ -43,7 +49,7 @@ export async function POST(request: NextRequest) {
       replyTo,
       isVoiceNote,
       agentNote,
-    } = await request.json();
+    } = body;
 
     if (!toPhone) {
       return NextResponse.json({ error: "Missing recipient phone number" }, { status: 400 });
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
     }
 
-    if (await isPhoneBlocked(phone)) {
+    if (await isPhoneBlocked(phone, line)) {
       return NextResponse.json({ error: "This contact is blocked. Unblock them to send messages." }, { status: 403 });
     }
 
@@ -74,7 +80,7 @@ export async function POST(request: NextRequest) {
       (!!isVoiceNote ||
         (!!fileName && isVoiceNoteFile({ name: fileName, type: "audio/ogg" })));
 
-    const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberId()}/messages`;
+    const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberIdForLine(line)}/messages`;
     
     // Build Payload based on Message Type
     let messagePayload: any = {
@@ -126,7 +132,7 @@ export async function POST(request: NextRequest) {
       const msgId = respData.messages?.[0]?.id || "N/A";
 
       // Save the sent message to KV store
-      let contact: any = await kv.get(`whatsapp:contact:${phone}`);
+      let contact: any = await kv.get(contactKey(line, phone));
       if (!contact) {
         contact = {
           name: contactName || "WhatsApp Contact",
@@ -163,9 +169,9 @@ export async function POST(request: NextRequest) {
             : undefined,
       });
 
-      await kv.set(`whatsapp:contact:${phone}`, contact);
-      await kv.sadd("whatsapp:active_contacts", phone);
-      await bumpInboxVersion();
+      await kv.set(contactKey(line, phone), contact);
+      await kv.sadd(activeContactsKey(line), phone);
+      await bumpInboxVersion(line);
 
       return NextResponse.json({ status: "success", msgId });
     } else {
@@ -184,15 +190,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { phone } = await request.json();
+    const body = await request.json();
+    const line = resolveInboxLine(request, body);
+    const { phone } = body;
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
 
     const normalized = normalizePhone(phone);
-    await kv.srem("whatsapp:active_contacts", normalized);
-    await kv.del(`whatsapp:contact:${normalized}`);
-    await bumpInboxVersion();
+    await kv.srem(activeContactsKey(line), normalized);
+    await kv.del(contactKey(line, normalized));
+    await bumpInboxVersion(line);
 
     return NextResponse.json({ status: "success" });
   } catch (error: any) {
@@ -207,6 +215,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const body = await request.json();
+    const line = resolveInboxLine(request, body);
     const {
       phone,
       archived,
@@ -218,13 +228,13 @@ export async function PATCH(request: NextRequest) {
       pinned,
       blocked,
       agentNote,
-    } = await request.json();
+    } = body;
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
 
     const normalized = normalizePhone(phone);
-    let contact: any = await kv.get(`whatsapp:contact:${normalized}`);
+    let contact: any = await kv.get(contactKey(line, normalized));
     if (!contact && blocked !== undefined) {
       contact = {
         name: "WhatsApp Contact",
@@ -254,7 +264,7 @@ export async function PATCH(request: NextRequest) {
       }
       if (blocked !== undefined) {
         contact.blocked = !!blocked;
-        await setPhoneBlocked(normalized, !!blocked);
+        await setPhoneBlocked(normalized, !!blocked, line);
       }
       if (deleteMessageId) {
         if (contact.messages) {
@@ -277,7 +287,7 @@ export async function PATCH(request: NextRequest) {
           return { ...m, agentNote: trimmed };
         });
       }
-      await kv.set(`whatsapp:contact:${normalized}`, contact);
+      await kv.set(contactKey(line, normalized), contact);
       if (
         archived !== undefined ||
         pinned !== undefined ||
@@ -286,7 +296,7 @@ export async function PATCH(request: NextRequest) {
         readStateChanged ||
         noteChanged
       ) {
-        await bumpInboxVersion();
+        await bumpInboxVersion(line);
       }
     }
 

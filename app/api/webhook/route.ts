@@ -11,6 +11,7 @@ import {
 } from "@/lib/webhook-process";
 
 import { getWhatsAppVerifyToken } from "@/lib/whatsapp";
+import { lineFromPhoneNumberId } from "@/lib/inbox-line";
 
 
 
@@ -86,28 +87,25 @@ export async function POST(request: NextRequest) {
 
           if (!value) continue;
 
-
-
-          if (value.messages?.length) {
-
-            for (const message of value.messages) {
-
-              await processIncomingWebhookMessage(value, message);
-
-            }
-
+          const line = lineFromPhoneNumberId(value.metadata?.phone_number_id);
+          if (!line) {
+            console.warn(
+              "Ignoring webhook for unknown phone_number_id:",
+              value.metadata?.phone_number_id
+            );
+            continue;
           }
 
-
+          if (value.messages?.length) {
+            for (const message of value.messages) {
+              await processIncomingWebhookMessage(value, message, line);
+            }
+          }
 
           if (value.statuses?.length) {
-
             for (const status of value.statuses) {
-
-              await processIncomingWebhookStatus(status);
-
+              await processIncomingWebhookStatus(status, line);
             }
-
           }
 
         }

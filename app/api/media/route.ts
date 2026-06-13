@@ -4,7 +4,9 @@ import { prepareMetaUploadFile } from "@/lib/meta-media";
 import { isKnownInboxMedia } from "@/lib/inbox-media";
 import { publicCorsPreflight, withPublicCors } from "@/lib/public-cors";
 import { isPublicStatusMedia } from "@/lib/status-media";
-import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
+import { getWhatsAppAccessToken, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
+import { getWhatsAppPhoneNumberIdForLine } from "@/lib/inbox-line";
+import { resolveInboxLine } from "@/lib/inbox-request";
 
 export async function OPTIONS() {
   return publicCorsPreflight();
@@ -94,6 +96,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const line = resolveInboxLine(request);
+
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const sendAs = (formData.get("sendAs") as string) || "auto";
@@ -135,7 +139,7 @@ export async function POST(request: NextRequest) {
     metaFormData.append("file", prepared.blob, prepared.filename);
     metaFormData.append("type", prepared.category);
 
-    const uploadUrl = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberId()}/media`;
+    const uploadUrl = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberIdForLine(line)}/media`;
     const response = await fetch(uploadUrl, {
       method: "POST",
       headers: {

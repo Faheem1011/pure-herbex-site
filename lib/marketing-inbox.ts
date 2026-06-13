@@ -1,8 +1,13 @@
 import { kv } from "@vercel/kv";
+import type { InboxLine } from "@/lib/inbox-line";
 import { normalizePhone } from "@/lib/blocked";
-
-export const MARKETING_CONTACTS_SET = "whatsapp:marketing_contacts";
-const marketingKey = (phone: string) => `whatsapp:marketing_contact:${normalizePhone(phone)}`;
+import {
+  activeContactsKey,
+  contactKey,
+  marketingContactKey,
+  marketingContactsKey,
+  migrationFlagKey,
+} from "@/lib/kv-keys";
 
 export type MarketingContact = {
   name: string;
@@ -36,10 +41,12 @@ function isMarketingOnlyMainContact(contact: any): boolean {
 export async function registerMarketingContact(
   phone: string,
   name: string,
-  message: MarketingContact["messages"][0]
+  message: MarketingContact["messages"][0],
+  line: InboxLine = "main"
 ) {
   const normalized = normalizePhone(phone);
-  let contact = (await kv.get(marketingKey(normalized))) as MarketingContact | null;
+  const key = marketingContactKey(line, normalized);
+  let contact = (await kv.get(key)) as MarketingContact | null;
   if (!contact) {
     contact = { name: name || "Lead", phone: normalized, messages: [] };
   } else if (name && contact.name === "Lead") {
@@ -51,23 +58,31 @@ export async function registerMarketingContact(
     contact.messages.push(message);
   }
 
-  await kv.set(marketingKey(normalized), contact);
-  await kv.sadd(MARKETING_CONTACTS_SET, normalized);
+  await kv.set(key, contact);
+  await kv.sadd(marketingContactsKey(line), normalized);
 }
 
-export async function isMarketingLead(phone: string): Promise<boolean> {
-  return !!(await kv.sismember(MARKETING_CONTACTS_SET, normalizePhone(phone)));
+export async function isMarketingLead(
+  phone: string,
+  line: InboxLine = "main"
+): Promise<boolean> {
+  return !!(await kv.sismember(marketingContactsKey(line), normalizePhone(phone)));
 }
 
-export async function getMarketingContact(phone: string): Promise<MarketingContact | null> {
-  return (await kv.get(marketingKey(phone))) as MarketingContact | null;
+export async function getMarketingContact(
+  phone: string,
+  line: InboxLine = "main"
+): Promise<MarketingContact | null> {
+  return (await kv.get(marketingContactKey(line, phone))) as MarketingContact | null;
 }
 
-export async function getAllMarketingContacts(): Promise<MarketingContact[]> {
-  const phones: string[] = await kv.smembers(MARKETING_CONTACTS_SET);
+export async function getAllMarketingContacts(
+  line: InboxLine = "main"
+): Promise<MarketingContact[]> {
+  const phones: string[] = await kv.smembers(marketingContactsKey(line));
   if (!phones.length) return [];
 
-  const keys = phones.map((p) => marketingKey(p));
+  const keys = phones.map((p) => marketingContactKey(line, p));
   const data = await kv.mget(keys);
   return (data.filter(Boolean) as MarketingContact[]).sort((a, b) => {
     const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
@@ -76,38 +91,39 @@ export async function getAllMarketingContacts(): Promise<MarketingContact[]> {
   });
 }
 
-export async function saveMarketingContact(contact: MarketingContact) {
+export async function saveMarketingContact(
+  contact: MarketingContact,
+  line: InboxLine = "main"
+) {
   const normalized = normalizePhone(contact.phone);
   contact.phone = normalized;
-  await kv.set(marketingKey(normalized), contact);
-  await kv.sadd(MARKETING_CONTACTS_SET, normalized);
+  await kv.set(marketingContactKey(line, normalized), contact);
+  await kv.sadd(marketingContactsKey(line), normalized);
 }
 
-const MIGRATION_FLAG = "whatsapp:migration_v1_complete";
-
 /** Move legacy marketing-only threads out of the main inbox (runs once). */
-export async function migrateMarketingOnlyFromMain(): Promise<void> {
-  if (await kv.get(MIGRATION_FLAG)) return;
+export async function migrateMarketingOnlyFromMain(line: InboxLine = "main"): Promise<void> {
+  if (await kv.get(migrationFlagKey(line))) return;
 
-  const activeNumbers: string[] = await kv.smembers("whatsapp:active_contacts");
+  const activeNumbers: string[] = await kv.smembers(activeContactsKey(line));
   for (const phone of activeNumbers) {
-    const main = await kv.get(`whatsapp:contact:${phone}`);
+    const main = await kv.get(contactKey(line, phone));
     if (!main || !isMarketingOnlyMainContact(main)) continue;
 
-    const existing = await getMarketingContact(phone);
+    const existing = await getMarketingContact(phone, line);
     if (!existing) {
-      await kv.set(marketingKey(phone), {
+      await kv.set(marketingContactKey(line, phone), {
         ...(main as MarketingContact),
         phone: normalizePhone(phone),
       });
-      await kv.sadd(MARKETING_CONTACTS_SET, normalizePhone(phone));
+      await kv.sadd(marketingContactsKey(line), normalizePhone(phone));
     }
 
-    await kv.srem("whatsapp:active_contacts", phone);
-    await kv.del(`whatsapp:contact:${phone}`);
+    await kv.srem(activeContactsKey(line), phone);
+    await kv.del(contactKey(line, phone));
   }
 
-  await kv.set(MIGRATION_FLAG, true);
+  await kv.set(migrationFlagKey(line), true);
 }
 
 export function shouldUseMainInboxForIncoming(

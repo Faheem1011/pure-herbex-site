@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
 import type { Contact, Message, StatusItem } from "@/app/inbox/types";
 import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS } from "@/app/inbox/constants";
@@ -18,6 +19,7 @@ import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
 import OrdersPanel from "@/app/inbox/OrdersPanel";
+import { inboxLineLabel, withLineQuery, type InboxLine } from "@/lib/inbox-line";
 import { isStatusStorageId } from "@/lib/status-storage";
 import "./inbox.css";
 
@@ -31,6 +33,10 @@ function inboxStatusMediaSrc(mediaId: string): string {
 const STATUS_PAGE_URL = `${(process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app").replace(/\/$/, "")}/status/`;
 
 export default function InboxPage() {
+  const pathname = usePathname();
+  const inboxLine: InboxLine = pathname?.startsWith("/inbox-us") ? "us" : "main";
+  const api = (path: string) => withLineQuery(path, inboxLine);
+  const inboxLineTitle = inboxLineLabel(inboxLine);
   const [password, setPassword] = useState("");
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -184,7 +190,7 @@ export default function InboxPage() {
   const restoreSession = async (token: string) => {
     try {
       inboxVersionRef.current = 0;
-      const res = await fetch("/api/inbox/sync/?since=0", {
+      const res = await fetch(api("/api/inbox/sync/?since=0"), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -271,7 +277,7 @@ export default function InboxPage() {
     try {
       const file = await session.stopAndGetFile();
       const { mediaId } = await uploadFile(file, "auto", true);
-      const res = await fetch("/api/messages/", {
+      const res = await fetch(api("/api/messages/"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -394,7 +400,7 @@ export default function InboxPage() {
 
     try {
       for (const msgId of idsToDelete) {
-        await fetch("/api/messages/", {
+        await fetch(api("/api/messages/"), {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ phone: activeChat.phone, deleteMessageId: msgId }),
@@ -457,7 +463,7 @@ export default function InboxPage() {
 
         for (const phone of selectedForwardContacts) {
           const targetContact = contacts.find(c => c.phone === phone);
-          const res = await fetch("/api/messages/", {
+          const res = await fetch(api("/api/messages/"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -550,7 +556,7 @@ export default function InboxPage() {
       setActiveChat((prev) => (prev ? applyReadFlags(prev, true) : null));
     }
     try {
-      await fetch("/api/messages/", {
+      await fetch(api("/api/messages/"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, markRead: true }),
@@ -564,7 +570,7 @@ export default function InboxPage() {
       setActiveChat((prev) => (prev ? applyReadFlags(prev, false) : null));
     }
     try {
-      await fetch("/api/messages/", {
+      await fetch(api("/api/messages/"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, markUnread: true }),
@@ -585,7 +591,7 @@ export default function InboxPage() {
         setActiveChat((prev) => (prev ? patch(prev) : null));
       }
       try {
-        await fetch("/api/messages/", {
+        await fetch(api("/api/messages/"), {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ phone, messageId, messageRead: read }),
@@ -597,7 +603,7 @@ export default function InboxPage() {
         setActiveCampaignChat((prev) => (prev ? patch(prev) : null));
       }
       try {
-        await fetch("/api/marketing-messages/", {
+        await fetch(api("/api/marketing-messages/"), {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({ phone, messageId, messageRead: read }),
@@ -678,7 +684,7 @@ export default function InboxPage() {
 
   const fetchCampaignStatus = async () => {
     try {
-      const res = await fetch("/api/campaign/", {
+      const res = await fetch(api("/api/campaign/"), {
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
       const data = await res.json();
@@ -702,7 +708,7 @@ export default function InboxPage() {
     if (!window.confirm(`Send ${MARKETING_TEMPLATE} to the next ${limit} pending leads?`)) return;
     setIsSendingCampaign(true);
     try {
-      const res = await fetch("/api/campaign/", {
+      const res = await fetch(api("/api/campaign/"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -734,7 +740,7 @@ export default function InboxPage() {
 
     setIsSendingCampaign(true);
     try {
-      const res = await fetch("/api/campaign/", {
+      const res = await fetch(api("/api/campaign/"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -786,7 +792,7 @@ export default function InboxPage() {
 
   const resetLeadCampaignStatus = async (phone: string) => {
     try {
-      await fetch("/api/campaign/", {
+      await fetch(api("/api/campaign/"), {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -835,7 +841,7 @@ export default function InboxPage() {
     if (!silent) setIsRefreshing(true);
     try {
       const since = forceFull ? 0 : inboxVersionRef.current;
-      const res = await fetch(`/api/inbox/sync/?since=${since}`, {
+      const res = await fetch(api(`/api/inbox/sync/?since=${since}`), {
         headers: { Authorization: `Bearer ${sessionToken}` },
         cache: "no-store",
       });
@@ -1003,7 +1009,7 @@ export default function InboxPage() {
       setActiveCampaignChat((prev) => (prev ? applyReadFlags(prev, true) : null));
     }
     try {
-      await fetch("/api/marketing-messages/", {
+      await fetch(api("/api/marketing-messages/"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, markRead: true }),
@@ -1019,7 +1025,7 @@ export default function InboxPage() {
       setActiveCampaignChat((prev) => (prev ? applyReadFlags(prev, false) : null));
     }
     try {
-      await fetch("/api/marketing-messages/", {
+      await fetch(api("/api/marketing-messages/"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, markUnread: true }),
@@ -1073,7 +1079,7 @@ export default function InboxPage() {
 
   const promoteToMainInbox = async (phone: string) => {
     try {
-      await fetch("/api/marketing-messages/", {
+      await fetch(api("/api/marketing-messages/"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, promoteToMain: true }),
@@ -1228,7 +1234,7 @@ export default function InboxPage() {
 
     setSending(true);
     try {
-      const res = await fetch("/api/marketing-messages/", {
+      const res = await fetch(api("/api/marketing-messages/"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1306,7 +1312,7 @@ export default function InboxPage() {
       }
 
       // 2. Dispatch message
-      const res = await fetch("/api/messages/", {
+      const res = await fetch(api("/api/messages/"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1409,7 +1415,7 @@ export default function InboxPage() {
     }
 
     try {
-      await fetch("/api/messages/", {
+      await fetch(api("/api/messages/"), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -1557,7 +1563,7 @@ export default function InboxPage() {
       setActiveChat((prev) => (prev ? { ...prev, ...patch, ...(patch.markRead ? { hasUnread: false, unreadCount: 0 } : {}) } : null));
     }
     try {
-      await fetch("/api/messages/", {
+      await fetch(api("/api/messages/"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone, ...patch }),
@@ -1654,7 +1660,7 @@ export default function InboxPage() {
         })
       );
 
-      const res = await fetch("/api/messages/", {
+      const res = await fetch(api("/api/messages/"), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -1679,7 +1685,7 @@ export default function InboxPage() {
         setActiveChat(null);
       }
 
-      const res = await fetch("/api/messages/", {
+      const res = await fetch(api("/api/messages/"), {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -1727,7 +1733,7 @@ export default function InboxPage() {
     }
 
     try {
-      await fetch("/api/messages/", {
+      await fetch(api("/api/messages/"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ phone: activeChat.phone, deleteMessageId: messageId }),
@@ -1931,7 +1937,7 @@ export default function InboxPage() {
                 className="w-full h-full object-cover" 
               />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Pure Herbex Inbox</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{inboxLineTitle}</h1>
             <p className="text-zinc-400 text-sm mt-1">Unlock WhatsApp conversations</p>
           </div>
 

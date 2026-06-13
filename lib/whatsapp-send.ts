@@ -1,4 +1,6 @@
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
+import type { InboxLine } from "@/lib/inbox-line";
+import { getWhatsAppPhoneNumberIdForLine } from "@/lib/inbox-line";
 import { normalizePhone } from "@/lib/blocked";
 import {
   getTemplateHeaderMediaId,
@@ -10,14 +12,19 @@ type SendResult = { ok: boolean; msgId?: string; error?: string };
 /** Compressed JPEG under Meta's 5 MB template header limit (fallback URL only). */
 export const DEFAULT_TEMPLATE_IMAGE = MARKETING_HEADER_IMAGE_URL;
 
+function phoneIdForLine(line: InboxLine = "main"): string {
+  return line === "main" ? getWhatsAppPhoneNumberId() : getWhatsAppPhoneNumberIdForLine(line);
+}
+
 export async function sendWhatsAppMediaMessage(
   toPhone: string,
   type: "image" | "video",
   mediaId: string,
-  caption?: string
+  caption?: string,
+  line: InboxLine = "main"
 ): Promise<SendResult> {
   const to = normalizePhone(toPhone);
-  const url = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/messages`;
+  const url = `https://graph.facebook.com/v20.0/${phoneIdForLine(line)}/messages`;
 
   const payload: Record<string, unknown> = {
     messaging_product: "whatsapp",
@@ -57,6 +64,7 @@ export async function sendWhatsAppTemplateMessage(
     city?: string;
     headerImageUrl?: string;
     headerMediaId?: string;
+    line?: InboxLine;
   } = {}
 ): Promise<SendResult> {
   const {
@@ -66,6 +74,7 @@ export async function sendWhatsAppTemplateMessage(
     city = "",
     headerImageUrl,
     headerMediaId,
+    line = "main",
   } = options;
 
   const to = normalizePhone(toPhone);
@@ -108,7 +117,7 @@ export async function sendWhatsAppTemplateMessage(
   };
   if (components.length > 0) template.components = components;
 
-  const url = `https://graph.facebook.com/v20.0/${getWhatsAppPhoneNumberId()}/messages`;
+  const url = `https://graph.facebook.com/v20.0/${phoneIdForLine(line)}/messages`;
   const response = await fetch(url, {
     method: "POST",
     headers: {

@@ -2,19 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
-import { isVoiceNoteFile } from "@/lib/meta-media";
-import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
+import { getWhatsAppPhoneNumberIdForLine } from "@/lib/inbox-line";
+import { resolveInboxLine } from "@/lib/inbox-request";
 import { bumpInboxVersion } from "@/lib/inbox-sync";
+import {
+  activeContactsKey,
+  contactKey,
+  marketingContactKey,
+  marketingContactsKey,
+} from "@/lib/kv-keys";
 import {
   getAllMarketingContacts,
   getMarketingContact,
   saveMarketingContact,
 } from "@/lib/marketing-inbox";
+import { isVoiceNoteFile } from "@/lib/meta-media";
 import {
   markAllMessagesRead,
   markAllMessagesUnread,
   setMessageReadState,
 } from "@/lib/read-state";
+import { getWhatsAppAccessToken, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +30,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const contacts = await getAllMarketingContacts();
+    const line = resolveInboxLine(request);
+    const contacts = await getAllMarketingContacts(line);
     return NextResponse.json({ contacts });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -35,15 +44,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const body = await request.json();
+    const line = resolveInboxLine(request, body);
     const { toPhone, replyText, contactName, type, mediaId, location, fileName, replyTo, isVoiceNote } =
-      await request.json();
+      body;
 
     if (!toPhone) {
       return NextResponse.json({ error: "Missing recipient phone number" }, { status: 400 });
     }
 
     const phone = normalizePhone(toPhone);
-    if (await isPhoneBlocked(phone)) {
+    if (await isPhoneBlocked(phone, line)) {
       return NextResponse.json({ error: "This contact is blocked." }, { status: 403 });
     }
 
@@ -57,7 +68,7 @@ export async function POST(request: NextRequest) {
       (!!isVoiceNote ||
         (!!fileName && isVoiceNoteFile({ name: fileName, type: "audio/ogg" })));
 
-    const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberId()}/messages`;
+    const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${getWhatsAppPhoneNumberIdForLine(line)}/messages`;
     const messagePayload: Record<string, unknown> = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -106,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     const msgId = respData.messages?.[0]?.id || "N/A";
-    let contact = await getMarketingContact(phone);
+    let contact = await getMarketingContact(phone, line);
     if (!contact) {
       contact = { name: contactName || "Lead", phone, messages: [] };
     }
@@ -134,8 +145,8 @@ export async function POST(request: NextRequest) {
       isVoiceNote: sendAsVoice || undefined,
     });
 
-    await saveMarketingContact(contact);
-    await bumpInboxVersion();
+    await saveMarketingContact(contact, line);
+    await bumpInboxVersion(line);
     return NextResponse.json({ status: "success", msgId });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -148,14 +159,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { phone, markRead, markUnread, messageId, messageRead, promoteToMain } =
-      await request.json();
+    const body = await request.json();
+    const line = resolveInboxLine(request, body);
+    const { phone, markRead, markUnread, messageId, messageRead, promoteToMain } = body;
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
 
     const normalized = normalizePhone(phone);
-    const contact = await getMarketingContact(normalized);
+    const contact = await getMarketingContact(normalized, line);
     if (!contact) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
@@ -174,12 +186,12 @@ export async function PATCH(request: NextRequest) {
         setMessageReadState(contact, messageId, messageRead) || readStateChanged;
     }
     if (readStateChanged) {
-      await saveMarketingContact(contact);
-      await bumpInboxVersion();
+      await saveMarketingContact(contact, line);
+      await bumpInboxVersion(line);
     }
 
     if (promoteToMain) {
-      let main: any = await kv.get(`whatsapp:contact:${normalized}`);
+      let main: any = await kv.get(contactKey(line, normalized));
       if (!main) {
         main = { ...contact, hasUnread: false, unreadCount: 0 };
       } else {
@@ -189,11 +201,11 @@ export async function PATCH(request: NextRequest) {
         }
         if (contact.name && main.name === "WhatsApp Contact") main.name = contact.name;
       }
-      await kv.set(`whatsapp:contact:${normalized}`, main);
-      await kv.sadd("whatsapp:active_contacts", normalized);
-      await kv.srem("whatsapp:marketing_contacts", normalized);
-      await kv.del(`whatsapp:marketing_contact:${normalized}`);
-      await bumpInboxVersion();
+      await kv.set(contactKey(line, normalized), main);
+      await kv.sadd(activeContactsKey(line), normalized);
+      await kv.srem(marketingContactsKey(line), normalized);
+      await kv.del(marketingContactKey(line, normalized));
+      await bumpInboxVersion(line);
     }
 
     return NextResponse.json({ status: "success" });
@@ -208,15 +220,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { phone } = await request.json();
+    const body = await request.json();
+    const line = resolveInboxLine(request, body);
+    const { phone } = body;
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
 
     const normalized = normalizePhone(phone);
-    await kv.srem("whatsapp:marketing_contacts", normalized);
-    await kv.del(`whatsapp:marketing_contact:${normalized}`);
-    await bumpInboxVersion();
+    await kv.srem(marketingContactsKey(line), normalized);
+    await kv.del(marketingContactKey(line, normalized));
+    await bumpInboxVersion(line);
     return NextResponse.json({ status: "success" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

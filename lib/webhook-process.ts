@@ -1,6 +1,13 @@
 import { kv } from "@vercel/kv";
 import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
+import type { InboxLine } from "@/lib/inbox-line";
 import { bumpInboxVersion } from "@/lib/inbox-sync";
+import {
+  activeContactsKey,
+  campaignStatusKey,
+  contactKey,
+  marketingContactKey,
+} from "@/lib/kv-keys";
 import {
   isMarketingLead,
   saveMarketingContact,
@@ -31,13 +38,14 @@ function profileNameFor(value: WebhookValue, waId: string): string {
 
 export async function processIncomingWebhookMessage(
   value: WebhookValue,
-  message: Record<string, unknown>
+  message: Record<string, unknown>,
+  line: InboxLine
 ): Promise<void> {
   const rawFrom = message.from as string | undefined;
   const from = rawFrom ? normalizePhone(rawFrom) : "";
   if (!from) return;
 
-  if (await isPhoneBlocked(from)) return;
+  if (await isPhoneBlocked(from, line)) return;
 
   const timestamp = (message.timestamp as number) || Math.floor(Date.now() / 1000);
   const msgId = message.id as string;
@@ -67,9 +75,9 @@ export async function processIncomingWebhookMessage(
   };
 
   const mainContact: { messages?: Array<{ id: string }> } | null = await kv.get(
-    `whatsapp:contact:${from}`
+    contactKey(line, from)
   );
-  const fromMarketing = await isMarketingLead(from);
+  const fromMarketing = await isMarketingLead(from, line);
   const useMain = shouldUseMainInboxForIncoming(mainContact, fromMarketing);
   if (useMain) {
     let contact: {
@@ -85,22 +93,20 @@ export async function processIncomingWebhookMessage(
     if (!contact.messages.some((m) => m.id === msgId)) {
       contact.messages.push(incomingMsg);
       recomputeUnread(contact as unknown as ReadableContact);
-      await kv.set(`whatsapp:contact:${from}`, contact);
-      await kv.sadd("whatsapp:active_contacts", from);
-      await bumpInboxVersion();
+      await kv.set(contactKey(line, from), contact);
+      await kv.sadd(activeContactsKey(line), from);
+      await bumpInboxVersion(line);
     }
   } else {
-    let contact: MarketingContact | null = await kv.get(
-      `whatsapp:marketing_contact:${from}`
-    );
+    let contact: MarketingContact | null = await kv.get(marketingContactKey(line, from));
     if (!contact) {
       contact = { name: profileName, phone: from, messages: [] };
     }
     if (!contact.messages.some((m) => m.id === msgId)) {
       contact.messages.push(incomingMsg);
       recomputeUnread(contact as unknown as ReadableContact);
-      await saveMarketingContact(contact);
-      await bumpInboxVersion();
+      await saveMarketingContact(contact, line);
+      await bumpInboxVersion(line);
     }
   }
 }
@@ -151,7 +157,8 @@ function findMessageForStatus(
 }
 
 export async function processIncomingWebhookStatus(
-  status: Record<string, unknown>
+  status: Record<string, unknown>,
+  line: InboxLine
 ): Promise<void> {
   const recipient_id = normalizePhone(status.recipient_id as string);
   if (!recipient_id) return;
@@ -189,8 +196,8 @@ export async function processIncomingWebhookStatus(
     return true;
   };
 
-  const mainKey = `whatsapp:contact:${recipient_id}`;
-  const marketingKey = `whatsapp:marketing_contact:${recipient_id}`;
+  const mainKey = contactKey(line, recipient_id);
+  const marketingKey = marketingContactKey(line, recipient_id);
   const mainContact = await kv.get(mainKey);
   const marketingContact = await kv.get(marketingKey);
   const updatedMain = await updateMessageStatus(mainContact, mainKey);
@@ -199,7 +206,7 @@ export async function processIncomingWebhookStatus(
     : await updateMessageStatus(marketingContact, marketingKey);
 
   if (updatedMain || updatedMarketing) {
-    await bumpInboxVersion();
+    await bumpInboxVersion(line);
   } else {
     console.warn(
       `Delivery status ${msg_status} for ${msg_id} (${recipient_id}) — no matching outbound message`
@@ -208,7 +215,7 @@ export async function processIncomingWebhookStatus(
 
   if (msg_status === "failed") {
     const campaignStatus: Record<string, Record<string, unknown>> =
-      (await kv.get("whatsapp:campaign_status")) || {};
+      (await kv.get(campaignStatusKey(line))) || {};
     const entry = campaignStatus[recipient_id];
     if (entry?.messageId === msg_id || entry?.status === "sent") {
       let failureNote = errorTitle || "Delivery failed";
@@ -225,8 +232,8 @@ export async function processIncomingWebhookStatus(
         error: failureNote,
         failedAt: Date.now(),
       };
-      await kv.set("whatsapp:campaign_status", campaignStatus);
-      await bumpInboxVersion();
+      await kv.set(campaignStatusKey(line), campaignStatus);
+      await bumpInboxVersion(line);
     }
   }
 }
