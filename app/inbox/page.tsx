@@ -15,6 +15,7 @@ import {
 } from "@/app/inbox/utils";
 import MessageContent from "@/components/inbox/MessageContent";
 import DeliveryTicks from "@/components/inbox/DeliveryTicks";
+import InboxLineSwitch from "@/components/inbox/InboxLineSwitch";
 import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
@@ -146,6 +147,11 @@ export default function InboxPage() {
   const [testCity, setTestCity] = useState("Karachi");
 
   const [isMobile, setIsMobile] = useState(false);
+  const [isAndroidApp, setIsAndroidApp] = useState(false);
+
+  useEffect(() => {
+    setIsAndroidApp(!!getAndroidBridge());
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -2615,7 +2621,7 @@ export default function InboxPage() {
                           }`}
                         >
                           <MessageContent msg={msg} isMe={isMe} quoteChat={activeCampaignChat} />
-                          <div className={`flex items-center justify-end gap-1 mt-0.5 text-[11px] ${isMe ? "text-[#ffffff99]" : "text-[#8696a0]"}`}>
+                          <div className={`inbox-msg-meta ${isMe ? "inbox-msg-meta--out" : "inbox-msg-meta--in"}`}>
                             <span>{msgTime}</span>
                             <DeliveryTicks msg={msg} />
                           </div>
@@ -2670,6 +2676,7 @@ export default function InboxPage() {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100">{inboxTitle}</h1>
             <div className="flex items-center space-x-2">
+              {isAndroidApp && <InboxLineSwitch line={inboxLine} compact />}
               <button
                 type="button"
                 onClick={() => handleExportContacts("csv")}
@@ -2988,6 +2995,7 @@ export default function InboxPage() {
 
                   {/* Header Actions & Tags Selector — icon-only on mobile */}
                   <div className="flex items-center gap-1.5">
+                    {isAndroidApp && <InboxLineSwitch line={inboxLine} compact />}
                     {activeChat.blocked && (
                       <button
                         onClick={() => blockContact(activeChat.phone, false)}
@@ -3173,9 +3181,7 @@ export default function InboxPage() {
                         />
                         
                         <div
-                          className={`flex items-center justify-end gap-1 mt-0.5 text-[11px] ${
-                            isMe ? "text-[#ffffff99]" : "text-[#8696a0]"
-                          }`}
+                          className={`inbox-msg-meta ${isMe ? "inbox-msg-meta--out" : "inbox-msg-meta--in"}`}
                         >
                           <span>{msgTime}</span>
                           <DeliveryTicks msg={msg} />

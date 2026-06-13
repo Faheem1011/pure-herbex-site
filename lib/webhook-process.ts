@@ -148,7 +148,7 @@ function findMessageForStatus(
     const ts = Number(msg.timestamp);
     if (!Number.isFinite(ts)) continue;
     const diff = Math.abs(ts - statusTimestamp);
-    if (diff > 180) continue;
+    if (diff > 300) continue;
     if (!best || diff < best.diff) {
       best = { msg, diff };
     }

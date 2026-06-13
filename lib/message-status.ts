@@ -1,7 +1,9 @@
 export function normalizeDeliveryStatus(status: string | undefined): string {
   if (!status) return "sent";
-  if (status === "played") return "read";
-  return status;
+  const s = status.toLowerCase().trim();
+  if (s === "played") return "read";
+  if (s === "pending") return "sent";
+  return s;
 }
 
 export function deliveryStatusRank(status: string | undefined): number {
