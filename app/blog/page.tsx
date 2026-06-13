@@ -51,10 +51,6 @@ export default function BlogPage() {
                   </div>
                 </div>
                 <div className="lg:w-1/2 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center p-12 relative overflow-hidden">
-                   <div
-                     className="absolute inset-0 opacity-20"
-                     style={{ backgroundImage: "url(/grid.svg)" }}
-                   ></div>
                    <div className="relative z-10 text-center">
                       <div className="text-primary/10 text-[200px] font-black absolute inset-0 flex items-center justify-center pointer-events-none">HERB</div>
                       <h3 className="text-4xl md:text-6xl font-black italic tracking-tighter text-white/40">ULTRA FORCE</h3>
