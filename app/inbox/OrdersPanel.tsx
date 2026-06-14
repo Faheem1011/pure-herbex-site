@@ -853,7 +853,7 @@ export default function OrdersPanel({
                   onClick={archiveSelected}
                   className="w-full py-2 rounded-xl border border-zinc-700 text-zinc-500 hover:text-rose-400 hover:border-rose-500/30 text-xs font-semibold transition-all"
                 >
-                  Archive order
+                  Archive order (remove from active CRM)
                 </button>
               )}
             </div>

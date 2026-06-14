@@ -266,6 +266,11 @@ export async function PATCH(request: NextRequest) {
         contact.blocked = !!blocked;
         await setPhoneBlocked(normalized, !!blocked, line);
       }
+      if (body.tag !== undefined) {
+        const rawTag = body.tag;
+        const validTags = new Set(["Confirm", "Potential", "Important", "Spam"]);
+        contact.tag = rawTag && validTags.has(rawTag) ? rawTag : null;
+      }
       if (deleteMessageId) {
         if (contact.messages) {
           contact.messages = contact.messages.map((m: any) => 
@@ -292,6 +297,7 @@ export async function PATCH(request: NextRequest) {
         archived !== undefined ||
         pinned !== undefined ||
         blocked !== undefined ||
+        body.tag !== undefined ||
         deleteMessageId ||
         readStateChanged ||
         noteChanged

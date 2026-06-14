@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
 import type { Contact, Message, StatusItem } from "@/app/inbox/types";
@@ -899,21 +899,20 @@ export default function InboxPage() {
           // Re-apply tags & use server-side unread states
           const merged = [...emptyChats, ...sorted].map((c: Contact) => {
             const localContact = prev.find((p) => p.phone === c.phone);
-            
-            // Preserve tag from local state if server doesn't have it (fallback)
-            if (localContact?.tag && !c.tag) {
-              c.tag = localContact.tag;
-            }
+            const mergedContact: Contact = {
+              ...c,
+              tag: c.tag ?? localContact?.tag,
+            };
 
             // If the chat is currently open, mark it as read immediately
             const isOpen = activeChatRef.current?.phone === c.phone;
-            if (isOpen && (c.hasUnread || (c.unreadCount || 0) > 0)) {
+            if (isOpen && (mergedContact.hasUnread || (mergedContact.unreadCount || 0) > 0)) {
               markChatRead(c.phone);
-              return applyReadFlags(c, true);
+              return applyReadFlags(mergedContact, true);
             }
 
             // Otherwise, trust the server-side unread state
-            return c;
+            return mergedContact;
           });
           return merged;
         });
@@ -1519,10 +1518,27 @@ export default function InboxPage() {
     setCrmFocusOrderId(null);
   };
 
+  const removeFromOrdersCrm = async (phone: string) => {
+    const meta = orderSummary.byPhone[phone];
+    if (!meta?.orderId || !sessionToken) return;
+    if (!confirm("Remove this customer from active CRM? They will stay in your chat list.")) return;
+    try {
+      const res = await fetch(`/api/orders/?id=${encodeURIComponent(meta.orderId)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to remove from CRM");
+      void fetchOrderSummary();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Could not remove from CRM");
+    }
+  };
+
   const updateContactTag = async (phone: string, tag: "Confirm" | "Potential" | "Important" | "Spam" | null) => {
     const contact = contacts.find((c) => c.phone === phone) || activeChat;
+    const previousTag = contact?.tag;
     try {
-      // Optimistic update in state
       setContacts((prev) =>
         prev.map((c) => {
           if (c.phone === phone) {
@@ -1536,17 +1552,32 @@ export default function InboxPage() {
         })
       );
 
-      const res = await fetch("/api/tags/", {
+      const res = await fetch(api("/api/tags/"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({ phone, tag }),
+        body: JSON.stringify({ phone, tag, line: inboxLine }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error("Failed to sync tag with database");
+        throw new Error(data.error || "Failed to save tag");
       }
+
+      const savedTag = (data.tag as Contact["tag"]) ?? tag;
+      setContacts((prev) =>
+        prev.map((c) => {
+          if (c.phone === phone) {
+            const updated = { ...c, tag: savedTag };
+            if (activeChat?.phone === phone) {
+              setActiveChat(updated);
+            }
+            return updated;
+          }
+          return c;
+        })
+      );
 
       if (tag === "Confirm" && contact && !orderSummary.byPhone[phone]) {
         if (confirm(`Add ${contact.name} to Orders CRM?`)) {
@@ -1555,6 +1586,19 @@ export default function InboxPage() {
       }
     } catch (err) {
       console.error(err);
+      setContacts((prev) =>
+        prev.map((c) => {
+          if (c.phone === phone) {
+            const reverted = { ...c, tag: previousTag };
+            if (activeChat?.phone === phone) {
+              setActiveChat(reverted);
+            }
+            return reverted;
+          }
+          return c;
+        })
+      );
+      alert(err instanceof Error ? err.message : "Could not save tag. Try again.");
     }
   };
 
@@ -1908,6 +1952,14 @@ export default function InboxPage() {
     });
 
   const blockedCount = contacts.filter((c) => c.blocked).length;
+  const tagCounts = useMemo(() => {
+    const counts: Partial<Record<Contact["tag"] & string, number>> = {};
+    for (const c of contacts) {
+      if (c.archived || c.blocked || !c.tag) continue;
+      counts[c.tag] = (counts[c.tag] || 0) + 1;
+    }
+    return counts;
+  }, [contacts]);
   const campaignUnreadCount = campaignContacts.reduce((n, c) => n + (c.hasUnread ? (c.unreadCount || 1) : 0), 0);
   const filteredCampaignContacts = campaignContacts
     .filter((c) => {
@@ -2032,9 +2084,16 @@ export default function InboxPage() {
                     ? "bg-zinc-800 text-zinc-100"
                     : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
                 }`}
-                title={`Filter: ${tag.label}`}
+                title={`Filter: ${tag.label}${tagCounts[tag.id] ? ` (${tagCounts[tag.id]})` : ""}`}
               >
-                <span className={`w-2 h-2 rounded-full ${tag.color}`}></span>
+                <span className="relative">
+                  <span className={`w-2 h-2 rounded-full block ${tag.color}`}></span>
+                  {(tagCounts[tag.id] || 0) > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-[14px] h-[14px] px-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[8px] font-bold text-zinc-200 flex items-center justify-center">
+                      {tagCounts[tag.id]}
+                    </span>
+                  )}
+                </span>
               </button>
             ))}
 
@@ -3070,6 +3129,19 @@ export default function InboxPage() {
                       </svg>
                       <span className="hidden sm:inline">CRM</span>
                     </button>
+                    {orderSummary.byPhone[activeChat.phone] && (
+                      <button
+                        type="button"
+                        onClick={() => removeFromOrdersCrm(activeChat.phone)}
+                        className="p-2 hover:bg-rose-500/10 border border-zinc-800 hover:border-rose-500/30 rounded-xl text-zinc-500 hover:text-rose-400 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                        title="Remove from active CRM"
+                      >
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span className="hidden sm:inline">Remove CRM</span>
+                      </button>
+                    )}
                     <select
                       value={activeChat.tag || ""}
                       onChange={(e) => updateContactTag(activeChat.phone, (e.target.value as any) || null)}
