@@ -1,7 +1,8 @@
 import { kv } from "@vercel/kv";
 import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
 import type { InboxLine } from "@/lib/inbox-line";
-import { bumpInboxVersion } from "@/lib/inbox-sync";
+import { bumpInboxVersion, bumpInboxVersionThrottled } from "@/lib/inbox-sync";
+import { registerKnownMediaId } from "@/lib/media-index";
 import {
   activeContactsKey,
   campaignStatusKey,
@@ -73,6 +74,8 @@ export async function processIncomingWebhookMessage(
     unsupportedCode: parsed.unsupportedCode,
     readByAgent: false,
   };
+
+  await registerKnownMediaId(parsed.mediaId, line);
 
   const mainContact: { messages?: Array<{ id: string }> } | null = await kv.get(
     contactKey(line, from)
@@ -206,7 +209,7 @@ export async function processIncomingWebhookStatus(
     : await updateMessageStatus(marketingContact, marketingKey);
 
   if (updatedMain || updatedMarketing) {
-    await bumpInboxVersion(line);
+    await bumpInboxVersionThrottled(line);
   } else {
     console.warn(
       `Delivery status ${msg_status} for ${msg_id} (${recipient_id}) — no matching outbound message`
@@ -233,7 +236,7 @@ export async function processIncomingWebhookStatus(
         failedAt: Date.now(),
       };
       await kv.set(campaignStatusKey(line), campaignStatus);
-      await bumpInboxVersion(line);
+      await bumpInboxVersionThrottled(line);
     }
   }
 }

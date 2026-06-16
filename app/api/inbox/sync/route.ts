@@ -4,6 +4,7 @@ import { bumpInboxVersion, fetchInboxSnapshot, getInboxVersion } from "@/lib/inb
 import { EXPECTED_KV_HOST, getKvHost } from "@/lib/kv-config";
 import { inboxLineLabel } from "@/lib/inbox-line";
 import { resolveInboxLine } from "@/lib/inbox-request";
+import { ensureMediaIndexBuilt } from "@/lib/media-index";
 import { migrateMarketingOnlyFromMain } from "@/lib/marketing-inbox";
 
 export const dynamic = "force-dynamic";
@@ -29,8 +30,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ version, unchanged: true, ...kvMeta });
     }
 
+    // One-time index build per line; avoids O(n) KV scan on every media load.
+    await ensureMediaIndexBuilt(line);
     await migrateMarketingOnlyFromMain(line);
-    const snapshot = await fetchInboxSnapshot(line);
+    const snapshot = await fetchInboxSnapshot(line, version);
     if (
       snapshot.version === 0 &&
       snapshot.contacts.length + snapshot.campaignContacts.length > 0

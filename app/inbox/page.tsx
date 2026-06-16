@@ -1103,10 +1103,18 @@ export default function InboxPage() {
 
     let interval: ReturnType<typeof setInterval>;
     const poll = () => fetchInboxSync(true);
+    const getPollMs = () => {
+      if (typeof document !== "undefined" && document.hidden) return 120_000;
+      if (activeChatRef.current) return 40_000;
+      const hasUnread = contactsRef.current.some(
+        (c) => c.hasUnread && !c.archived && !c.blocked
+      );
+      if (hasUnread) return 50_000;
+      return 90_000;
+    };
     const resetInterval = () => {
       clearInterval(interval);
-      const ms = typeof document !== "undefined" && document.hidden ? 45000 : 15000;
-      interval = setInterval(poll, ms);
+      interval = setInterval(poll, getPollMs());
     };
 
     poll();
@@ -1116,7 +1124,7 @@ export default function InboxPage() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", resetInterval);
     };
-  }, [isLoggedIn, sessionToken]);
+  }, [isLoggedIn, sessionToken, activeChat?.phone]);
 
   // Scroll to bottom on new message
   useEffect(() => {

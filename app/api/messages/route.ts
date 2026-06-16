@@ -4,6 +4,7 @@ import { isInboxAuthed } from "@/lib/auth";
 import { isPhoneBlocked, normalizePhone, setPhoneBlocked } from "@/lib/blocked";
 import { getWhatsAppPhoneNumberIdForLine } from "@/lib/inbox-line";
 import { resolveInboxLine } from "@/lib/inbox-request";
+import { registerKnownMediaId } from "@/lib/media-index";
 import { bumpInboxVersion, fetchMainContacts } from "@/lib/inbox-sync";
 import { activeContactsKey, contactKey } from "@/lib/kv-keys";
 import {
@@ -171,6 +172,7 @@ export async function POST(request: NextRequest) {
 
       await kv.set(contactKey(line, phone), contact);
       await kv.sadd(activeContactsKey(line), phone);
+      await registerKnownMediaId(mediaId, line);
       await bumpInboxVersion(line);
 
       return NextResponse.json({ status: "success", msgId });

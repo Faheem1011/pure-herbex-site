@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
 import { prepareMetaUploadFile } from "@/lib/meta-media";
-import { isKnownInboxMedia } from "@/lib/inbox-media";
+import { isKnownInboxMedia, registerKnownMediaId } from "@/lib/media-index";
 import { publicCorsPreflight, withPublicCors } from "@/lib/public-cors";
 import { isPublicStatusMedia } from "@/lib/status-media";
 import { getWhatsAppAccessToken, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
@@ -151,6 +151,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
 
     if (response.ok && data.id) {
+      await registerKnownMediaId(data.id, line);
       return NextResponse.json({
         status: "success",
         mediaId: data.id,
