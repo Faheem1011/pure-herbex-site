@@ -1,3 +1,5 @@
+import type { TagId } from "@/app/inbox/constants";
+
 export interface Message {
   id: string;
   sender: "me" | "them";
@@ -31,7 +33,7 @@ export interface Contact {
   name: string;
   phone: string;
   messages: Message[];
-  tag?: "Confirm" | "Potential" | "Important" | "Spam" | null;
+  tag?: TagId | null;
   archived?: boolean;
   pinned?: boolean;
   blocked?: boolean;

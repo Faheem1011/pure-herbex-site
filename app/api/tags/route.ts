@@ -10,9 +10,8 @@ import { bumpInboxVersion } from "@/lib/inbox-sync";
 
 import { resolveInboxLine } from "@/lib/inbox-request";
 
+import { VALID_TAG_IDS } from "@/app/inbox/constants";
 import { activeContactsKey, contactKey } from "@/lib/kv-keys";
-
-const VALID_TAGS = new Set(["Confirm", "Potential", "Important", "Spam"]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const nextTag =
-      tag && VALID_TAGS.has(tag) ? tag : null;
+      tag && VALID_TAG_IDS.has(tag) ? tag : null;
 
     const storageKey = contactKey(line, normalized);
     let contact: {

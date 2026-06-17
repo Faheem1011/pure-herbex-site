@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
 import type { Contact, Message, StatusItem } from "@/app/inbox/types";
-import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS } from "@/app/inbox/constants";
+import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS, type TagId } from "@/app/inbox/constants";
 import {
   formatChatTime,
   formatMessagePreview,
@@ -85,7 +85,7 @@ export default function InboxPage() {
 
   useSafeAreaInsets();
 
-  const [activeTab, setActiveTab] = useState<"all" | "Confirm" | "Potential" | "Important" | "Spam" | "archived" | "blocked">("all");
+  const [activeTab, setActiveTab] = useState<"all" | TagId | "archived" | "blocked">("all");
   const [contactMenuTarget, setContactMenuTarget] = useState<Contact | null>(null);
   const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
   const [statusCaption, setStatusCaption] = useState("");
@@ -1543,7 +1543,7 @@ export default function InboxPage() {
     }
   };
 
-  const updateContactTag = async (phone: string, tag: "Confirm" | "Potential" | "Important" | "Spam" | null) => {
+  const updateContactTag = async (phone: string, tag: TagId | null) => {
     const contact = contacts.find((c) => c.phone === phone) || activeChat;
     const previousTag = contact?.tag;
     try {

@@ -1,3 +1,4 @@
+import { VALID_TAG_IDS } from "@/app/inbox/constants";
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { isInboxAuthed } from "@/lib/auth";
@@ -270,8 +271,7 @@ export async function PATCH(request: NextRequest) {
       }
       if (body.tag !== undefined) {
         const rawTag = body.tag;
-        const validTags = new Set(["Confirm", "Potential", "Important", "Spam"]);
-        contact.tag = rawTag && validTags.has(rawTag) ? rawTag : null;
+        contact.tag = rawTag && VALID_TAG_IDS.has(rawTag) ? rawTag : null;
       }
       if (deleteMessageId) {
         if (contact.messages) {
