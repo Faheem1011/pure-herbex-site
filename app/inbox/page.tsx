@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
 import type { Contact, Message, StatusItem } from "@/app/inbox/types";
 import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS, type TagId } from "@/app/inbox/constants";
+import WindowTimer from "@/components/inbox/WindowTimer";
 import {
   formatChatTime,
   formatMessagePreview,
@@ -2906,6 +2907,7 @@ export default function InboxPage() {
                         <span className="text-[10px] text-zinc-500 group-hover:opacity-0 transition-opacity duration-200">
                           {latestTime}
                         </span>
+                        <WindowTimer contact={c} compact />
                       </div>
                     </div>
                     <p className={`text-xs truncate mt-0.5 leading-normal pr-8 ${ c.hasUnread ? "text-zinc-300 font-medium" : "" }`}>{latestText}</p>
@@ -3054,8 +3056,9 @@ export default function InboxPage() {
                     </div>
                     <div className="ml-3">
                       <h2 className="font-bold text-sm leading-none text-zinc-100">{activeChat.name}</h2>
-                      <span className="text-[10px] text-zinc-500 mt-1 block">
+                      <span className="text-[10px] text-zinc-500 mt-1 block flex items-center gap-2 flex-wrap">
                         +{activeChat.phone}
+                        <WindowTimer contact={activeChat} />
                       </span>
                     </div>
                   </div>

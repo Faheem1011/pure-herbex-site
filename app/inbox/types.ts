@@ -40,6 +40,8 @@ export interface Contact {
   avatarUrl?: string;
   unreadCount?: number;
   hasUnread?: boolean;
+  /** Last customer-message window start when auto follow-up was sent (once per window). */
+  followupSentForWindow?: number;
 }
 
 export type StatusItem = {

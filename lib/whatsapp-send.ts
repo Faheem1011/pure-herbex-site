@@ -1,4 +1,4 @@
-import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
+import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 import type { InboxLine } from "@/lib/inbox-line";
 import { getWhatsAppPhoneNumberIdForLine } from "@/lib/inbox-line";
 import { normalizePhone } from "@/lib/blocked";
@@ -44,6 +44,37 @@ export async function sendWhatsAppMediaMessage(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    return { ok: false, error: data.error?.message || "Failed to send message" };
+  }
+
+  return { ok: true, msgId: data.messages?.[0]?.id };
+}
+
+export async function sendWhatsAppTextMessage(
+  toPhone: string,
+  text: string,
+  line: InboxLine = "main"
+): Promise<SendResult> {
+  const to = normalizePhone(toPhone);
+  const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${phoneIdForLine(line)}/messages`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getWhatsAppAccessToken()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: { preview_url: false, body: text },
+    }),
   });
 
   const data = await response.json();

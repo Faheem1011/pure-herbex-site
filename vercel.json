@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/window-followup/",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
