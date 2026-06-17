@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import SmoothScroll from '@/components/SmoothScroll';
+import ContactForm from '@/components/ContactForm';
 import { MessageSquare, Phone, Mail, MapPin, Facebook, Instagram, Music2 } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -32,25 +33,8 @@ export default function ContactPage() {
 
               <div className="grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
-                  <div className="glass-card p-6 sm:p-10 rounded-3xl space-y-8">
-                    <h3 className="text-2xl font-bold">Send us a Message</h3>
-                    <div className="grid sm:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-muted-foreground">Name</label>
-                        <input type="text" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-primary transition-colors outline-none" placeholder="Your Name" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
-                        <input type="text" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-primary transition-colors outline-none" placeholder="03XX XXXXXXX" />
-                      </div>
-                      <div className="sm:col-span-2 space-y-2">
-                        <label className="text-sm font-medium text-muted-foreground">How can we help?</label>
-                        <textarea className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-primary transition-colors outline-none h-32" placeholder="Tell us what you need..."></textarea>
-                      </div>
-                    </div>
-                    <button className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(16,115,84,0.3)]">
-                      Submit Feedback
-                    </button>
+                  <div className="glass-card p-6 sm:p-10 rounded-3xl">
+                    <ContactForm />
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-4">
