@@ -1,11 +1,40 @@
 import type { Contact } from "@/app/inbox/types";
+import { normalizePhone } from "@/lib/blocked";
 
-const LIST_PREVIEW_MESSAGES = 2;
+/** Default recent thread kept in list sync (enough to follow context). */
+export const SYNC_KEEP_DEFAULT = 20;
+/** Unread / pinned chats get a deeper slice without full history. */
+export const SYNC_KEEP_PRIORITY = 40;
+/** Marketing / campaign list — lighter slice. */
+export const SYNC_KEEP_CAMPAIGN = 15;
 
-export function trimContactForList<T extends { messages?: Contact["messages"] }>(
+export type TrimSyncOptions = {
+  /** Open chat — always send full message history. */
+  activePhone?: string;
+  isCampaign?: boolean;
+};
+
+function keepCountForContact(
+  contact: Contact,
+  options?: TrimSyncOptions
+): number | null {
+  const active = options?.activePhone
+    ? normalizePhone(options.activePhone)
+    : "";
+  if (active && contact.phone === active) return null;
+
+  if (options?.isCampaign) return SYNC_KEEP_CAMPAIGN;
+  if (contact.hasUnread || contact.pinned) return SYNC_KEEP_PRIORITY;
+  return SYNC_KEEP_DEFAULT;
+}
+
+export function trimContactForList<T extends Contact>(
   contact: T,
-  keep = LIST_PREVIEW_MESSAGES
+  options?: TrimSyncOptions
 ): T & { _totalMessages?: number } {
+  const keep = keepCountForContact(contact, options);
+  if (keep === null) return contact;
+
   const messages = contact.messages;
   const total = messages?.length ?? 0;
   if (!messages || total <= keep) {
@@ -18,8 +47,11 @@ export function trimContactForList<T extends { messages?: Contact["messages"] }>
   };
 }
 
-export function trimContactsForList(contacts: Contact[]): Contact[] {
-  return contacts.map((c) => trimContactForList(c));
+export function trimContactsForList(
+  contacts: Contact[],
+  options?: TrimSyncOptions
+): Contact[] {
+  return contacts.map((c) => trimContactForList(c, options));
 }
 
 /** Merge trimmed server sync into local state; keep full history when already loaded. */
@@ -45,7 +77,10 @@ export function mergeContactFromSync(
         (a, b) => a.timestamp - b.timestamp
       );
     }
-  } else if (serverMsgs.length > localMsgs.length || serverTotal > localMsgs.length) {
+  } else if (
+    serverMsgs.length > localMsgs.length ||
+    serverTotal > localMsgs.length
+  ) {
     messages = serverMsgs;
   }
 
@@ -54,7 +89,11 @@ export function mergeContactFromSync(
     messages,
     tag: server.tag ?? local.tag,
   };
-  delete (merged as Contact & { _totalMessages?: number })._totalMessages;
+  if (serverTotal > messages.length) {
+    (merged as Contact & { _totalMessages?: number })._totalMessages = serverTotal;
+  } else {
+    delete (merged as Contact & { _totalMessages?: number })._totalMessages;
+  }
   return merged;
 }
 
@@ -63,8 +102,14 @@ export function contactNeedsFullHistory(
   loadedPhones: Set<string>
 ): boolean {
   if (loadedPhones.has(contact.phone)) return false;
-  const total =
-    (contact as Contact & { _totalMessages?: number })._totalMessages;
+  const total = (contact as Contact & { _totalMessages?: number })._totalMessages;
   if (total != null && total > (contact.messages?.length ?? 0)) return true;
   return false;
+}
+
+export function countHiddenMessages(contact: Contact): number {
+  const total = (contact as Contact & { _totalMessages?: number })._totalMessages;
+  const shown = contact.messages?.length ?? 0;
+  if (total != null && total > shown) return total - shown;
+  return 0;
 }

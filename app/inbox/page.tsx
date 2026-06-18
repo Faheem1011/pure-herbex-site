@@ -9,6 +9,8 @@ import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS, type TagId } from "@/app/inbox
 import ContactListRow from "@/components/inbox/ContactListRow";
 import WindowTimer from "@/components/inbox/WindowTimer";
 import {
+  contactNeedsFullHistory,
+  countHiddenMessages,
   mergeContactFromSync,
 } from "@/lib/inbox-trim";
 import {
@@ -157,6 +159,7 @@ export default function InboxPage() {
   const fullHistoryPhonesRef = useRef(new Set<string>());
   const [windowTick, setWindowTick] = useState(() => Date.now());
   const [messageRenderLimit, setMessageRenderLimit] = useState(80);
+  const [loadingHistoryPhone, setLoadingHistoryPhone] = useState<string | null>(null);
 
   useEffect(() => {
     setIsAndroidApp(!!getAndroidBridge());
@@ -169,7 +172,7 @@ export default function InboxPage() {
   }, [isAndroidApp]);
 
   useEffect(() => {
-    setMessageRenderLimit(isAndroidApp ? 50 : 80);
+    setMessageRenderLimit(isAndroidApp ? 60 : 100);
   }, [activeChat?.phone, isAndroidApp]);
 
   useEffect(() => {
@@ -861,7 +864,10 @@ export default function InboxPage() {
     if (!silent) setIsRefreshing(true);
     try {
       const since = forceFull ? 0 : inboxVersionRef.current;
-      const res = await fetch(api(`/api/inbox/sync/?since=${since}`), {
+      const syncParams = new URLSearchParams({ since: String(since) });
+      const activePhone = activeChatRef.current?.phone;
+      if (activePhone) syncParams.set("active", activePhone);
+      const res = await fetch(api(`/api/inbox/sync/?${syncParams}`), {
         headers: { Authorization: `Bearer ${sessionToken}` },
         cache: "no-store",
       });
@@ -886,13 +892,16 @@ export default function InboxPage() {
             const newMessages = newContact.messages || [];
             const oldMessages = oldContact.messages || [];
             
-            // Detect new incoming messages
-            if (newMessages.length > oldMessages.length) {
-              const lastMsg = newMessages[newMessages.length - 1];
-              if (lastMsg.sender === "them") {
-                playNotificationSound();
-                showBrowserNotification(newContact.name, lastMsg.text);
-              }
+            // Detect new incoming messages (by last id — sync may send a slice, not full length)
+            const lastNew = newMessages[newMessages.length - 1];
+            const lastOld = oldMessages[oldMessages.length - 1];
+            if (
+              lastNew &&
+              lastNew.id !== lastOld?.id &&
+              lastNew.sender === "them"
+            ) {
+              playNotificationSound();
+              showBrowserNotification(newContact.name, lastNew.text);
             }
           }
         });
@@ -937,6 +946,8 @@ export default function InboxPage() {
             setActiveChat(applyReadFlags(merged, true));
           }
         }
+
+        void prefetchUnreadHistories(sorted);
       }
 
       if (data.campaignContacts) {
@@ -990,6 +1001,7 @@ export default function InboxPage() {
 
   const loadFullChatHistory = async (phone: string): Promise<Contact | null> => {
     if (!sessionToken || fullHistoryPhonesRef.current.has(phone)) return null;
+    setLoadingHistoryPhone(phone);
     try {
       const res = await fetch(api(`/api/messages/?phone=${encodeURIComponent(phone)}`), {
         headers: { Authorization: `Bearer ${sessionToken}` },
@@ -1001,13 +1013,31 @@ export default function InboxPage() {
       if (!full?.messages) return null;
       fullHistoryPhonesRef.current.add(phone);
       setContacts((prev) =>
-        prev.map((c) =>
-          c.phone === phone ? { ...full, tag: c.tag ?? full.tag } : c
-        )
+        prev.map((c) => {
+          if (c.phone !== phone) return c;
+          const next = { ...full, tag: c.tag ?? full.tag };
+          delete (next as Contact & { _totalMessages?: number })._totalMessages;
+          return next;
+        })
       );
       return full;
     } catch {
       return null;
+    } finally {
+      setLoadingHistoryPhone((p) => (p === phone ? null : p));
+    }
+  };
+
+  const prefetchUnreadHistories = async (list: Contact[]) => {
+    const cap = isAndroidAppRef.current ? 4 : 10;
+    const delay = isAndroidAppRef.current ? 500 : 200;
+    const targets = list
+      .filter((c) => c.hasUnread && !c.archived && !c.blocked)
+      .filter((c) => contactNeedsFullHistory(c, fullHistoryPhonesRef.current))
+      .slice(0, cap);
+    for (const c of targets) {
+      await loadFullChatHistory(c.phone);
+      await new Promise((r) => setTimeout(r, delay));
     }
   };
 
@@ -1015,8 +1045,11 @@ export default function InboxPage() {
     setIsSelectMode(false);
     setSelectedMessageIds(new Set());
     setActiveChat(contact);
-    setMessageRenderLimit(isAndroidApp ? 50 : 80);
-    if (!fullHistoryPhonesRef.current.has(contact.phone)) {
+    setMessageRenderLimit(isAndroidApp ? 60 : 100);
+    const needsFull =
+      !fullHistoryPhonesRef.current.has(contact.phone) ||
+      contactNeedsFullHistory(contact, fullHistoryPhonesRef.current);
+    if (needsFull) {
       void loadFullChatHistory(contact.phone).then((full) => {
         if (full && activeChatRef.current?.phone === contact.phone) {
           setActiveChat((prev) =>
@@ -3115,6 +3148,19 @@ export default function InboxPage() {
 
             {/* Message History Bubble list */}
             <div className="inbox-chat-wallpaper flex-1 overflow-y-auto px-3 py-4 md:px-6 space-y-1 flex flex-col">
+              {loadingHistoryPhone === activeChat.phone && (
+                <div className="text-center text-xs text-zinc-500 py-2 shrink-0">
+                  Loading full chat history…
+                </div>
+              )}
+              {!loadingHistoryPhone && countHiddenMessages(activeChat) > 0 && (
+                <div className="text-center text-xs text-amber-400/90 py-1 shrink-0">
+                  Showing recent {activeChat.messages.length} of{" "}
+                  {(activeChat as Contact & { _totalMessages?: number })._totalMessages ??
+                    activeChat.messages.length}{" "}
+                  messages — loading rest…
+                </div>
+              )}
               {activeChat.messages.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-6 my-auto">
                   <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center border border-emerald-500/20 mb-3">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
 import type { Contact } from "@/app/inbox/types";
 import { bumpInboxVersion, fetchInboxSnapshot, getInboxVersion } from "@/lib/inbox-sync";
+import { normalizePhone } from "@/lib/blocked";
 import { trimContactsForList } from "@/lib/inbox-trim";
 import { EXPECTED_KV_HOST, getKvHost } from "@/lib/kv-config";
 import { inboxLineLabel } from "@/lib/inbox-line";
@@ -18,7 +19,10 @@ export async function GET(request: NextRequest) {
     }
 
     const line = resolveInboxLine(request);
-    const since = Number(new URL(request.url).searchParams.get("since") || "0");
+    const url = new URL(request.url);
+    const since = Number(url.searchParams.get("since") || "0");
+    const activeRaw = url.searchParams.get("active") || "";
+    const activePhone = activeRaw ? normalizePhone(activeRaw) : undefined;
     const version = await getInboxVersion(line);
     const kvHost = getKvHost();
     const kvMeta = {
@@ -45,8 +49,13 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({
       ...snapshot,
-      contacts: trimContactsForList(snapshot.contacts as Contact[]),
-      campaignContacts: trimContactsForList(snapshot.campaignContacts as Contact[]),
+      contacts: trimContactsForList(snapshot.contacts as Contact[], {
+        activePhone,
+      }),
+      campaignContacts: trimContactsForList(
+        snapshot.campaignContacts as Contact[],
+        { isCampaign: true }
+      ),
       ...kvMeta,
     });
   } catch (error: any) {
