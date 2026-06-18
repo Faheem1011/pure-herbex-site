@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
 import type { Contact, Message, StatusItem } from "@/app/inbox/types";
+import { contactMatchesSearch } from "@/lib/contact-search";
 import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS, type TagId } from "@/app/inbox/constants";
 import WindowTimer from "@/components/inbox/WindowTimer";
 import {
@@ -828,13 +829,8 @@ export default function InboxPage() {
     const status = getLeadStatus(lead.phone);
     if (marketingFilter !== "all" && status !== marketingFilter) return false;
     if (!marketingSearch) return true;
-    const q = marketingSearch.toLowerCase();
-    return (
-      lead.name.toLowerCase().includes(q) ||
-      lead.city.toLowerCase().includes(q) ||
-      lead.phone.includes(q) ||
-      lead.displayName.toLowerCase().includes(q)
-    );
+    return contactMatchesSearch(lead.displayName || lead.name, lead.phone, marketingSearch) ||
+      lead.city.toLowerCase().includes(marketingSearch.toLowerCase());
   });
 
   const marketingStats = {
@@ -1938,7 +1934,7 @@ export default function InboxPage() {
   // Filter contacts by search query AND active category tab
   const filteredContacts = contacts
     .filter((c) => {
-      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery);
+      const matchesSearch = contactMatchesSearch(c.name, c.phone, searchQuery);
 
       if (activeTab === "archived") {
         return matchesSearch && c.archived && !c.blocked;
@@ -1973,8 +1969,7 @@ export default function InboxPage() {
   const filteredCampaignContacts = campaignContacts
     .filter((c) => {
       if (!campaignSearch) return true;
-      const q = campaignSearch.toLowerCase();
-      return c.name.toLowerCase().includes(q) || c.phone.includes(q);
+      return contactMatchesSearch(c.name, c.phone, campaignSearch);
     })
     .sort((a, b) => {
       const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
@@ -2780,7 +2775,7 @@ export default function InboxPage() {
           {/* Search bar */}
           <input
             type="text"
-            placeholder="Search chats..."
+            placeholder="Search name or number..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800/80 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50"
@@ -3755,8 +3750,7 @@ export default function InboxPage() {
                     {directoryContacts
                       .filter(
                         (dc) =>
-                          dc.name.toLowerCase().includes(dirSearchQuery.toLowerCase()) ||
-                          dc.phone.includes(dirSearchQuery)
+                        contactMatchesSearch(dc.name, dc.phone, dirSearchQuery)
                       )
                       .slice(0, 30) // Limit display to 30 results for rendering speed
                       .map((dc) => (
@@ -3777,8 +3771,7 @@ export default function InboxPage() {
                       ))}
                     {directoryContacts.filter(
                       (dc) =>
-                        dc.name.toLowerCase().includes(dirSearchQuery.toLowerCase()) ||
-                        dc.phone.includes(dirSearchQuery)
+                        contactMatchesSearch(dc.name, dc.phone, dirSearchQuery)
                     ).length === 0 && (
                       <p className="text-center text-zinc-500 text-sm py-8">No matching contacts found.</p>
                     )}
@@ -4110,8 +4103,7 @@ export default function InboxPage() {
               {contacts
                 .filter(
                   (c) =>
-                    c.name.toLowerCase().includes(forwardSearchQuery.toLowerCase()) ||
-                    c.phone.includes(forwardSearchQuery)
+                    contactMatchesSearch(c.name, c.phone, forwardSearchQuery)
                 )
                 .map((c) => {
                   const isChecked = selectedForwardContacts.includes(c.phone);
@@ -4143,8 +4135,7 @@ export default function InboxPage() {
                 })}
               {contacts.filter(
                 (c) =>
-                  c.name.toLowerCase().includes(forwardSearchQuery.toLowerCase()) ||
-                  c.phone.includes(forwardSearchQuery)
+                  contactMatchesSearch(c.name, c.phone, forwardSearchQuery)
               ).length === 0 && (
                 <p className="text-center text-zinc-500 text-xs py-8">No contacts found.</p>
               )}
