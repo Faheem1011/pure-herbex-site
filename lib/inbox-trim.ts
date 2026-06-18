@@ -1,5 +1,6 @@
 import type { Contact } from "@/app/inbox/types";
 import { normalizePhone } from "@/lib/blocked";
+import { mergeOutboundDeliveryStatus } from "@/lib/message-status";
 
 /** Default recent thread kept in list sync (enough to follow context). */
 export const SYNC_KEEP_DEFAULT = 20;
@@ -72,8 +73,9 @@ export function mergeContactFromSync(
   if (localMsgs.length > serverMsgs.length) {
     const localIds = new Set(localMsgs.map((m) => m.id));
     const appended = serverMsgs.filter((m) => !localIds.has(m.id));
+    messages = mergeOutboundDeliveryStatus(localMsgs, serverMsgs);
     if (appended.length) {
-      messages = [...localMsgs, ...appended].sort(
+      messages = [...messages, ...appended].sort(
         (a, b) => a.timestamp - b.timestamp
       );
     }
@@ -82,6 +84,8 @@ export function mergeContactFromSync(
     serverTotal > localMsgs.length
   ) {
     messages = serverMsgs;
+  } else {
+    messages = mergeOutboundDeliveryStatus(localMsgs, serverMsgs);
   }
 
   const merged: Contact = {

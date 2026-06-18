@@ -160,6 +160,7 @@ export default function InboxPage() {
   const [windowTick, setWindowTick] = useState(() => Date.now());
   const [messageRenderLimit, setMessageRenderLimit] = useState(80);
   const [loadingHistoryPhone, setLoadingHistoryPhone] = useState<string | null>(null);
+  const [mobileNavMoreOpen, setMobileNavMoreOpen] = useState(false);
 
   useEffect(() => {
     setIsAndroidApp(!!getAndroidBridge());
@@ -2948,7 +2949,7 @@ export default function InboxPage() {
                   isActive={activeChat?.phone === c.phone}
                   latestTime={latestTime}
                   windowTick={windowTick}
-                  showWindowTimer={!isAndroidApp}
+                  showWindowTimer={true}
                   useLightAvatars={isAndroidApp}
                   hasCrmOrder={!!crm}
                   crmNeedsAction={!!(crm?.needsAddress || crm?.needsTracking)}
@@ -2956,6 +2957,9 @@ export default function InboxPage() {
                   onMarkRead={() => markChatRead(c.phone)}
                   onMenu={() => setContactMenuTarget(c)}
                   onUnblock={() => blockContact(c.phone, false)}
+                  onPin={() => pinContact(c.phone, !c.pinned)}
+                  onArchive={() => archiveContact(c.phone, !c.archived)}
+                  onDelete={() => deleteContact(c.phone)}
                 />
               );
             })
@@ -3618,7 +3622,7 @@ export default function InboxPage() {
                     <button
                       type="button"
                       onClick={stopAndSendRecording}
-                      className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-zinc-955 flex items-center justify-center transition-all active:scale-90"
+                      className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-zinc-950 flex items-center justify-center transition-all active:scale-90"
                       title="Send Voice Note"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3674,7 +3678,7 @@ export default function InboxPage() {
                   <button
                     type="submit"
                     disabled={sending}
-                    className="w-9 h-9 md:w-auto md:px-5 md:py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-zinc-955 font-bold rounded-full md:rounded-xl text-sm transition-all flex items-center justify-center disabled:opacity-55 shrink-0"
+                    className="w-9 h-9 md:w-auto md:px-5 md:py-3.5 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-zinc-950 font-bold rounded-full md:rounded-xl text-sm transition-all flex items-center justify-center disabled:opacity-55 shrink-0"
                     title="Send message"
                   >
                     <svg className="w-5 h-5 md:hidden rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -3932,7 +3936,7 @@ export default function InboxPage() {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-zinc-955 font-bold rounded-xl shadow-lg transition-all text-sm"
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-zinc-950 font-bold rounded-xl shadow-lg transition-all text-sm"
               >
                 Confirm Location Attachment
               </button>
@@ -4047,9 +4051,83 @@ export default function InboxPage() {
             </svg>
             <span className="text-[9px] font-bold">Promo</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setMobileNavMoreOpen(true)}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
+              mobileNavMoreOpen ||
+              viewMode === "status" ||
+              activeTab === "archived" ||
+              activeTab === "blocked"
+                ? "text-emerald-400"
+                : "text-zinc-500"
+            }`}
+          >
+            <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+            </svg>
+            <span className="text-[9px] font-bold">More</span>
+          </button>
         </nav>
       )}
 
+      {mobileNavMoreOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex items-end bg-black/60"
+          onClick={() => setMobileNavMoreOpen(false)}
+        >
+          <div
+            className="w-full bg-zinc-900 border-t border-zinc-800 rounded-t-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-2 pb-2">More</p>
+            {[
+              {
+                label: "Web Status",
+                action: () => {
+                  setViewMode("status");
+                  setActiveChat(null);
+                  setMobileNavMoreOpen(false);
+                  void fetchStatusItems();
+                },
+              },
+              {
+                label: "Archived Chats",
+                action: () => {
+                  setViewMode("inbox");
+                  setActiveTab("archived");
+                  setMobileNavMoreOpen(false);
+                },
+              },
+              {
+                label: "Blocked Contacts",
+                action: () => {
+                  setViewMode("inbox");
+                  setActiveTab("blocked");
+                  setMobileNavMoreOpen(false);
+                },
+              },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={item.action}
+                className="w-full text-left px-4 py-3.5 rounded-xl text-sm font-medium text-zinc-200 hover:bg-zinc-800 transition-colors"
+              >
+                {item.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setMobileNavMoreOpen(false)}
+              className="w-full px-4 py-3 text-sm text-zinc-500 hover:text-zinc-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {/* Forward Message Modal */}
       {isForwardModalOpen && (forwardMessage || forwardMessages.length > 0) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
@@ -4132,7 +4210,7 @@ export default function InboxPage() {
                       </div>
                       <div className={`w-5.5 h-5.5 rounded-lg border flex items-center justify-center transition-all ${
                         isChecked 
-                          ? "bg-emerald-500 border-emerald-500 text-zinc-955" 
+                          ? "bg-emerald-500 border-emerald-500 text-zinc-950" 
                           : "border-zinc-700 bg-zinc-900 text-transparent"
                       }`}>
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4153,7 +4231,7 @@ export default function InboxPage() {
             <button
               onClick={handleForward}
               disabled={isForwarding || selectedForwardContacts.length === 0}
-              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed active:scale-95 text-zinc-955 font-bold rounded-2xl shadow-lg transition-all text-sm flex items-center justify-center space-x-2"
+              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed active:scale-95 text-zinc-950 font-bold rounded-2xl shadow-lg transition-all text-sm flex items-center justify-center space-x-2"
             >
               <span>
                 {isForwarding

@@ -2,7 +2,6 @@
 
 import { memo } from "react";
 import type { Contact } from "@/app/inbox/types";
-import type { TagId } from "@/app/inbox/constants";
 import { TAGS } from "@/app/inbox/constants";
 import { getWindowTimerDisplay, WINDOW_TIMER_TONE_CLASS } from "@/lib/window-24h";
 import { formatMessagePreview } from "@/app/inbox/utils";
@@ -20,6 +19,9 @@ type Props = {
   onMarkRead: () => void;
   onMenu: () => void;
   onUnblock: () => void;
+  onPin: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
 };
 
 function ContactAvatar({
@@ -62,6 +64,9 @@ function ContactListRow({
   onMarkRead,
   onMenu,
   onUnblock,
+  onPin,
+  onArchive,
+  onDelete,
 }: Props) {
   const latestMsg = c.messages[c.messages.length - 1];
   const latestText = formatMessagePreview(latestMsg);
@@ -202,6 +207,42 @@ function ContactListRow({
           <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
         </svg>
       </button>
+
+      <div
+        className="absolute right-3 top-3.5 hidden md:flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onPin}
+          className={`p-1.5 hover:bg-zinc-800 rounded-lg transition-colors ${c.pinned ? "text-emerald-400" : "text-zinc-400 hover:text-emerald-400"}`}
+          title={c.pinned ? "Unpin" : "Pin"}
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={onArchive}
+          className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors"
+          title={c.archived ? "Unarchive" : "Archive"}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="p-1.5 hover:bg-rose-950/40 rounded-lg text-zinc-400 hover:text-rose-400 transition-colors"
+          title="Delete chat"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

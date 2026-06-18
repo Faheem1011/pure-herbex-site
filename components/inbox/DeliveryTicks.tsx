@@ -3,9 +3,10 @@
 import type { Message } from "@/app/inbox/types";
 import { normalizeDeliveryStatus } from "@/lib/message-status";
 
+/** WhatsApp-style tick colors on outbound (green) bubbles */
 const TICK_COLORS = {
-  sent: "#d9fdd3",
-  delivered: "#d9fdd3",
+  sent: "#8696a0",
+  delivered: "#e9edef",
   read: "#53bdeb",
   failed: "#fca5a5",
 } as const;
@@ -48,8 +49,18 @@ export default function DeliveryTicks({ msg }: { msg: Message }) {
         title={msg.deliveryError || "Failed to deliver"}
         aria-label="failed"
       >
-        <svg className="inbox-tick-icon inbox-tick-icon--alert" fill="none" stroke={TICK_COLORS.failed} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg
+          className="inbox-tick-icon inbox-tick-icon--alert"
+          fill="none"
+          stroke={TICK_COLORS.failed}
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2.5"
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
         </svg>
       </span>
     );
@@ -57,10 +68,21 @@ export default function DeliveryTicks({ msg }: { msg: Message }) {
 
   const isRead = status === "read";
   const isDelivered = status === "delivered" || isRead;
-  const color = isRead ? TICK_COLORS.read : isDelivered ? TICK_COLORS.delivered : TICK_COLORS.sent;
+  const color = isRead
+    ? TICK_COLORS.read
+    : isDelivered
+      ? TICK_COLORS.delivered
+      : TICK_COLORS.sent;
+
+  const label =
+    status === "read"
+      ? "Read"
+      : status === "delivered"
+        ? "Delivered"
+        : "Sent";
 
   return (
-    <span className="inbox-delivery-ticks" aria-label={status} title={status}>
+    <span className="inbox-delivery-ticks" aria-label={label} title={label}>
       {isDelivered ? <DoubleCheck color={color} /> : <SingleCheck color={color} />}
     </span>
   );
