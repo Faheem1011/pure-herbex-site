@@ -24,6 +24,20 @@ export async function GET(request: NextRequest) {
     }
 
     const line = resolveInboxLine(request);
+    const phoneParam = new URL(request.url).searchParams.get("phone");
+
+    if (phoneParam) {
+      const normalized = normalizePhone(phoneParam);
+      if (!normalized) {
+        return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
+      }
+      const contact = await kv.get(contactKey(line, normalized));
+      if (!contact) {
+        return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+      }
+      return NextResponse.json({ contact });
+    }
+
     const contacts = await fetchMainContacts(line);
     return NextResponse.json({ contacts });
   } catch (error: any) {

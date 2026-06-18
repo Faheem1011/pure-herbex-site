@@ -6,7 +6,11 @@ import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-rec
 import type { Contact, Message, StatusItem } from "@/app/inbox/types";
 import { contactMatchesSearch } from "@/lib/contact-search";
 import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS, type TagId } from "@/app/inbox/constants";
+import ContactListRow from "@/components/inbox/ContactListRow";
 import WindowTimer from "@/components/inbox/WindowTimer";
+import {
+  mergeContactFromSync,
+} from "@/lib/inbox-trim";
 import {
   formatChatTime,
   formatMessagePreview,
@@ -150,10 +154,23 @@ export default function InboxPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [isAndroidApp, setIsAndroidApp] = useState(false);
+  const fullHistoryPhonesRef = useRef(new Set<string>());
+  const [windowTick, setWindowTick] = useState(() => Date.now());
+  const [messageRenderLimit, setMessageRenderLimit] = useState(80);
 
   useEffect(() => {
     setIsAndroidApp(!!getAndroidBridge());
   }, []);
+
+  useEffect(() => {
+    const ms = isAndroidApp ? 60_000 : 30_000;
+    const id = setInterval(() => setWindowTick(Date.now()), ms);
+    return () => clearInterval(id);
+  }, [isAndroidApp]);
+
+  useEffect(() => {
+    setMessageRenderLimit(isAndroidApp ? 50 : 80);
+  }, [activeChat?.phone, isAndroidApp]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -889,29 +906,25 @@ export default function InboxPage() {
 
         // Preserve any newly started empty chats that haven't received a message yet
         setContacts((prev) => {
+          const prevByPhone = new Map(prev.map((p) => [p.phone, p]));
+          const sortedPhones = new Set(sorted.map((s: Contact) => s.phone));
           const emptyChats = prev.filter(
-            (p) => (!p.messages || p.messages.length === 0) && !sorted.some((s: Contact) => s.phone === p.phone)
+            (p) =>
+              (!p.messages || p.messages.length === 0) && !sortedPhones.has(p.phone)
           );
 
-          // Re-apply tags & use server-side unread states
-          const merged = [...emptyChats, ...sorted].map((c: Contact) => {
-            const localContact = prev.find((p) => p.phone === c.phone);
-            const mergedContact: Contact = {
-              ...c,
-              tag: c.tag ?? localContact?.tag,
-            };
-
-            // If the chat is currently open, mark it as read immediately
+          return [...emptyChats, ...sorted].map((c: Contact) => {
+            const localContact = prevByPhone.get(c.phone);
             const isOpen = activeChatRef.current?.phone === c.phone;
+            let mergedContact = mergeContactFromSync(c, localContact, isOpen);
+
             if (isOpen && (mergedContact.hasUnread || (mergedContact.unreadCount || 0) > 0)) {
               markChatRead(c.phone);
-              return applyReadFlags(mergedContact, true);
+              mergedContact = applyReadFlags(mergedContact, true);
             }
 
-            // Otherwise, trust the server-side unread state
             return mergedContact;
           });
-          return merged;
         });
 
         // Update active chat history if open
@@ -919,7 +932,9 @@ export default function InboxPage() {
         if (currentActive) {
           const updatedActive = sorted.find((c: Contact) => c.phone === currentActive.phone);
           if (updatedActive) {
-            setActiveChat(applyReadFlags(updatedActive, true));
+            const local = contactsRef.current.find((c) => c.phone === currentActive.phone);
+            const merged = mergeContactFromSync(updatedActive, local, true);
+            setActiveChat(applyReadFlags(merged, true));
           }
         }
       }
@@ -972,6 +987,48 @@ export default function InboxPage() {
   };
 
   const fetchChats = (silent = false) => fetchInboxSync(silent);
+
+  const loadFullChatHistory = async (phone: string): Promise<Contact | null> => {
+    if (!sessionToken || fullHistoryPhonesRef.current.has(phone)) return null;
+    try {
+      const res = await fetch(api(`/api/messages/?phone=${encodeURIComponent(phone)}`), {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+        cache: "no-store",
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const full = data.contact as Contact;
+      if (!full?.messages) return null;
+      fullHistoryPhonesRef.current.add(phone);
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.phone === phone ? { ...full, tag: c.tag ?? full.tag } : c
+        )
+      );
+      return full;
+    } catch {
+      return null;
+    }
+  };
+
+  const openChat = (contact: Contact) => {
+    setIsSelectMode(false);
+    setSelectedMessageIds(new Set());
+    setActiveChat(contact);
+    setMessageRenderLimit(isAndroidApp ? 50 : 80);
+    if (!fullHistoryPhonesRef.current.has(contact.phone)) {
+      void loadFullChatHistory(contact.phone).then((full) => {
+        if (full && activeChatRef.current?.phone === contact.phone) {
+          setActiveChat((prev) =>
+            prev?.phone === contact.phone
+              ? { ...full, tag: prev.tag ?? full.tag }
+              : prev
+          );
+        }
+      });
+    }
+    if (contact.hasUnread && !contact.blocked) markChatRead(contact.phone);
+  };
 
   const handleRefresh = async () => {
     if (!sessionToken) return;
@@ -1095,19 +1152,25 @@ export default function InboxPage() {
     }
   };
 
+  const isAndroidAppRef = useRef(false);
+  useEffect(() => {
+    isAndroidAppRef.current = isAndroidApp;
+  }, [isAndroidApp]);
+
   useEffect(() => {
     if (!isLoggedIn) return;
 
     let interval: ReturnType<typeof setInterval>;
     const poll = () => fetchInboxSync(true);
     const getPollMs = () => {
-      if (typeof document !== "undefined" && document.hidden) return 120_000;
-      if (activeChatRef.current) return 40_000;
+      const mul = isAndroidAppRef.current ? 2.5 : 1;
+      if (typeof document !== "undefined" && document.hidden) return 120_000 * mul;
+      if (activeChatRef.current) return 40_000 * mul;
       const hasUnread = contactsRef.current.some(
         (c) => c.hasUnread && !c.archived && !c.blocked
       );
-      if (hasUnread) return 50_000;
-      return 90_000;
+      if (hasUnread) return 50_000 * mul;
+      return 90_000 * mul;
     };
     const resetInterval = () => {
       clearInterval(interval);
@@ -1125,8 +1188,10 @@ export default function InboxPage() {
 
   // Scroll to bottom on new message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeChat?.messages, activeCampaignChat?.messages]);
+    messagesEndRef.current?.scrollIntoView({
+      behavior: isAndroidApp ? "auto" : "smooth",
+    });
+  }, [activeChat?.messages, activeCampaignChat?.messages, isAndroidApp]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1932,29 +1997,43 @@ export default function InboxPage() {
   };
 
   // Filter contacts by search query AND active category tab
-  const filteredContacts = contacts
-    .filter((c) => {
-      const matchesSearch = contactMatchesSearch(c.name, c.phone, searchQuery);
+  const filteredContacts = useMemo(
+    () =>
+      contacts
+        .filter((c) => {
+          const matchesSearch = contactMatchesSearch(c.name, c.phone, searchQuery);
 
-      if (activeTab === "archived") {
-        return matchesSearch && c.archived && !c.blocked;
-      }
+          if (activeTab === "archived") {
+            return matchesSearch && c.archived && !c.blocked;
+          }
 
-      if (activeTab === "blocked") {
-        return matchesSearch && c.blocked;
-      }
+          if (activeTab === "blocked") {
+            return matchesSearch && c.blocked;
+          }
 
-      if (c.archived || c.blocked) return false;
+          if (c.archived || c.blocked) return false;
 
-      const matchesTab = activeTab === "all" ? true : c.tag === activeTab;
-      return matchesSearch && matchesTab;
-    })
-    .sort((a, b) => {
-      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-      const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
-      const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
-      return bTime - aTime;
-    });
+          const matchesTab = activeTab === "all" ? true : c.tag === activeTab;
+          return matchesSearch && matchesTab;
+        })
+        .sort((a, b) => {
+          if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+          const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
+          const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
+          return bTime - aTime;
+        }),
+    [contacts, searchQuery, activeTab]
+  );
+
+  const visibleChatMessages = useMemo(() => {
+    if (!activeChat?.messages?.length) return [];
+    if (activeChat.messages.length <= messageRenderLimit) return activeChat.messages;
+    return activeChat.messages.slice(-messageRenderLimit);
+  }, [activeChat?.messages, messageRenderLimit]);
+
+  const hiddenMessageCount = activeChat
+    ? Math.max(0, activeChat.messages.length - visibleChatMessages.length)
+    : 0;
 
   const blockedCount = contacts.filter((c) => c.blocked).length;
   const tagCounts = useMemo(() => {
@@ -2034,7 +2113,7 @@ export default function InboxPage() {
 
   // Dashboard Screen
   return (
-    <div className="inbox-shell bg-[#0b141a] text-[#e9edef] min-h-screen flex h-screen overflow-hidden font-sans fixed inset-0">
+    <div className={`inbox-shell bg-[#0b141a] text-[#e9edef] min-h-screen flex h-screen overflow-hidden font-sans fixed inset-0${isAndroidApp ? " inbox-android-lite" : ""}`}>
       {refreshNote && (
         <div className="md:hidden fixed left-1/2 -translate-x-1/2 z-[60] inbox-refresh-toast pointer-events-none"
           style={{ top: "calc(var(--inbox-safe-top) + 0.25rem)" }}
@@ -2822,159 +2901,29 @@ export default function InboxPage() {
           ) : (
             filteredContacts.map((c) => {
               const latestMsg = c.messages[c.messages.length - 1];
-              const latestText = formatMessagePreview(latestMsg);
               const latestTime = latestMsg
                 ? new Date(latestMsg.timestamp * 1000).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   })
                 : "";
-              const isActive = activeChat?.phone === c.phone;
-              const contactTag = TAGS.find((t) => t.id === c.tag);
-
+              const crm = orderSummary.byPhone[c.phone];
               return (
-                <div
+                <ContactListRow
                   key={c.phone}
-                  onClick={() => {
-                    setIsSelectMode(false);
-                    setSelectedMessageIds(new Set());
-                    setActiveChat(c);
-                    if (c.hasUnread && !c.blocked) markChatRead(c.phone);
-                  }}
-                  className={`group w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-all border cursor-pointer relative ${
-                    isActive
-                      ? "bg-zinc-800 border-zinc-700 text-zinc-100 shadow-lg scale-[1.02] z-10"
-                      : c.hasUnread 
-                        ? "bg-emerald-500/5 border-emerald-500/20 text-zinc-200"
-                        : "border-transparent hover:bg-zinc-900/30 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  {/* Unread Indicator Bar */}
-                  {c.hasUnread && !isActive && (
-                    <div className="absolute left-0 top-3 bottom-3 w-1 bg-emerald-500 rounded-r-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                  )}
-                  <div className="w-10 h-10 rounded-full shrink-0 relative mt-0.5 overflow-hidden bg-zinc-800">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(c.name)}&radius=50&backgroundColor=0d9488,0f766e,115e59,134e4a,0f172a`} 
-                      alt={c.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {c.tag && (
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-zinc-950 ${contactTag?.color}`}></span>
-                    )}
-                    {/* Unread dot on avatar */}
-                    {c.hasUnread && (
-                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-emerald-500 border-2 border-zinc-950 rounded-full flex items-center justify-center">
-                        <span className="text-[8px] font-black text-zinc-950">{(c.unreadCount || 0) > 9 ? "9+" : (c.unreadCount || 1)}</span>
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center">
-                      <h3 className={`font-semibold text-sm truncate flex items-center gap-1 ${ c.hasUnread ? "text-zinc-100" : "text-zinc-200" }`}>
-                        {c.pinned && (
-                          <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
-                        )}
-                        {c.name}
-                        {orderSummary.byPhone[c.phone] && (
-                          <span
-                            className={`inline-flex items-center justify-center w-4 h-4 rounded-md shrink-0 ${
-                              orderSummary.byPhone[c.phone].needsAddress ||
-                              orderSummary.byPhone[c.phone].needsTracking
-                                ? "bg-amber-500/25 text-amber-300"
-                                : "bg-amber-500/15 text-amber-400/80"
-                            }`}
-                            title="Active order in CRM"
-                          >
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
-                          </span>
-                        )}
-                      </h3>
-                      <div className="flex items-center gap-1 ml-1 shrink-0">
-                        {c.hasUnread && (
-                          <span className="text-emerald-400">
-                            <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M18 6.41L16.59 5 12 9.58 7.41 5 6 6.41l6 6z"/><path d="M18 13l-1.41-1.41L12 16.17l-4.59-4.58L6 13l6 6z"/></svg>
-                          </span>
-                        )}
-                        <span className="text-[10px] text-zinc-500 group-hover:opacity-0 transition-opacity duration-200">
-                          {latestTime}
-                        </span>
-                        <WindowTimer contact={c} compact />
-                      </div>
-                    </div>
-                    <p className={`text-xs truncate mt-0.5 leading-normal pr-8 ${ c.hasUnread ? "text-zinc-300 font-medium" : "" }`}>{latestText}</p>
-                    {/* Tag pill */}
-                    {contactTag && !c.blocked && (
-                      <span className={`inline-flex items-center px-2 py-0.5 mt-1.5 rounded-md text-[9px] font-semibold border ${contactTag.text} ${contactTag.border} ${contactTag.bg}`}>
-                        {contactTag.label}
-                      </span>
-                    )}
-                    {c.blocked && (
-                      <span className="inline-flex items-center px-2 py-0.5 mt-1.5 rounded-md text-[9px] font-semibold border border-rose-500/30 bg-rose-500/10 text-rose-400">
-                        Blocked
-                      </span>
-                    )}
-                  </div>
-
-                  {c.blocked && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); blockContact(c.phone, false); }}
-                      className="absolute right-12 top-3.5 md:right-14 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold hover:bg-emerald-500/30"
-                    >
-                      Unblock
-                    </button>
-                  )}
-
-                  {/* Contact menu (mobile) */}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setContactMenuTarget(c); }}
-                    className="absolute right-3 top-3.5 md:hidden p-1.5 text-zinc-500 hover:text-zinc-200"
-                    title="Chat options"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-                  </button>
-
-                  {/* Hover Actions Panel */}
-                  <div 
-                    className="absolute right-4 top-3.5 hidden md:flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => pinContact(c.phone, !c.pinned)}
-                      className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-emerald-400 transition-colors"
-                      title={c.pinned ? "Unpin Chat" : "Pin Chat"}
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
-                    </button>
-                    <button
-                      onClick={() => archiveContact(c.phone, !c.archived)}
-                      className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-250 transition-colors"
-                      title={c.archived ? "Unarchive Chat" : "Archive Chat"}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        {c.archived ? (
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        ) : (
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                        )}
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => deleteContact(c.phone)}
-                      className="p-1.5 hover:bg-rose-955 rounded-lg text-zinc-505 hover:text-rose-455 transition-colors"
-                      title="Delete Chat"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+                  contact={c}
+                  isActive={activeChat?.phone === c.phone}
+                  latestTime={latestTime}
+                  windowTick={windowTick}
+                  showWindowTimer={!isAndroidApp}
+                  useLightAvatars={isAndroidApp}
+                  hasCrmOrder={!!crm}
+                  crmNeedsAction={!!(crm?.needsAddress || crm?.needsTracking)}
+                  onOpen={() => openChat(c)}
+                  onMarkRead={() => markChatRead(c.phone)}
+                  onMenu={() => setContactMenuTarget(c)}
+                  onUnblock={() => blockContact(c.phone, false)}
+                />
               );
             })
           )}
@@ -3053,7 +3002,7 @@ export default function InboxPage() {
                       <h2 className="font-bold text-sm leading-none text-zinc-100">{activeChat.name}</h2>
                       <span className="text-[10px] text-zinc-500 mt-1 block flex items-center gap-2 flex-wrap">
                         +{activeChat.phone}
-                        <WindowTimer contact={activeChat} />
+                        <WindowTimer contact={activeChat} now={windowTick} />
                       </span>
                     </div>
                   </div>
@@ -3179,7 +3128,20 @@ export default function InboxPage() {
                   </p>
                 </div>
               ) : (
-                activeChat.messages.map((msg) => {
+                <>
+                  {hiddenMessageCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMessageRenderLimit((n) => n + (isAndroidApp ? 50 : 80))
+                      }
+                      className="mx-auto mb-3 px-4 py-2 rounded-xl text-xs font-semibold text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 shrink-0"
+                    >
+                      Load {Math.min(hiddenMessageCount, isAndroidApp ? 50 : 80)} older
+                      {hiddenMessageCount > 1 ? ` (${hiddenMessageCount} total hidden)` : ""}
+                    </button>
+                  )}
+                  {visibleChatMessages.map((msg) => {
                   const isMe = msg.sender === "me";
                   const msgTime = formatChatTime(msg.timestamp);
 
@@ -3380,7 +3342,8 @@ export default function InboxPage() {
                       </div>
                     </div>
                   );
-                })
+                })}
+                </>
               )}
               <div ref={messagesEndRef} />
             </div>

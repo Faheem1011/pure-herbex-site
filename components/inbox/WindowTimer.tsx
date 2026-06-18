@@ -10,16 +10,20 @@ import {
 type Props = {
   contact: WindowContact;
   compact?: boolean;
+  /** Shared tick from parent — avoids hundreds of intervals on the contact list. */
+  now?: number;
 };
 
-export default function WindowTimer({ contact, compact = false }: Props) {
-  const [now, setNow] = useState(() => Date.now());
+export default function WindowTimer({ contact, compact = false, now: nowProp }: Props) {
+  const [localNow, setLocalNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
+    if (nowProp != null) return;
+    const id = setInterval(() => setLocalNow(Date.now()), 30_000);
     return () => clearInterval(id);
-  }, []);
+  }, [nowProp]);
 
+  const now = nowProp ?? localNow;
   const { label, tone, title } = getWindowTimerDisplay(contact, now);
   if (!label || tone === "none") return null;
 

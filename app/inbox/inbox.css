@@ -179,3 +179,15 @@
     transform: translateY(0);
   }
 }
+
+/* Low-end Android WebView: fewer paints and animations */
+.inbox-android-lite .animate-pulse {
+  animation: none;
+}
+.inbox-android-lite [class*="scale-"],
+.inbox-android-lite [class*="hover:scale"] {
+  transform: none !important;
+}
+.inbox-android-lite .inbox-chat-wallpaper {
+  background-image: none;
+}

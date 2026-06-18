@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
+import type { Contact } from "@/app/inbox/types";
 import { bumpInboxVersion, fetchInboxSnapshot, getInboxVersion } from "@/lib/inbox-sync";
+import { trimContactsForList } from "@/lib/inbox-trim";
 import { EXPECTED_KV_HOST, getKvHost } from "@/lib/kv-config";
 import { inboxLineLabel } from "@/lib/inbox-line";
 import { resolveInboxLine } from "@/lib/inbox-request";
@@ -41,7 +43,12 @@ export async function GET(request: NextRequest) {
       await bumpInboxVersion(line);
       snapshot.version = await getInboxVersion(line);
     }
-    return NextResponse.json({ ...snapshot, ...kvMeta });
+    return NextResponse.json({
+      ...snapshot,
+      contacts: trimContactsForList(snapshot.contacts as Contact[]),
+      campaignContacts: trimContactsForList(snapshot.campaignContacts as Contact[]),
+      ...kvMeta,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
