@@ -30,6 +30,7 @@ import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
 import OrdersPanel from "@/app/inbox/OrdersPanel";
 import { inboxLineLabel, withLineQuery, type InboxLine } from "@/lib/inbox-line";
 import { isStatusStorageId } from "@/lib/status-storage";
+import { isExpiredWindow } from "@/lib/window-24h";
 import "./inbox.css";
 
 function inboxStatusMediaSrc(mediaId: string): string {
@@ -93,7 +94,7 @@ export default function InboxPage() {
 
   useSafeAreaInsets();
 
-  const [activeTab, setActiveTab] = useState<"all" | TagId | "archived" | "blocked">("all");
+  const [activeTab, setActiveTab] = useState<"all" | TagId | "archived" | "blocked" | "expired">("all");
   const [contactMenuTarget, setContactMenuTarget] = useState<Contact | null>(null);
   const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
   const [statusCaption, setStatusCaption] = useState("");
@@ -2031,33 +2032,44 @@ export default function InboxPage() {
   };
 
   // Filter contacts by search query AND active category tab
-  const filteredContacts = useMemo(
-    () =>
-      contacts
-        .filter((c) => {
-          const matchesSearch = contactMatchesSearch(c.name, c.phone, searchQuery);
+  const filteredContacts = useMemo(() => {
+    const q = searchQuery.trim();
+    const isSearching = q.length > 0;
 
-          if (activeTab === "archived") {
-            return matchesSearch && c.archived && !c.blocked;
-          }
+    return contacts
+      .filter((c) => {
+        const matchesSearch = contactMatchesSearch(c.name, c.phone, searchQuery);
+        const windowClosed = isExpiredWindow(c, windowTick);
 
-          if (activeTab === "blocked") {
-            return matchesSearch && c.blocked;
-          }
+        if (activeTab === "archived") {
+          return matchesSearch && c.archived && !c.blocked;
+        }
 
-          if (c.archived || c.blocked) return false;
+        if (activeTab === "blocked") {
+          return matchesSearch && c.blocked;
+        }
 
-          const matchesTab = activeTab === "all" ? true : c.tag === activeTab;
-          return matchesSearch && matchesTab;
-        })
-        .sort((a, b) => {
-          if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-          const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
-          const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
-          return bTime - aTime;
-        }),
-    [contacts, searchQuery, activeTab]
-  );
+        if (activeTab === "expired") {
+          return matchesSearch && !c.archived && !c.blocked && windowClosed;
+        }
+
+        if (c.archived || c.blocked) return false;
+
+        const matchesTab = activeTab === "all" ? true : c.tag === activeTab;
+        if (!matchesSearch || !matchesTab) return false;
+
+        // Main inbox + tag filters: hide closed 24h window (search still finds them)
+        if (windowClosed && !isSearching) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+        const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
+        const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
+        return bTime - aTime;
+      });
+  }, [contacts, searchQuery, activeTab, windowTick]);
 
   const visibleChatMessages = useMemo(() => {
     if (!activeChat?.messages?.length) return [];
@@ -2070,14 +2082,22 @@ export default function InboxPage() {
     : 0;
 
   const blockedCount = contacts.filter((c) => c.blocked).length;
+  const expiredCount = useMemo(
+    () =>
+      contacts.filter(
+        (c) => !c.archived && !c.blocked && isExpiredWindow(c, windowTick)
+      ).length,
+    [contacts, windowTick]
+  );
   const tagCounts = useMemo(() => {
     const counts: Partial<Record<Contact["tag"] & string, number>> = {};
     for (const c of contacts) {
       if (c.archived || c.blocked || !c.tag) continue;
+      if (isExpiredWindow(c, windowTick)) continue;
       counts[c.tag] = (counts[c.tag] || 0) + 1;
     }
     return counts;
-  }, [contacts]);
+  }, [contacts, windowTick]);
   const campaignUnreadCount = campaignContacts.reduce((n, c) => n + (c.hasUnread ? (c.unreadCount || 1) : 0), 0);
   const filteredCampaignContacts = campaignContacts
     .filter((c) => {
@@ -2092,6 +2112,7 @@ export default function InboxPage() {
   const inboxTitle =
     activeTab === "blocked" ? "Blocked" :
     activeTab === "archived" ? "Archived" :
+    activeTab === "expired" ? "Closed Window" :
     activeTab === "all" ? "Inbox" :
     TAGS.find((t) => t.id === activeTab)?.label || "Inbox";
 
@@ -2229,6 +2250,30 @@ export default function InboxPage() {
               <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
               </svg>
+            </button>
+
+            <button
+              onClick={() => {
+                setViewMode("inbox");
+                setActiveTab("expired");
+                setActiveChat(null);
+              }}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all relative ${
+                activeTab === "expired" && viewMode === "inbox"
+                  ? "bg-zinc-700/80 text-zinc-200 border border-zinc-600/50"
+                  : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
+              }`}
+              title="Closed 24h Window — template only"
+            >
+              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4l16 16" />
+              </svg>
+              {expiredCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-zinc-600 text-[9px] font-black text-zinc-100 rounded-full flex items-center justify-center">
+                  {expiredCount > 99 ? "99+" : expiredCount}
+                </span>
+              )}
             </button>
 
             <button
@@ -2850,7 +2895,19 @@ export default function InboxPage() {
         {/* Header Section */}
         <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0 relative">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold tracking-tight text-zinc-100">{inboxTitle}</h1>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-zinc-100">{inboxTitle}</h1>
+              {activeTab === "all" && viewMode === "inbox" && expiredCount > 0 && (
+                <p className="text-[10px] text-zinc-500 mt-0.5">
+                  {expiredCount} closed-window chat{expiredCount === 1 ? "" : "s"} hidden
+                </p>
+              )}
+              {activeTab === "expired" && (
+                <p className="text-[10px] text-zinc-500 mt-0.5">
+                  Template only — reopens when customer messages
+                </p>
+              )}
+            </div>
             <div className="flex items-center space-x-2">
               {isAndroidApp && <InboxLineSwitch line={inboxLine} compact />}
               <button
@@ -2920,6 +2977,13 @@ export default function InboxPage() {
             >
               Archived
             </button>
+            <button
+              type="button"
+              onClick={() => { setViewMode("inbox"); setActiveTab("expired"); setActiveChat(null); }}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeTab === "expired" ? "bg-zinc-700/50 border-zinc-600 text-zinc-300" : "border-zinc-800 text-zinc-500"}`}
+            >
+              Closed{expiredCount > 0 ? ` (${expiredCount > 99 ? "99+" : expiredCount})` : ""}
+            </button>
           </div>
         </div>
         
@@ -2930,7 +2994,15 @@ export default function InboxPage() {
               <svg className="w-8 h-8 mx-auto text-zinc-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
               </svg>
-              <p>{activeTab === "blocked" ? "No blocked contacts." : "No chats found in this category."}</p>
+              <p>
+                {activeTab === "blocked"
+                  ? "No blocked contacts."
+                  : activeTab === "expired"
+                    ? "No closed-window chats — everyone you can still text is in the main inbox."
+                    : activeTab === "all" && !searchQuery.trim() && expiredCount > 0
+                      ? `No active chats here. ${expiredCount} closed-window chat${expiredCount === 1 ? "" : "s"} hidden — open Closed tab or search by name/number.`
+                      : "No chats found in this category."}
+              </p>
             </div>
           ) : (
             filteredContacts.map((c) => {
@@ -4059,7 +4131,8 @@ export default function InboxPage() {
               mobileNavMoreOpen ||
               viewMode === "status" ||
               activeTab === "archived" ||
-              activeTab === "blocked"
+              activeTab === "blocked" ||
+              activeTab === "expired"
                 ? "text-emerald-400"
                 : "text-zinc-500"
             }`}
@@ -4090,6 +4163,15 @@ export default function InboxPage() {
                   setActiveChat(null);
                   setMobileNavMoreOpen(false);
                   void fetchStatusItems();
+                },
+              },
+              {
+                label: `Closed Window${expiredCount > 0 ? ` (${expiredCount > 99 ? "99+" : expiredCount})` : ""}`,
+                action: () => {
+                  setViewMode("inbox");
+                  setActiveTab("expired");
+                  setActiveChat(null);
+                  setMobileNavMoreOpen(false);
                 },
               },
               {
