@@ -53,4 +53,4 @@ export type StatusItem = {
   expiresAt: number;
 };
 
-export type ViewMode = "inbox" | "promo" | "campaign" | "status" | "orders";
+export type ViewMode = "inbox" | "promo" | "campaign" | "orders";

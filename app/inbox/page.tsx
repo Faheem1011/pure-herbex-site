@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
-import type { Contact, Message, StatusItem } from "@/app/inbox/types";
+import type { Contact, Message } from "@/app/inbox/types";
 import { contactMatchesSearch } from "@/lib/contact-search";
 import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS, type TagId } from "@/app/inbox/constants";
 import ContactListRow from "@/components/inbox/ContactListRow";
@@ -31,18 +31,8 @@ import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
 import OrdersPanel from "@/app/inbox/OrdersPanel";
 import { inboxLineLabel, withLineQuery, type InboxLine } from "@/lib/inbox-line";
-import { isStatusStorageId } from "@/lib/status-storage";
-import { isExpiredWindow } from "@/lib/window-24h";
+import { isUntaggedExpiredContact, shouldHideFromMainInbox } from "@/lib/window-24h";
 import "./inbox.css";
-
-function inboxStatusMediaSrc(mediaId: string): string {
-  if (isStatusStorageId(mediaId)) {
-    return `/api/status/media/?id=${encodeURIComponent(mediaId)}`;
-  }
-  return `/api/media/?id=${encodeURIComponent(mediaId)}`;
-}
-
-const STATUS_PAGE_URL = `${(process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app").replace(/\/$/, "")}/status/`;
 
 export default function InboxPage() {
   const pathname = usePathname();
@@ -100,10 +90,6 @@ export default function InboxPage() {
 
   const [activeTab, setActiveTab] = useState<"all" | TagId | "archived" | "blocked" | "expired">("all");
   const [contactMenuTarget, setContactMenuTarget] = useState<Contact | null>(null);
-  const [statusItems, setStatusItems] = useState<StatusItem[]>([]);
-  const [statusCaption, setStatusCaption] = useState("");
-  const [statusUploading, setStatusUploading] = useState(false);
-  const statusFileRef = useRef<HTMLInputElement | null>(null);
   
   // Message features states
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -139,7 +125,7 @@ export default function InboxPage() {
   const [customPhone, setCustomPhone] = useState("");
 
   // Marketing CRM states
-  const [viewMode, setViewMode] = useState<"inbox" | "promo" | "campaign" | "status" | "orders">("inbox");
+  const [viewMode, setViewMode] = useState<"inbox" | "promo" | "campaign" | "orders">("inbox");
   const [crmFocusOrderId, setCrmFocusOrderId] = useState<string | null>(null);
   const [orderSummary, setOrderSummary] = useState<{
     byPhone: Record<string, { orderId: string; needsAddress: boolean; needsTracking: boolean }>;
@@ -734,11 +720,6 @@ export default function InboxPage() {
     fetchCampaignStatus();
   }, [isLoggedIn, viewMode]);
 
-  useEffect(() => {
-    if (!isLoggedIn || viewMode !== "status") return;
-    fetchStatusItems();
-  }, [isLoggedIn, viewMode]);
-
   const sendBatchMarketing = async (limit = 20) => {
     if (!window.confirm(`Send ${MARKETING_TEMPLATE} to the next ${limit} pending leads?`)) return;
     setIsSendingCampaign(true);
@@ -1074,7 +1055,6 @@ export default function InboxPage() {
     if (!sessionToken) return;
     const ok = await fetchInboxSync(false, true);
     try {
-      if (viewMode === "status") await fetchStatusItems();
       if (viewMode === "promo") await fetchCampaignStatus();
     } catch (e) {
       console.error("Refresh extras failed", e);
@@ -1747,71 +1727,6 @@ export default function InboxPage() {
     if (blocked && activeChat?.phone === phone) setActiveChat(null);
   };
 
-  const fetchStatusItems = async () => {
-    try {
-      const res = await fetch("/api/status/", {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-      });
-      const data = await res.json();
-      if (data.items) setStatusItems(data.items);
-    } catch (e) {
-      console.error("Failed to load status", e);
-    }
-  };
-
-  const publishStatus = async (file: File) => {
-    setStatusUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const uploadRes = await fetch("/api/status/media/", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${sessionToken}` },
-        body: formData,
-      });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) {
-        throw new Error(uploadData.error || "Failed to upload status media");
-      }
-
-      const { mediaId, type } = uploadData as { mediaId: string; type: "image" | "video" };
-      const res = await fetch("/api/status/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionToken}`,
-        },
-        body: JSON.stringify({ type, mediaId, caption: statusCaption }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to publish status");
-      setStatusCaption("");
-      await fetchStatusItems();
-      const link = data.statusPageUrl || STATUS_PAGE_URL;
-      alert(`Status published for 24 hours!\n\nShare this link with customers:\n${link}`);
-    } catch (e: any) {
-      alert("Failed to publish status: " + e.message);
-    } finally {
-      setStatusUploading(false);
-    }
-  };
-
-  const deleteStatusItem = async (id: string) => {
-    try {
-      await fetch("/api/status/", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionToken}`,
-        },
-        body: JSON.stringify({ id }),
-      });
-      setStatusItems((prev) => prev.filter((item) => item.id !== id));
-    } catch (e) {
-      console.error("Failed to delete status", e);
-    }
-  };
-
   const archiveContact = async (phone: string, archived: boolean) => {
     try {
       // Optimistic update in state
@@ -2052,7 +1967,6 @@ export default function InboxPage() {
     return contacts
       .filter((c) => {
         const matchesSearch = contactMatchesSearch(c.name, c.phone, searchQuery);
-        const windowClosed = isExpiredWindow(c, windowTick);
 
         if (activeTab === "archived") {
           return matchesSearch && c.archived && !c.blocked;
@@ -2063,7 +1977,7 @@ export default function InboxPage() {
         }
 
         if (activeTab === "expired") {
-          return matchesSearch && !c.archived && !c.blocked && windowClosed;
+          return matchesSearch && !c.archived && !c.blocked && isUntaggedExpiredContact(c, windowTick);
         }
 
         if (c.archived || c.blocked) return false;
@@ -2071,8 +1985,10 @@ export default function InboxPage() {
         const matchesTab = activeTab === "all" ? true : c.tag === activeTab;
         if (!matchesSearch || !matchesTab) return false;
 
-        // Main inbox + tag filters: hide closed 24h window (search still finds them)
-        if (windowClosed && !isSearching) return false;
+        // Main inbox only: hide untagged closed-window (tagged stay in tag tabs)
+        if (activeTab === "all" && shouldHideFromMainInbox(c, isSearching, windowTick)) {
+          return false;
+        }
 
         return true;
       })
@@ -2098,7 +2014,7 @@ export default function InboxPage() {
   const expiredCount = useMemo(
     () =>
       contacts.filter(
-        (c) => !c.archived && !c.blocked && isExpiredWindow(c, windowTick)
+        (c) => !c.archived && !c.blocked && isUntaggedExpiredContact(c, windowTick)
       ).length,
     [contacts, windowTick]
   );
@@ -2106,11 +2022,10 @@ export default function InboxPage() {
     const counts: Partial<Record<Contact["tag"] & string, number>> = {};
     for (const c of contacts) {
       if (c.archived || c.blocked || !c.tag) continue;
-      if (isExpiredWindow(c, windowTick)) continue;
       counts[c.tag] = (counts[c.tag] || 0) + 1;
     }
     return counts;
-  }, [contacts, windowTick]);
+  }, [contacts]);
   const campaignUnreadCount = campaignContacts.reduce((n, c) => n + (c.hasUnread ? (c.unreadCount || 1) : 0), 0);
   const filteredCampaignContacts = campaignContacts
     .filter((c) => {
@@ -2192,102 +2107,77 @@ export default function InboxPage() {
         </div>
       )}
 
-      {/* 1. LEFT SIDEBAR: Navigation / Utility Icons (Linear style) */}
-      <aside className="hidden md:flex w-16 min-w-[4rem] bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-6 justify-between shrink-0 overflow-y-auto overflow-x-hidden">
-        <div className="flex flex-col items-center space-y-6 w-full">
-          {/* Logo Brand */}
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden cursor-pointer group">
+      {/* 1. LEFT SIDEBAR — compact primary nav (tags live in list header) */}
+      <aside className="hidden md:flex w-12 min-w-[3rem] bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-4 justify-between shrink-0">
+        <div className="flex flex-col items-center w-full gap-4">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src="/logo.png" 
-              alt="Pure Herbex Logo" 
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
-            />
+            <img src="/logo.png" alt="Pure Herbex" className="w-full h-full object-cover" />
           </div>
-          {/* Navigation Links */}
-          <nav className="flex flex-col items-center space-y-3 w-full pb-2">
+
+          <nav className="flex flex-col items-center gap-1 w-full">
             <button
-              onClick={() => {
-                setViewMode("inbox");
-                setActiveTab("all");
-              }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              onClick={() => { setViewMode("inbox"); setActiveTab("all"); }}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
                 activeTab === "all" && viewMode === "inbox"
                   ? "bg-zinc-800 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
+                  : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50"
               }`}
-              title="Inbox (All Chats)"
+              title="Inbox"
             >
-              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0l-3.586-3.586a2 2 0 00-2.828 0L16 11m-8 3V4"/>
               </svg>
             </button>
 
-            {TAGS.map((tag) => (
-              <button
-                key={tag.id}
-                onClick={() => {
-                  setViewMode("inbox");
-                  setActiveTab(tag.id as any);
-                }}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                  activeTab === tag.id && viewMode === "inbox"
-                    ? "bg-zinc-800 text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
-                }`}
-                title={`Filter: ${tag.label}${tagCounts[tag.id] ? ` (${tagCounts[tag.id]})` : ""}`}
-              >
-                <span className="relative">
-                  <span className={`w-2 h-2 rounded-full block ${tag.color}`}></span>
-                  {(tagCounts[tag.id] || 0) > 0 && (
-                    <span className="absolute -top-2 -right-2 min-w-[14px] h-[14px] px-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-[8px] font-bold text-zinc-200 flex items-center justify-center">
-                      {tagCounts[tag.id]}
-                    </span>
-                  )}
+            <button
+              onClick={() => { setViewMode("inbox"); setActiveTab("expired"); setActiveChat(null); }}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors relative ${
+                activeTab === "expired" && viewMode === "inbox"
+                  ? "bg-zinc-800 text-zinc-300"
+                  : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50"
+              }`}
+              title="Closed window (untagged)"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {expiredCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 bg-zinc-600 text-[8px] font-bold text-zinc-100 rounded-full flex items-center justify-center">
+                  {expiredCount > 99 ? "99+" : expiredCount}
                 </span>
-              </button>
-            ))}
+              )}
+            </button>
 
             <button
-              onClick={() => {
-                setViewMode("inbox");
-                setActiveTab("archived");
-              }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              onClick={() => { setViewMode("inbox"); setActiveTab("archived"); }}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
                 activeTab === "archived" && viewMode === "inbox"
                   ? "bg-zinc-800 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
+                  : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50"
               }`}
-              title="Archived Chats"
+              title="Archived"
             >
-              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
               </svg>
             </button>
 
             <button
-              onClick={() => {
-                setViewMode("inbox");
-                setActiveTab("expired");
-                setActiveChat(null);
-              }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all relative ${
-                activeTab === "expired" && viewMode === "inbox"
-                  ? "bg-zinc-700/80 text-zinc-200 border border-zinc-600/50"
-                  : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40"
+              onClick={() => { setViewMode("inbox"); setActiveTab("blocked"); }}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                activeTab === "blocked" && viewMode === "inbox"
+                  ? "bg-rose-500/15 text-rose-400"
+                  : "text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10"
               }`}
-              title="Closed 24h Window — template only"
+              title="Blocked"
             >
-              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4l16 16" />
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
               </svg>
-              {expiredCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-zinc-600 text-[9px] font-black text-zinc-100 rounded-full flex items-center justify-center">
-                  {expiredCount > 99 ? "99+" : expiredCount}
-                </span>
-              )}
             </button>
+
+            <div className="w-6 border-t border-zinc-800 my-1" aria-hidden />
 
             <button
               onClick={() => {
@@ -2296,60 +2186,21 @@ export default function InboxPage() {
                 setActiveCampaignChat(null);
                 setSelectedMarketingLead(null);
               }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all relative ${
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors relative ${
                 viewMode === "orders"
-                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                  ? "bg-amber-500/15 text-amber-400"
                   : "text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10"
               }`}
               title="Orders CRM"
             >
-              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
               {orderSummary.counts.needsAction > 0 ? (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-rose-500 text-[9px] font-black text-white rounded-full flex items-center justify-center animate-pulse">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 bg-rose-500 text-[8px] font-bold text-white rounded-full flex items-center justify-center">
                   {orderSummary.counts.needsAction > 9 ? "9+" : orderSummary.counts.needsAction}
                 </span>
-              ) : orderSummary.counts.active > 0 ? (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-amber-500 text-[9px] font-black text-zinc-950 rounded-full flex items-center justify-center">
-                  {orderSummary.counts.active > 9 ? "9+" : orderSummary.counts.active}
-                </span>
               ) : null}
-            </button>
-
-            <button
-              onClick={() => {
-                setViewMode("status");
-                setActiveChat(null);
-                fetchStatusItems();
-              }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                viewMode === "status"
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
-              }`}
-              title="Status Updates"
-            >
-              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-
-            <button
-              onClick={() => {
-                setViewMode("inbox");
-                setActiveTab("blocked");
-              }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                activeTab === "blocked" && viewMode === "inbox"
-                  ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                  : "text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10"
-              }`}
-              title="Blocked Contacts"
-            >
-              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-              </svg>
             </button>
 
             <button
@@ -2359,18 +2210,18 @@ export default function InboxPage() {
                 setSelectedMarketingLead(null);
                 fetchCampaignChats(false);
               }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all relative ${
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors relative ${
                 viewMode === "campaign"
-                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                  ? "bg-amber-500/15 text-amber-400"
                   : "text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10"
               }`}
-              title="Campaign Inbox"
+              title="Campaign"
             >
-              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               {campaignUnreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-amber-500 text-[9px] font-black text-zinc-950 rounded-full flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 bg-amber-500 text-[8px] font-bold text-zinc-950 rounded-full flex items-center justify-center">
                   {campaignUnreadCount > 9 ? "9+" : campaignUnreadCount}
                 </span>
               )}
@@ -2383,38 +2234,38 @@ export default function InboxPage() {
                 setActiveCampaignChat(null);
                 fetchCampaignStatus();
               }}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
                 viewMode === "promo"
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  ? "bg-emerald-500/15 text-emerald-400"
                   : "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10"
               }`}
-              title="Promo — Send Template"
+              title="Promo"
             >
-              <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
               </svg>
             </button>
           </nav>
         </div>
 
-        <div className="flex flex-col items-center space-y-4">
+        <div className="flex flex-col items-center gap-1 shrink-0 pb-1">
           {notifPermission !== "granted" && notifPermission !== "unsupported" && (
             <button
               onClick={requestNotifPermission}
-              className="w-10 h-10 text-emerald-500 hover:bg-emerald-500/10 rounded-xl flex items-center justify-center transition-all animate-pulse"
+              className="w-9 h-9 text-emerald-500 hover:bg-emerald-500/10 rounded-lg flex items-center justify-center transition-colors"
               title="Enable Notifications"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
             </button>
           )}
           <button
             onClick={handleLogout}
-            className="w-10 h-10 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center justify-center transition-all"
+            className="w-9 h-9 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg flex items-center justify-center transition-colors"
             title="Lock Dashboard"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
             </svg>
           </button>
@@ -2429,102 +2280,6 @@ export default function InboxPage() {
           onFocusHandled={() => setCrmFocusOrderId(null)}
           onOrdersChanged={() => void fetchOrderSummary()}
         />
-      ) : viewMode === "status" ? (
-        <main className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
-          <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0">
-            <h1 className="text-xl font-bold tracking-tight text-zinc-100">Status</h1>
-            <p className="text-xs text-zinc-500 mt-1">
-              Web status page for customers (24h). WhatsApp Cloud API cannot post to WhatsApp Stories — share the link below.
-            </p>
-            <a href={STATUS_PAGE_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:underline mt-1 inline-block">
-              Open customer status page →
-            </a>
-            <p className="text-[10px] text-zinc-600 mt-1 break-all">{STATUS_PAGE_URL}</p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-5 space-y-6">
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-              <h2 className="font-semibold text-sm text-zinc-200 mb-3">Add new status</h2>
-              <input
-                type="text"
-                placeholder="Caption (optional)"
-                value={statusCaption}
-                onChange={(e) => setStatusCaption(e.target.value)}
-                className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 mb-3"
-              />
-              <input
-                ref={statusFileRef}
-                type="file"
-                accept="image/*,video/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) publishStatus(file);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                disabled={statusUploading}
-                onClick={() => statusFileRef.current?.click()}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-zinc-950 font-bold rounded-xl transition-all"
-              >
-                {statusUploading ? "Uploading..." : "Upload Image or Video"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(STATUS_PAGE_URL);
-                  alert(`Status link copied!\n\n${STATUS_PAGE_URL}`);
-                }}
-                className="w-full py-2.5 border border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-xl text-sm font-semibold"
-              >
-                Copy status page link
-              </button>
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Check our latest updates: ${STATUS_PAGE_URL}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full py-2.5 mt-2 mb-3 bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/25 rounded-xl text-sm font-semibold text-center"
-              >
-                Share link on WhatsApp
-              </a>
-              <p className="text-[11px] text-zinc-500 mt-2">Status is web-only for 24h. Use the Promo tab to send the herbex_marketing template to leads.</p>
-            </div>
-
-            <div>
-              <h2 className="font-semibold text-sm text-zinc-200 mb-3">Active updates ({statusItems.length})</h2>
-              {statusItems.length === 0 ? (
-                <p className="text-sm text-zinc-600">No active status. Upload one above.</p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {statusItems.map((item) => (
-                    <div key={item.id} className="relative group rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900 aspect-[9/16]">
-                      {item.type === "image" ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={inboxStatusMediaSrc(item.mediaId)} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <video src={inboxStatusMediaSrc(item.mediaId)} className="w-full h-full object-cover" muted />
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                        <p className="text-[10px] text-zinc-300 truncate">{item.caption || "No caption"}</p>
-                        <p className="text-[9px] text-zinc-500">{Math.max(0, Math.round((item.expiresAt - Date.now()) / 3600000))}h left</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteStatusItem(item.id)}
-                        className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        title="Delete"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </main>
       ) : viewMode === "promo" ? (
         <>
           {/* MARKETING: Lead list */}
@@ -2913,12 +2668,12 @@ export default function InboxPage() {
               <h1 className="text-xl font-bold tracking-tight text-zinc-100">{inboxTitle}</h1>
               {activeTab === "all" && viewMode === "inbox" && expiredCount > 0 && (
                 <p className="text-[10px] text-zinc-500 mt-0.5">
-                  {expiredCount} closed-window chat{expiredCount === 1 ? "" : "s"} hidden
+                  {expiredCount} untagged closed-window chat{expiredCount === 1 ? "" : "s"} in Closed
                 </p>
               )}
               {activeTab === "expired" && (
                 <p className="text-[10px] text-zinc-500 mt-0.5">
-                  Template only — reopens when customer messages
+                  Untagged only — tagged contacts stay in their tag filters
                 </p>
               )}
             </div>
@@ -2959,12 +2714,12 @@ export default function InboxPage() {
           {/* Search bar */}
           <InboxSearchBar onSearchChange={handleSearchChange} />
 
-          {/* Mobile tag filters — keeps bottom nav uncluttered */}
-          <div className="md:hidden flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-none">
+          {/* Tag filters — desktop + mobile */}
+          <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-none">
             <button
               type="button"
               onClick={() => { setViewMode("inbox"); setActiveTab("all"); }}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeTab === "all" && viewMode === "inbox" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "border-zinc-800 text-zinc-500"}`}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${activeTab === "all" && viewMode === "inbox" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "border-zinc-800 text-zinc-500"}`}
             >
               All
             </button>
@@ -2972,25 +2727,26 @@ export default function InboxPage() {
               <button
                 key={tag.id}
                 type="button"
-                onClick={() => { setViewMode("inbox"); setActiveTab(tag.id as any); }}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeTab === tag.id && viewMode === "inbox" ? `${tag.bg} ${tag.border} ${tag.text}` : "border-zinc-800 text-zinc-500"}`}
+                onClick={() => { setViewMode("inbox"); setActiveTab(tag.id as TagId); }}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${activeTab === tag.id && viewMode === "inbox" ? `${tag.bg} ${tag.border} ${tag.text}` : "border-zinc-800 text-zinc-500"}`}
               >
                 {tag.label.split(" ")[0]}
+                {(tagCounts[tag.id] || 0) > 0 ? ` (${tagCounts[tag.id]})` : ""}
               </button>
             ))}
             <button
               type="button"
-              onClick={() => { setViewMode("inbox"); setActiveTab("archived"); }}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeTab === "archived" ? "bg-zinc-800 border-zinc-700 text-zinc-300" : "border-zinc-800 text-zinc-500"}`}
+              onClick={() => { setViewMode("inbox"); setActiveTab("expired"); setActiveChat(null); }}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold border md:hidden ${activeTab === "expired" ? "bg-zinc-700/50 border-zinc-600 text-zinc-300" : "border-zinc-800 text-zinc-500"}`}
             >
-              Archived
+              Closed{expiredCount > 0 ? ` (${expiredCount > 99 ? "99+" : expiredCount})` : ""}
             </button>
             <button
               type="button"
-              onClick={() => { setViewMode("inbox"); setActiveTab("expired"); setActiveChat(null); }}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border ${activeTab === "expired" ? "bg-zinc-700/50 border-zinc-600 text-zinc-300" : "border-zinc-800 text-zinc-500"}`}
+              onClick={() => { setViewMode("inbox"); setActiveTab("archived"); }}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold border md:hidden ${activeTab === "archived" ? "bg-zinc-800 border-zinc-700 text-zinc-300" : "border-zinc-800 text-zinc-500"}`}
             >
-              Closed{expiredCount > 0 ? ` (${expiredCount > 99 ? "99+" : expiredCount})` : ""}
+              Archived
             </button>
           </div>
         </div>
@@ -3006,9 +2762,9 @@ export default function InboxPage() {
                 {activeTab === "blocked"
                   ? "No blocked contacts."
                   : activeTab === "expired"
-                    ? "No closed-window chats — everyone you can still text is in the main inbox."
+                    ? "No untagged closed-window chats."
                     : activeTab === "all" && !searchQuery.trim() && expiredCount > 0
-                      ? `No active chats here. ${expiredCount} closed-window chat${expiredCount === 1 ? "" : "s"} hidden — open Closed tab or search by name/number.`
+                      ? `No active chats. ${expiredCount} untagged closed-window chat${expiredCount === 1 ? "" : "s"} — see Closed in sidebar.`
                       : "No chats found in this category."}
               </p>
             </div>
@@ -4135,7 +3891,6 @@ export default function InboxPage() {
             onClick={() => setMobileNavMoreOpen(true)}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
               mobileNavMoreOpen ||
-              viewMode === "status" ||
               activeTab === "archived" ||
               activeTab === "blocked" ||
               activeTab === "expired"
@@ -4162,15 +3917,6 @@ export default function InboxPage() {
           >
             <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-2 pb-2">More</p>
             {[
-              {
-                label: "Web Status",
-                action: () => {
-                  setViewMode("status");
-                  setActiveChat(null);
-                  setMobileNavMoreOpen(false);
-                  void fetchStatusItems();
-                },
-              },
               {
                 label: `Closed Window${expiredCount > 0 ? ` (${expiredCount > 99 ? "99+" : expiredCount})` : ""}`,
                 action: () => {

@@ -54,6 +54,26 @@ export function getWindowElapsedMs(
   return nowMs - lastIncoming * 1000;
 }
 
+/** Window closed and no tag — belongs in Closed tab, hidden from main Inbox. */
+export function isUntaggedExpiredContact(
+  contact: WindowContact,
+  nowMs = Date.now()
+): boolean {
+  if (contact.tag) return false;
+  return isExpiredWindow(contact, nowMs);
+}
+
+/** Tagged contacts always stay in their tag filter, even when window is closed. */
+export function shouldHideFromMainInbox(
+  contact: WindowContact,
+  isSearching: boolean,
+  nowMs = Date.now()
+): boolean {
+  if (isSearching) return false;
+  if (contact.tag) return false;
+  return isExpiredWindow(contact, nowMs);
+}
+
 /** Customer message within the last 24 hours — free-text window still open. */
 export function isInActiveWindow(contact: WindowContact, nowMs = Date.now()): boolean {
   const elapsed = getWindowElapsedMs(contact, nowMs);
