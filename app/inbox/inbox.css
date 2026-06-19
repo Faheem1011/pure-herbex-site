@@ -20,6 +20,19 @@
   --wa-text: #e9edef;
   --wa-muted: #8696a0;
   --wa-chat-bg: #0b141a;
+  scrollbar-gutter: stable;
+}
+
+.inbox-shell * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.inbox-chat-messages {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
 }
 
 .inbox-chat-wallpaper {

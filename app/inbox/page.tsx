@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { startVoiceRecording, type VoiceRecordingSession } from "@/lib/voice-recorder";
 import type { Contact, Message, StatusItem } from "@/app/inbox/types";
 import { contactMatchesSearch } from "@/lib/contact-search";
 import { COMMON_EMOJIS, MARKETING_TEMPLATE, TAGS, type TagId } from "@/app/inbox/constants";
 import ContactListRow from "@/components/inbox/ContactListRow";
+import InboxSearchBar from "@/components/inbox/InboxSearchBar";
+import ChatTextInput, { type ChatTextInputHandle } from "@/components/inbox/ChatTextInput";
 import WindowTimer from "@/components/inbox/WindowTimer";
 import {
   contactNeedsFullHistory,
@@ -85,9 +87,11 @@ export default function InboxPage() {
   }, [contacts]);
 
   const [activeChat, setActiveChat] = useState<Contact | null>(null);
-  const [replyText, setReplyText] = useState("");
+  const mainReplyRef = useRef<ChatTextInputHandle>(null);
+  const campaignReplyRef = useRef<ChatTextInputHandle>(null);
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const handleSearchChange = useCallback((q: string) => setSearchQuery(q), []);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshNote, setRefreshNote] = useState<string | null>(null);
   const [isExportingContacts, setIsExportingContacts] = useState(false);
@@ -196,6 +200,7 @@ export default function InboxPage() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastScrollKeyRef = useRef("");
   
   // Track activeChat in a Ref to prevent missing dependency warnings/re-runs in setInterval
   const activeChatRef = useRef<Contact | null>(null);
@@ -1221,12 +1226,18 @@ export default function InboxPage() {
     };
   }, [isLoggedIn, sessionToken, activeChat?.phone]);
 
-  // Scroll to bottom on new message
+  // Scroll to bottom only when message count / last id changes (not delivery tick updates)
   useEffect(() => {
+    const chat = activeChat ?? activeCampaignChat;
+    if (!chat?.messages?.length) return;
+    const last = chat.messages[chat.messages.length - 1];
+    const scrollKey = `${chat.phone}:${chat.messages.length}:${last?.id ?? ""}`;
+    if (scrollKey === lastScrollKeyRef.current) return;
+    lastScrollKeyRef.current = scrollKey;
     messagesEndRef.current?.scrollIntoView({
       behavior: isAndroidApp ? "auto" : "smooth",
     });
-  }, [activeChat?.messages, activeCampaignChat?.messages, isAndroidApp]);
+  }, [activeChat?.messages, activeCampaignChat?.messages, activeChat?.phone, activeCampaignChat?.phone, isAndroidApp]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1340,7 +1351,8 @@ export default function InboxPage() {
 
   const handleCampaignSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeCampaignChat || sending || !replyText.trim()) return;
+    const replyText = campaignReplyRef.current?.getValue().trim() ?? "";
+    if (!activeCampaignChat || sending || !replyText) return;
 
     setSending(true);
     try {
@@ -1352,7 +1364,7 @@ export default function InboxPage() {
         },
         body: JSON.stringify({
           toPhone: activeCampaignChat.phone,
-          replyText: replyText,
+          replyText,
           contactName: activeCampaignChat.name,
           type: "text",
         }),
@@ -1370,7 +1382,7 @@ export default function InboxPage() {
         const updated = { ...activeCampaignChat, messages: [...activeCampaignChat.messages, newMsg] };
         setActiveCampaignChat(updated);
         setCampaignContacts((prev) => prev.map((c) => (c.phone === activeCampaignChat.phone ? updated : c)));
-        setReplyText("");
+        campaignReplyRef.current?.clear();
       } else {
         alert("Failed to send: " + (data.error || "Unknown error"));
       }
@@ -1385,8 +1397,9 @@ export default function InboxPage() {
     e.preventDefault();
     if (!activeChat || sending || activeChat.blocked) return;
 
+    const replyText = mainReplyRef.current?.getValue().trim() ?? "";
     const hasAttachment = pendingFile || pendingLocation;
-    if (!replyText.trim() && !hasAttachment) return;
+    if (!replyText && !hasAttachment) return;
 
     setSending(true);
     try {
@@ -1489,7 +1502,7 @@ export default function InboxPage() {
         );
 
         // Reset inputs
-        setReplyText("");
+        mainReplyRef.current?.clear();
         setPendingFile(null);
         setPendingFileType(null);
         setPendingLocation(null);
@@ -1957,7 +1970,7 @@ export default function InboxPage() {
   };
 
   const insertEmoji = (emoji: string) => {
-    setReplyText((prev) => prev + emoji);
+    mainReplyRef.current?.append(emoji);
     setShowEmojiPicker(false);
   };
 
@@ -2180,8 +2193,8 @@ export default function InboxPage() {
       )}
 
       {/* 1. LEFT SIDEBAR: Navigation / Utility Icons (Linear style) */}
-      <aside className="hidden md:flex w-16 bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-6 justify-between shrink-0">
-        <div className="flex flex-col items-center space-y-8 w-full">
+      <aside className="hidden md:flex w-16 min-w-[4rem] bg-zinc-900 border-r border-zinc-800/80 flex-col items-center py-6 justify-between shrink-0 overflow-y-auto overflow-x-hidden">
+        <div className="flex flex-col items-center space-y-6 w-full">
           {/* Logo Brand */}
           <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden cursor-pointer group">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2192,7 +2205,7 @@ export default function InboxPage() {
             />
           </div>
           {/* Navigation Links */}
-          <nav className="flex flex-col items-center space-y-4 w-full">
+          <nav className="flex flex-col items-center space-y-3 w-full pb-2">
             <button
               onClick={() => {
                 setViewMode("inbox");
@@ -2803,7 +2816,7 @@ export default function InboxPage() {
             </div>
           </section>
 
-          <main className={`flex-1 flex flex-col bg-zinc-950 overflow-hidden ${activeCampaignChat ? "flex max-md:fixed max-md:inset-0 max-md:z-50" : "hidden md:flex"}`}>
+          <main className={`flex-1 min-w-0 min-h-0 flex flex-col bg-zinc-950 overflow-hidden ${activeCampaignChat ? "flex max-md:fixed max-md:inset-0 max-md:z-50" : "hidden md:flex"}`}>
             {activeCampaignChat ? (
               <>
                 <div className="inbox-header-bar inbox-mobile-top px-3 pb-2.5 md:px-6 md:py-4 md:pt-4 flex items-center justify-between shrink-0">
@@ -2830,7 +2843,8 @@ export default function InboxPage() {
                   </button>
                 </div>
 
-                <div className="inbox-chat-wallpaper flex-1 overflow-y-auto px-3 py-4 space-y-1">
+                <div className="inbox-chat-wallpaper flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4">
+                  <div className="inbox-chat-messages w-full">
                   {activeCampaignChat.messages.map((msg) => {
                     const isMe = msg.sender === "me";
                     const msgTime = formatChatTime(msg.timestamp);
@@ -2851,21 +2865,21 @@ export default function InboxPage() {
                     );
                   })}
                   <div ref={messagesEndRef} />
+                  </div>
                 </div>
 
                 <form onSubmit={handleCampaignSend} className="p-4 border-t border-zinc-800/80 shrink-0 safe-bottom">
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
+                    <ChatTextInput
+                      ref={campaignReplyRef}
+                      chatKey={activeCampaignChat.phone}
                       placeholder="Reply within 24h window..."
                       className="flex-1 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-500/50"
                     />
                     <button
                       type="submit"
-                      disabled={sending || !replyText.trim()}
-                      className="px-5 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-zinc-950 font-bold rounded-2xl"
+                      disabled={sending}
+                      className="px-5 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-zinc-950 font-bold rounded-2xl shrink-0"
                     >
                       Send
                     </button>
@@ -2890,7 +2904,7 @@ export default function InboxPage() {
       ) : (
         <>
       {/* 2. MIDDLE COLUMN: Conversation Lists (Sleek List View) */}
-      <section className={`w-full md:w-80 bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 ${activeChat ? "hidden md:flex" : "flex"}`}>
+      <section className={`w-full md:w-[320px] md:min-w-[320px] md:max-w-[320px] bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 min-h-0 ${activeChat ? "hidden md:flex" : "flex"}`}>
         
         {/* Header Section */}
         <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0 relative">
@@ -2943,13 +2957,7 @@ export default function InboxPage() {
           </div>
 
           {/* Search bar */}
-          <input
-            type="text"
-            placeholder="Search name or number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800/80 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50"
-          />
+          <InboxSearchBar onSearchChange={handleSearchChange} />
 
           {/* Mobile tag filters — keeps bottom nav uncluttered */}
           <div className="md:hidden flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-none">
@@ -3040,7 +3048,7 @@ export default function InboxPage() {
       </section>
 
       {/* 3. RIGHT COLUMN: Active Chat Messages panel (Minimalistic details) */}
-      <main className={`flex-1 flex flex-col bg-zinc-950 overflow-hidden relative ${activeChat ? "max-md:fixed max-md:inset-0 max-md:z-50 max-md:flex max-md:h-[100dvh] flex" : "hidden md:flex"}`}>
+      <main className={`flex-1 min-w-0 min-h-0 flex flex-col bg-zinc-950 overflow-hidden relative ${activeChat ? "max-md:fixed max-md:inset-0 max-md:z-50 max-md:flex max-md:h-[100dvh] flex" : "hidden md:flex"}`}>
         {activeChat ? (
           <>
             {/* Chat Info Header */}
@@ -3223,7 +3231,7 @@ export default function InboxPage() {
             </div>
 
             {/* Message History Bubble list */}
-            <div className="inbox-chat-wallpaper flex-1 overflow-y-auto px-3 py-4 md:px-6 space-y-1 flex flex-col">
+            <div className="inbox-chat-wallpaper flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 flex flex-col justify-end">
               {loadingHistoryPhone === activeChat.phone && (
                 <div className="text-center text-xs text-zinc-500 py-2 shrink-0">
                   Loading full chat history…
@@ -3238,7 +3246,7 @@ export default function InboxPage() {
                 </div>
               )}
               {activeChat.messages.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 my-auto">
+                <div className="flex flex-col items-center justify-center text-center p-6 min-h-[50vh]">
                   <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center border border-emerald-500/20 mb-3">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
@@ -3250,7 +3258,7 @@ export default function InboxPage() {
                   </p>
                 </div>
               ) : (
-                <>
+                <div className="inbox-chat-messages w-full">
                   {hiddenMessageCount > 0 && (
                     <button
                       type="button"
@@ -3465,9 +3473,9 @@ export default function InboxPage() {
                     </div>
                   );
                 })}
-                </>
+                  <div ref={messagesEndRef} />
+                </div>
               )}
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Chat Input Area */}
@@ -3727,12 +3735,10 @@ export default function InboxPage() {
                     </svg>
                   </button>
 
-                  <input
-                    type="text"
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
+                  <ChatTextInput
+                    ref={mainReplyRef}
+                    chatKey={activeChat.phone}
                     placeholder={pendingFile ? "Caption..." : "Type a message..."}
-                    autoComplete="off"
                     className="flex-1 min-w-0 px-3 py-2 md:px-5 md:py-3.5 bg-zinc-900 border border-zinc-800 focus:border-emerald-500 rounded-lg md:rounded-xl text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none"
                   />
                   

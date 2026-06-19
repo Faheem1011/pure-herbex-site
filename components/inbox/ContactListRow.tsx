@@ -81,9 +81,9 @@ function ContactListRow({
         onOpen();
         if (c.hasUnread && !c.blocked) onMarkRead();
       }}
-      className={`group w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-all border cursor-pointer relative ${
+      className={`group w-full text-left flex items-start space-x-3 px-4 py-3.5 rounded-2xl transition-colors border cursor-pointer relative ${
         isActive
-          ? "bg-zinc-800 border-zinc-700 text-zinc-100 shadow-lg scale-[1.02] z-10"
+          ? "bg-zinc-800 border-emerald-500/40 text-zinc-100 shadow-md ring-1 ring-emerald-500/20"
           : c.hasUnread
             ? "bg-emerald-500/5 border-emerald-500/20 text-zinc-200"
             : "border-transparent hover:bg-zinc-900/30 text-zinc-400 hover:text-zinc-200"

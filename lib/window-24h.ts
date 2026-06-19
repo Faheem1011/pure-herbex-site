@@ -144,7 +144,7 @@ export const WINDOW_TIMER_TONE_CLASS: Record<WindowTimerTone, string> = {
   green: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
   yellow: "text-yellow-400 border-yellow-500/30 bg-yellow-500/10",
   orange: "text-orange-400 border-orange-500/30 bg-orange-500/10",
-  red: "text-rose-400 border-rose-500/30 bg-rose-500/10 animate-pulse",
+  red: "text-rose-400 border-rose-500/30 bg-rose-500/10",
   gray: "text-zinc-500 border-zinc-700/50 bg-zinc-800/50",
   none: "",
 };
