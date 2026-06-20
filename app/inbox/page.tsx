@@ -2598,7 +2598,8 @@ export default function InboxPage() {
                   </button>
                 </div>
 
-                <div className="inbox-chat-wallpaper flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4">
+                <div className="inbox-chat-wallpaper flex-1 min-h-0 px-3 py-4">
+                  <div className="inbox-chat-scroll-inner">
                   <div className="inbox-chat-messages w-full">
                   {activeCampaignChat.messages.map((msg) => {
                     const isMe = msg.sender === "me";
@@ -2620,6 +2621,7 @@ export default function InboxPage() {
                     );
                   })}
                   <div ref={messagesEndRef} />
+                  </div>
                   </div>
                 </div>
 
@@ -2987,7 +2989,8 @@ export default function InboxPage() {
             </div>
 
             {/* Message History Bubble list */}
-            <div className="inbox-chat-wallpaper flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 md:px-6 flex flex-col justify-end">
+            <div className="inbox-chat-wallpaper flex-1 min-h-0 px-3 py-4 md:px-6">
+              <div className="inbox-chat-scroll-inner">
               {loadingHistoryPhone === activeChat.phone && (
                 <div className="text-center text-xs text-zinc-500 py-2 shrink-0">
                   Loading full chat history…
@@ -3232,6 +3235,7 @@ export default function InboxPage() {
                   <div ref={messagesEndRef} />
                 </div>
               )}
+              </div>
             </div>
 
             {/* Chat Input Area */}
