@@ -1,0 +1,9 @@
+{
+  "templateName": "herbex_marketing",
+  "languageCode": "en",
+  "targets": [
+    { "phone": "923001234567", "name": "Ali" },
+    { "phone": "923009876543", "name": "Sara" },
+    { "phone": "03123456789", "name": "Customer" }
+  ]
+}

@@ -72,6 +72,71 @@ async function updateCampaignStatus(
   await kv.set(campaignStatusKey(line), statusMap);
 }
 
+type TargetLead = { phone: string; name?: string; city?: string };
+
+async function sendCampaignTemplateToPhone(
+  rawPhone: string,
+  displayName: string,
+  city: string,
+  templateName: string,
+  languageCode: string,
+  bodyVarCount: number,
+  line: InboxLine
+): Promise<
+  | { outcome: "sent"; phone: string; msgId: string }
+  | { outcome: "failed"; phone: string; error: string }
+  | { outcome: "skipped"; phone: string; reason: string }
+> {
+  const phone = normalizePhone(rawPhone);
+  if (!phone) {
+    return { outcome: "skipped", phone: rawPhone, reason: "invalid_phone" };
+  }
+
+  if (await isPhoneBlocked(phone, line)) {
+    return { outcome: "skipped", phone, reason: "blocked" };
+  }
+
+  const result = await sendWhatsAppTemplateMessage(phone, templateName, {
+    languageCode,
+    bodyVarCount,
+    name: displayName,
+    city,
+    line,
+  });
+
+  if (result.ok) {
+    const msgId = result.msgId || "N/A";
+    await saveSentMessage(phone, displayName, msgId, templateName, line);
+    await updateCampaignStatus(
+      phone,
+      {
+        status: "sent",
+        sentAt: Date.now(),
+        messageId: result.msgId,
+        name: displayName,
+        templateName,
+      },
+      line
+    );
+    return { outcome: "sent", phone, msgId };
+  }
+
+  const errorMsg = result.error || "Failed to send template";
+  await saveFailedMessage(phone, displayName, errorMsg, templateName, line);
+  await updateCampaignStatus(
+    phone,
+    {
+      status: "failed",
+      sentAt: Date.now(),
+      error: errorMsg,
+      name: displayName,
+      templateName,
+    },
+    line
+  );
+  return { outcome: "failed", phone, error: errorMsg };
+}
+
 
 // GET: fetch campaign send status for all leads
 export async function GET(request: NextRequest) {
@@ -108,7 +173,62 @@ export async function POST(request: NextRequest) {
       bodyVarCount = 0,
       batch = false,
       limit = 20,
+      targets,
     } = body;
+
+    // Send herbex_marketing to an explicit list (no inbox UI, no contacts.json)
+    if (Array.isArray(targets) && targets.length > 0) {
+      const list = (targets as TargetLead[]).slice(0, 50);
+      let sent = 0;
+      let failed = 0;
+      let skipped = 0;
+      const results: Array<{
+        phone: string;
+        status: "sent" | "failed" | "skipped";
+        msgId?: string;
+        error?: string;
+        reason?: string;
+      }> = [];
+      let firstError = "";
+
+      for (const t of list) {
+        if (!t?.phone) {
+          skipped++;
+          results.push({ phone: "", status: "skipped", reason: "missing_phone" });
+          continue;
+        }
+        const r = await sendCampaignTemplateToPhone(
+          t.phone,
+          t.name || "Customer",
+          t.city || city,
+          templateName,
+          languageCode,
+          bodyVarCount,
+          line
+        );
+        if (r.outcome === "sent") {
+          sent++;
+          results.push({ phone: r.phone, status: "sent", msgId: r.msgId });
+        } else if (r.outcome === "skipped") {
+          skipped++;
+          results.push({ phone: r.phone, status: "skipped", reason: r.reason });
+        } else {
+          failed++;
+          if (!firstError) firstError = r.error;
+          results.push({ phone: r.phone, status: "failed", error: r.error });
+        }
+      }
+
+      return NextResponse.json({
+        status: "targets_complete",
+        sent,
+        failed,
+        skipped,
+        total: list.length,
+        firstError: firstError || undefined,
+        results,
+      });
+    }
 
     if (batch) {
       const statusMap: CampaignStatusMap = (await kv.get(campaignStatusKey(line))) || {};
@@ -122,40 +242,22 @@ export async function POST(request: NextRequest) {
       let firstError = "";
 
       for (const lead of pending.slice(0, Math.min(limit, 40))) {
-        const phone = normalizePhone(lead.phone);
-        if (await isPhoneBlocked(phone, line)) {
-          skipped++;
-          continue;
-        }
-        const result = await sendWhatsAppTemplateMessage(phone, templateName, {
+        const r = await sendCampaignTemplateToPhone(
+          lead.phone,
+          lead.name,
+          "",
+          templateName,
           languageCode,
           bodyVarCount,
-          name: lead.name,
-          city: "",
-          line,
-        });
-        if (result.ok) {
+          line
+        );
+        if (r.outcome === "sent") {
           sent++;
-          await saveSentMessage(phone, lead.name, result.msgId || "N/A", templateName, line);
-          await updateCampaignStatus(phone, {
-            status: "sent",
-            sentAt: Date.now(),
-            messageId: result.msgId,
-            name: lead.name,
-            templateName,
-          }, line);
+        } else if (r.outcome === "skipped") {
+          skipped++;
         } else {
           failed++;
-          const err = result.error || "Unknown error";
-          if (!firstError) firstError = err;
-          await saveFailedMessage(phone, lead.name, err, templateName, line);
-          await updateCampaignStatus(phone, {
-            status: "failed",
-            sentAt: Date.now(),
-            error: err,
-            name: lead.name,
-            templateName,
-          }, line);
+          if (!firstError) firstError = r.error;
         }
       }
 
@@ -170,50 +272,33 @@ export async function POST(request: NextRequest) {
     }
 
     if (!toPhone) {
-      return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing phone number. Use toPhone, batch:true, or targets:[]." },
+        { status: 400 }
+      );
     }
 
-    const phone = normalizePhone(toPhone);
-    const displayName = contactName || "Customer";
-
-    if (await isPhoneBlocked(phone, line)) {
-      return NextResponse.json({ error: "This contact is blocked." }, { status: 403 });
-    }
-
-    const result = await sendWhatsAppTemplateMessage(phone, templateName, {
+    const r = await sendCampaignTemplateToPhone(
+      toPhone,
+      contactName || "Customer",
+      city,
+      templateName,
       languageCode,
       bodyVarCount,
-      name: displayName,
-      city,
-      line,
-    });
+      line
+    );
 
-    if (result.ok) {
-      const msgId = result.msgId || "N/A";
-
-      await saveSentMessage(phone, displayName, msgId, templateName, line);
-      await updateCampaignStatus(phone, {
-        status: "sent",
-        sentAt: Date.now(),
-        messageId: msgId,
-        name: displayName,
-        templateName,
-      }, line);
-
-      return NextResponse.json({ status: "success", msgId, phone });
+    if (r.outcome === "sent") {
+      return NextResponse.json({ status: "success", msgId: r.msgId, phone: r.phone });
+    }
+    if (r.outcome === "skipped") {
+      return NextResponse.json(
+        { error: r.reason === "blocked" ? "This contact is blocked." : "Invalid phone." },
+        { status: r.reason === "blocked" ? 403 : 400 }
+      );
     }
 
-    const errorMsg = result.error || "Failed to send template";
-    await saveFailedMessage(phone, displayName, errorMsg, templateName, line);
-    await updateCampaignStatus(phone, {
-      status: "failed",
-      sentAt: Date.now(),
-      error: errorMsg,
-      name: displayName,
-      templateName,
-    }, line);
-
-    return NextResponse.json({ error: errorMsg }, { status: 400 });
+    return NextResponse.json({ error: r.error }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
