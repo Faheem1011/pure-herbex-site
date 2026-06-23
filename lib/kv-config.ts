@@ -9,4 +9,4 @@ export function getKvHost(): string | null {
   }
 }
 
-export const EXPECTED_KV_HOST = "liked-mole-100771.upstash.io";
+export const EXPECTED_KV_HOST = "cuddly-poodle-102740.upstash.io";
