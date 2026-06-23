@@ -2,9 +2,9 @@
  * One-time copy: old Upstash Redis -> new Upstash Redis.
  *
  * Usage (PowerShell):
- *   $env:SOURCE_KV_REST_API_URL="https://relieved-cat-143755.upstash.io"
+ *   $env:SOURCE_KV_REST_API_URL="https://liked-mole-100771.upstash.io"
  *   $env:SOURCE_KV_REST_API_TOKEN="..."
- *   $env:DEST_KV_REST_API_URL="https://liked-mole-100771.upstash.io"
+ *   $env:DEST_KV_REST_API_URL="https://cuddly-poodle-102740.upstash.io"
  *   $env:DEST_KV_REST_API_TOKEN="..."
  *   npx --yes tsx scripts/migrate-kv.ts
  *
