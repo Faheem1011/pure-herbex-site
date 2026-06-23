@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { kv } from "@vercel/kv";
+import { getInboxPublicBaseUrl } from "@/lib/site-urls";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 
 const KV_KEY = "whatsapp:template_header_media";
@@ -16,8 +17,7 @@ export const MARKETING_HEADER_IMAGE_PATH = path.join(
   "marketing-header.jpg"
 );
 
-export const MARKETING_HEADER_IMAGE_URL =
-  "https://pure-herbex-site.vercel.app/assets/images/marketing-header.jpg";
+export const MARKETING_HEADER_IMAGE_URL = `${getInboxPublicBaseUrl()}/assets/images/marketing-header.jpg`;
 
 async function uploadImageToMeta(buffer: Buffer, filename: string): Promise<string> {
   const bytes = new Uint8Array(buffer);

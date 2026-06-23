@@ -6,7 +6,7 @@
 #   .\scripts\send-marketing.ps1 -Phones "923001234567","923009876543"
 
 param(
-  [string]$ApiBase = "https://pure-herbex-site.vercel.app",
+  [string]$ApiBase = "https://pure-herbex-site-eight.vercel.app",
   [string]$TargetsFile = "",
   [string[]]$Phones = @(),
   [string]$Password = $env:INBOX_PASSWORD,

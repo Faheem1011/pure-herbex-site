@@ -1,20 +1,23 @@
+import {
+  PRODUCTION_INBOX_URL,
+  inboxPublicUrlFromEnv,
+} from "@/lib/inbox-public-url";
+
 /** Vercel-hosted inbox + API (status & webhooks always live here). */
 export function getInboxPublicBaseUrl(): string {
-  const inboxOnly =
-    process.env.NEXT_PUBLIC_INBOX_URL || process.env.INBOX_PUBLIC_URL;
-  if (inboxOnly) {
-    return inboxOnly.replace(/\/$/, "");
+  if (process.env.NEXT_PUBLIC_INBOX_URL || process.env.INBOX_PUBLIC_URL) {
+    return inboxPublicUrlFromEnv();
   }
 
-  // Never use preview deployment URLs for customer share links
+  // Prefer stable production hostname on Vercel (not per-deployment preview URLs).
   const vercelUrl = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`.replace(/\/$/, "")
     : "";
-  if (vercelUrl.includes("pure-herbex-site.vercel.app")) {
+  if (vercelUrl.includes("pure-herbex-site") && vercelUrl.endsWith(".vercel.app")) {
     return vercelUrl;
   }
 
-  return "https://pure-herbex-site.vercel.app";
+  return PRODUCTION_INBOX_URL;
 }
 
 export function getStatusPublicPageUrl(): string {

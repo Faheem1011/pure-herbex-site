@@ -3,6 +3,7 @@ import { kv } from "@vercel/kv";
 import { normalizePhone } from "@/lib/blocked";
 import { bumpInboxVersion } from "@/lib/inbox-sync";
 import { activeContactsKey, contactKey } from "@/lib/kv-keys";
+import { PRODUCTION_INBOX_URL } from "@/lib/inbox-public-url";
 import { recomputeUnread, type ReadableContact } from "@/lib/read-state";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 const ALLOWED_ORIGINS = new Set([
   "https://pureherbex.com",
   "https://www.pureherbex.com",
-  "https://pure-herbex-site.vercel.app",
+  PRODUCTION_INBOX_URL,
   "http://localhost:3000",
 ]);
 

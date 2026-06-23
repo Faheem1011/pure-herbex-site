@@ -935,7 +935,7 @@ export default function InboxPage() {
           }
         }
 
-        void prefetchUnreadHistories(sorted);
+        if (!silent) void prefetchUnreadHistories(sorted);
       }
 
       if (data.campaignContacts) {
@@ -1017,8 +1017,8 @@ export default function InboxPage() {
   };
 
   const prefetchUnreadHistories = async (list: Contact[]) => {
-    const cap = isAndroidAppRef.current ? 4 : 10;
-    const delay = isAndroidAppRef.current ? 500 : 200;
+    const cap = isAndroidAppRef.current ? 2 : 4;
+    const delay = isAndroidAppRef.current ? 800 : 400;
     const targets = list
       .filter((c) => c.hasUnread && !c.archived && !c.blocked)
       .filter((c) => contactNeedsFullHistory(c, fullHistoryPhonesRef.current))
@@ -1180,29 +1180,41 @@ export default function InboxPage() {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    let interval: ReturnType<typeof setInterval>;
+    let interval: ReturnType<typeof setInterval> | undefined;
     const poll = () => fetchInboxSync(true);
     const getPollMs = () => {
-      const mul = isAndroidAppRef.current ? 2.5 : 1;
-      if (typeof document !== "undefined" && document.hidden) return 120_000 * mul;
-      if (activeChatRef.current) return 40_000 * mul;
+      const mul = isAndroidAppRef.current ? 1.5 : 1;
+      if (activeChatRef.current) return 180_000 * mul;
       const hasUnread = contactsRef.current.some(
         (c) => c.hasUnread && !c.archived && !c.blocked
       );
-      if (hasUnread) return 50_000 * mul;
-      return 90_000 * mul;
+      if (hasUnread) return 150_000 * mul;
+      return 240_000 * mul;
     };
-    const resetInterval = () => {
-      clearInterval(interval);
+    const stopPolling = () => {
+      if (interval !== undefined) {
+        clearInterval(interval);
+        interval = undefined;
+      }
+    };
+    const startPolling = () => {
+      stopPolling();
       interval = setInterval(poll, getPollMs());
     };
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && document.hidden) {
+        stopPolling();
+        return;
+      }
+      void poll();
+      startPolling();
+    };
 
-    poll();
-    resetInterval();
-    document.addEventListener("visibilitychange", resetInterval);
+    onVisibility();
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", resetInterval);
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [isLoggedIn, sessionToken, activeChat?.phone]);
 

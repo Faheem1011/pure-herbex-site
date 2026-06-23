@@ -9,7 +9,8 @@ import {
   inboxVersionKey,
 } from "@/lib/kv-keys";
 
-const VERSION_BUMP_THROTTLE_MS = 10_000;
+/** Coalesce delivery ticks / status webhooks so open inboxes don't full-sync every few seconds. */
+const VERSION_BUMP_THROTTLE_MS = 45_000;
 
 function versionThrottleKey(line: InboxLine): string {
   return `${kvPrefix(line)}version_bump_at`;

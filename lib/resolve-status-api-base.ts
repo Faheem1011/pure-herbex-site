@@ -1,5 +1,6 @@
-const PRODUCTION_INBOX =
-  process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app";
+import { inboxPublicUrlFromEnv } from "@/lib/inbox-public-url";
+
+const PRODUCTION_INBOX = inboxPublicUrlFromEnv();
 
 /** Client-side API base for the public status page. */
 export function resolveStatusClientApiBase(): string {

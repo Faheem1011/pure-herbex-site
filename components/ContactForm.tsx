@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_INBOX_URL || "https://pure-herbex-site.vercel.app"
-).replace(/\/$/, "");
+import { inboxPublicUrlFromEnv } from "@/lib/inbox-public-url";
+
+const API_BASE = inboxPublicUrlFromEnv();
 
 export default function ContactForm() {
   const [name, setName] = useState("");
