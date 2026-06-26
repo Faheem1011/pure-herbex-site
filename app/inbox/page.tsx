@@ -146,7 +146,13 @@ export default function InboxPage() {
   const [testCity, setTestCity] = useState("Karachi");
 
   const [isMobile, setIsMobile] = useState(false);
-  const [isAndroidApp, setIsAndroidApp] = useState(false);
+  const [isAndroidApp, setIsAndroidApp] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      !!getAndroidBridge() ||
+      /PureHerbexInbox/i.test(navigator.userAgent)
+    );
+  });
   const fullHistoryPhonesRef = useRef(new Set<string>());
   const [windowTick, setWindowTick] = useState(() => Date.now());
   const [messageRenderLimit, setMessageRenderLimit] = useState(80);
@@ -2056,50 +2062,43 @@ export default function InboxPage() {
     activeTab === "all" ? "Inbox" :
     TAGS.find((t) => t.id === activeTab)?.label || "Inbox";
 
-  // Login Screen
+  // Login Screen — plain CSS classes (works when Tailwind fails in WebView)
   if (!isLoggedIn) {
     return (
-      <div className="bg-zinc-950 text-zinc-100 min-h-screen flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-zinc-900/60 border border-zinc-800/80 rounded-3xl p-8 shadow-2xl relative overflow-hidden backdrop-blur-md">
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl"></div>
-          
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 rounded-2xl mb-4 border border-emerald-500/20 overflow-hidden shadow-lg shadow-emerald-500/5">
+      <div className="inbox-login-page">
+        <div className="inbox-login-card">
+          <div className="inbox-login-brand">
+            <div className="inbox-login-logo-wrap">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
-                src="/logo.png" 
-                alt="Pure Herbex Logo" 
-                className="w-full h-full object-cover" 
+              <img
+                src="/logo.png"
+                alt="Pure Herbex Logo"
+                className="inbox-login-logo"
+                width={72}
+                height={72}
               />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">{inboxLineTitle}</h1>
-            <p className="text-zinc-400 text-sm mt-1">Unlock WhatsApp conversations</p>
+            <h1 className="inbox-login-title">{inboxLineTitle}</h1>
+            <p className="inbox-login-subtitle">Unlock WhatsApp conversations</p>
           </div>
 
           {loginError && (
-            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl mb-6 text-sm text-center">
-              {loginError}
-            </div>
+            <div className="inbox-login-error">{loginError}</div>
           )}
 
-          <form onSubmit={handleLogin}>
-            <div className="space-y-4">
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-5 py-4 bg-zinc-950 border border-zinc-800 rounded-2xl text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 transition-all text-center text-lg tracking-widest"
-              />
-              <button
-                type="submit"
-                className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-zinc-950 font-semibold rounded-2xl shadow-lg shadow-emerald-500/20 transition-all text-center"
-              >
-                Unlock Conversations
-              </button>
-            </div>
+          <form className="inbox-login-form" onSubmit={handleLogin}>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              className="inbox-login-input"
+              autoComplete="current-password"
+            />
+            <button type="submit" className="inbox-login-btn">
+              Unlock Conversations
+            </button>
           </form>
         </div>
       </div>
@@ -2347,7 +2346,7 @@ export default function InboxPage() {
               </select>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-1 pb-20 md:pb-3">
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 pb-20 md:pb-3 inbox-list-scroll">
               {filteredMarketingLeads.length === 0 ? (
                 <p className="text-center text-zinc-500 text-sm py-8">No matching leads.</p>
               ) : (
@@ -2534,7 +2533,7 @@ export default function InboxPage() {
                 className="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800/80 rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-500/50"
               />
             </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-1 pb-20 md:pb-3">
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 pb-20 md:pb-3 inbox-list-scroll">
               {filteredCampaignContacts.length === 0 ? (
                 <div className="text-center text-zinc-600 text-sm mt-12 px-4">
                   <p>No campaign conversations yet.</p>
@@ -2766,7 +2765,7 @@ export default function InboxPage() {
         </div>
         
         {/* Chats list */}
-        <div className="flex-1 overflow-y-auto space-y-1 p-3 pb-20 md:pb-3">
+        <div className="flex-1 overflow-y-auto space-y-1 p-3 pb-20 md:pb-3 inbox-list-scroll">
           {filteredContacts.length === 0 ? (
             <div className="text-center text-zinc-600 text-sm mt-12 px-4">
               <svg className="w-8 h-8 mx-auto text-zinc-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3838,7 +3837,7 @@ export default function InboxPage() {
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
       {!activeChat && !activeCampaignChat && !selectedMarketingLead && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 min-h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-stretch justify-around z-40 px-1 inbox-mobile-bottom pt-2">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 min-h-16 bg-zinc-900 border-t border-zinc-800/80 flex items-stretch justify-around z-40 px-1 inbox-mobile-bottom inbox-mobile-nav pt-2">
           <button
             onClick={() => { setViewMode("inbox"); setActiveTab("all"); setActiveCampaignChat(null); }}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-w-0 ${
