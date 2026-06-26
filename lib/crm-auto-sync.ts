@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 import { listOrders } from "@/lib/crm-orders";
 import { isGoogleSheetsConfigured, syncOrdersToGoogleSheet } from "@/lib/google-sheets";
 

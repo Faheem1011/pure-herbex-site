@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import path from "path";
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 import { getInboxPublicBaseUrl } from "@/lib/site-urls";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 

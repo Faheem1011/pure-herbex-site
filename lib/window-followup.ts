@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 import { isPhoneBlocked } from "@/lib/blocked";
 import type { InboxLine } from "@/lib/inbox-line";
 import { bumpInboxVersion, fetchMainContacts } from "@/lib/inbox-sync";

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 import { isInboxAuthed } from "@/lib/auth";
 import { registerPublicStatusMedia } from "@/lib/status-media";
 import { publicCorsPreflight, withPublicCors } from "@/lib/public-cors";

@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 import type { InboxLine } from "@/lib/inbox-line";
 import { normalizePhone } from "@/lib/blocked";
 import {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isInboxAuthed } from "@/lib/auth";
 import { getOrderById } from "@/lib/crm-orders";
 import { normalizePhone } from "@/lib/blocked";
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 import { bumpInboxVersion } from "@/lib/inbox-sync";
 import { getWhatsAppAccessToken, getWhatsAppPhoneNumberId, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 

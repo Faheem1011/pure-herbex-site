@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 
 const STATUS_KEY = "whatsapp:status_items";
 const MAX_STATUS_BYTES = 10 * 1024 * 1024;

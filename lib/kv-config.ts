@@ -1,6 +1,9 @@
+import { ensureKvEnv, normalizeKvRestUrl } from "@/lib/kv-env";
+
 /** Hostname of the active KV database (for inbox diagnostics only). */
 export function getKvHost(): string | null {
-  const url = process.env.KV_REST_API_URL?.trim();
+  ensureKvEnv();
+  const url = normalizeKvRestUrl(process.env.KV_REST_API_URL);
   if (!url) return null;
   try {
     return new URL(url).hostname;

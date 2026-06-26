@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "@/lib/kv";
 
 const STATUS_KEY = "whatsapp:status_items";
 const PUBLIC_MEDIA_SET = "whatsapp:public_status_media";
