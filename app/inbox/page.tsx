@@ -26,6 +26,7 @@ import {
 import MessageContent from "@/components/inbox/MessageContent";
 import DeliveryTicks from "@/components/inbox/DeliveryTicks";
 import InboxLineSwitch from "@/components/inbox/InboxLineSwitch";
+import MetaLeadQualityCard from "@/components/inbox/MetaLeadQualityCard";
 import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
@@ -2311,6 +2312,10 @@ export default function InboxPage() {
                   </svg>
                 </button>
               </div>
+
+              {sessionToken ? (
+                <MetaLeadQualityCard apiPath={api("/api/meta/lead-quality/")} sessionToken={sessionToken} />
+              ) : null}
 
               <div className="grid grid-cols-3 gap-2 mb-3">
                 <div className="bg-zinc-950/60 border border-zinc-800 rounded-lg p-2 text-center">

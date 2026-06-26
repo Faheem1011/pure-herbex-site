@@ -12,6 +12,7 @@ import { resolveInboxLine } from "@/lib/inbox-request";
 
 import { VALID_TAG_IDS } from "@/app/inbox/constants";
 import { activeContactsKey, contactKey } from "@/lib/kv-keys";
+import { notifyMetaContactTagged } from "@/lib/meta-lead-quality";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
       phone: string;
       messages: unknown[];
       tag?: string | null;
+      adReferral?: { ctwaClid?: string; sourceId?: string; sourceType?: string };
     } | null = await kv.get(storageKey);
 
     if (!contact) {
@@ -57,6 +59,15 @@ export async function POST(request: NextRequest) {
     await kv.set(storageKey, contact);
     await kv.sadd(activeContactsKey(line), normalized);
     await bumpInboxVersion(line);
+
+    if (nextTag) {
+      void notifyMetaContactTagged({
+        phone: normalized,
+        name: contact.name,
+        tag: nextTag,
+        adReferral: contact.adReferral,
+      });
+    }
 
     return NextResponse.json({ status: "success", tag: contact.tag, phone: normalized });
   } catch (error: unknown) {

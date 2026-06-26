@@ -21,6 +21,11 @@ import {
 } from "@/lib/message-status";
 import { parseWebhookMessage } from "@/lib/parse-webhook-message";
 import { recomputeUnread, type ReadableContact } from "@/lib/read-state";
+import {
+  notifyMetaAdLead,
+  parseAdReferral,
+  type AdReferral,
+} from "@/lib/meta-lead-quality";
 
 type WebhookValue = {
   contacts?: Array<{ wa_id?: string; profile?: { name?: string } }>;
@@ -57,6 +62,7 @@ export async function processIncomingWebhookMessage(
   });
 
   const replyToId = (message.context as { id?: string } | undefined)?.id;
+  const adReferral = parseAdReferral(message.referral);
 
   const incomingMsg = {
     id: msgId,
@@ -89,16 +95,30 @@ export async function processIncomingWebhookMessage(
       messages: Array<{ id: string }>;
       unreadCount?: number;
       hasUnread?: boolean;
+      adReferral?: AdReferral;
     } = mainContact
       ? { ...mainContact, name: (mainContact as { name?: string }).name || profileName, phone: from, messages: mainContact.messages || [] }
       : { name: profileName, phone: from, messages: [] };
 
-    if (!contact.messages.some((m) => m.id === msgId)) {
+    const isNewMessage = !contact.messages.some((m) => m.id === msgId);
+    if (adReferral && !contact.adReferral?.ctwaClid) {
+      contact.adReferral = adReferral;
+    }
+
+    if (isNewMessage) {
       contact.messages.push(incomingMsg);
       recomputeUnread(contact as unknown as ReadableContact);
       await kv.set(contactKey(line, from), contact);
       await kv.sadd(activeContactsKey(line), from);
       await bumpInboxVersion(line);
+
+      if (adReferral) {
+        void notifyMetaAdLead({
+          phone: from,
+          name: contact.name,
+          referral: adReferral,
+        });
+      }
     }
   } else {
     let contact: MarketingContact | null = await kv.get(marketingContactKey(line, from));

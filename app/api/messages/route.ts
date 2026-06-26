@@ -14,6 +14,10 @@ import {
   setMessageReadState,
 } from "@/lib/read-state";
 import { isVoiceNoteFile } from "@/lib/meta-media";
+import {
+  notifyMetaContactBlocked,
+  notifyMetaContactTagged,
+} from "@/lib/meta-lead-quality";
 import { getWhatsAppAccessToken, WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
 // 1. GET: Fetch all active chats and message history
@@ -319,6 +323,23 @@ export async function PATCH(request: NextRequest) {
         noteChanged
       ) {
         await bumpInboxVersion(line);
+      }
+
+      if (blocked) {
+        void notifyMetaContactBlocked({
+          phone: normalized,
+          name: contact.name,
+          blocked: true,
+          adReferral: contact.adReferral,
+        });
+      }
+      if (body.tag !== undefined && contact.tag) {
+        void notifyMetaContactTagged({
+          phone: normalized,
+          name: contact.name,
+          tag: contact.tag,
+          adReferral: contact.adReferral,
+        });
       }
     }
 

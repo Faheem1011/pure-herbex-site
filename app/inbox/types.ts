@@ -42,6 +42,14 @@ export interface Contact {
   hasUnread?: boolean;
   /** Last customer-message window start when auto follow-up was sent (once per window). */
   followupSentForWindow?: number;
+  /** Click-to-WhatsApp ad attribution from Meta webhook. */
+  adReferral?: {
+    ctwaClid?: string;
+    sourceId?: string;
+    sourceType?: string;
+    sourceUrl?: string;
+    capturedAt?: number;
+  };
 }
 
 export type StatusItem = {

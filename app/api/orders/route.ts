@@ -9,6 +9,9 @@ import {
   updateOrder,
 } from "@/lib/crm-orders";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/crm-types";
+import { notifyMetaOrderStatus } from "@/lib/meta-lead-quality";
+import { kv } from "@/lib/kv";
+import { contactKey } from "@/lib/kv-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -90,8 +93,25 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
+    const previous = await getOrderById(id);
     const order = await updateOrder(id, { ...patch, statusNote });
     scheduleOrdersSheetSync();
+
+    if (patch.status && previous && patch.status !== previous.status) {
+      const contact: { adReferral?: { ctwaClid?: string } } | null = await kv.get(
+        contactKey("main", order.phone)
+      );
+      void notifyMetaOrderStatus({
+        phone: order.phone,
+        customerName: order.customerName,
+        status: order.status,
+        previousStatus: previous.status,
+        amount: order.amount,
+        orderId: order.id,
+        adReferral: contact?.adReferral,
+      });
+    }
+
     return NextResponse.json({ status: "success", order });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to update order";
