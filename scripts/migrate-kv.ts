@@ -13,28 +13,48 @@
 
 type RedisValue = string | number | null | Record<string, unknown> | unknown[];
 
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function redisCommand(
   baseUrl: string,
   token: string,
-  command: (string | number)[]
+  command: (string | number)[],
+  attempts = 6
 ): Promise<unknown> {
-  const res = await fetch(baseUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(command),
-  });
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch(baseUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(command),
+        signal: AbortSignal.timeout(60_000),
+      });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Redis HTTP ${res.status}: ${text}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Redis HTTP ${res.status}: ${text}`);
+      }
+
+      const data = (await res.json()) as { result?: unknown; error?: string };
+      if (data.error) throw new Error(data.error);
+      return data.result;
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts - 1) {
+        const waitMs = 2000 * (attempt + 1);
+        console.warn(`Retry ${attempt + 1}/${attempts - 1} after error: ${error}`);
+        await sleep(waitMs);
+        continue;
+      }
+    }
   }
-
-  const data = (await res.json()) as { result?: unknown; error?: string };
-  if (data.error) throw new Error(data.error);
-  return data.result;
+  throw lastError;
 }
 
 async function scanAllKeys(baseUrl: string, token: string): Promise<string[]> {
@@ -165,11 +185,35 @@ async function main() {
   }
 
   let copied = 0;
+  const failed: string[] = [];
   for (const key of keys) {
-    await copyKey(sourceUrl, sourceToken, destUrl, destToken, key);
-    copied += 1;
-    if (copied % 10 === 0 || copied === keys.length) {
-      console.log(`Copied ${copied}/${keys.length}...`);
+    try {
+      await copyKey(sourceUrl, sourceToken, destUrl, destToken, key);
+      copied += 1;
+    } catch (error) {
+      failed.push(key);
+      console.error(`Failed key "${key}":`, error);
+    }
+    if (copied % 10 === 0 || copied + failed.length === keys.length) {
+      console.log(`Progress ${copied + failed.length}/${keys.length} (${copied} ok, ${failed.length} failed)...`);
+    }
+  }
+
+  if (failed.length) {
+    console.warn(`Retrying ${failed.length} failed keys...`);
+    const stillFailed: string[] = [];
+    for (const key of failed) {
+      try {
+        await copyKey(sourceUrl, sourceToken, destUrl, destToken, key);
+        copied += 1;
+      } catch (error) {
+        stillFailed.push(key);
+        console.error(`Still failed "${key}":`, error);
+      }
+    }
+    if (stillFailed.length) {
+      console.error(`Could not copy ${stillFailed.length} keys.`);
+      process.exit(2);
     }
   }
 
