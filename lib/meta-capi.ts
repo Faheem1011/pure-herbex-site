@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { normalizePhone } from "@/lib/blocked";
+import { getMetaDatasetId, hasMetaCapiToken } from "@/lib/meta-config";
 import { WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
 export type MetaCapiEventName =
@@ -48,16 +49,87 @@ function hashNamePart(name: string): string | undefined {
 }
 
 export function isMetaCapiConfigured(): boolean {
-  return !!(process.env.META_PIXEL_ID?.trim() && process.env.META_CAPI_ACCESS_TOKEN?.trim());
+  return !!(getMetaDatasetId() && hasMetaCapiToken());
+}
+
+async function postMetaEvents(body: Record<string, unknown>): Promise<{
+  ok: boolean;
+  error?: string;
+  response?: unknown;
+}> {
+  const pixelId = getMetaDatasetId();
+  const token = process.env.META_CAPI_ACCESS_TOKEN?.trim();
+  if (!token) {
+    return { ok: false, error: "META_CAPI_ACCESS_TOKEN not configured" };
+  }
+
+  const testCode = process.env.META_TEST_EVENT_CODE?.trim();
+  const payload: Record<string, unknown> = {
+    ...body,
+    access_token: token,
+  };
+  if (testCode) {
+    payload.test_event_code = testCode;
+  }
+
+  const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${pixelId}/events`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg =
+        (data as { error?: { message?: string } })?.error?.message ||
+        `Meta CAPI HTTP ${res.status}`;
+      return { ok: false, error: msg, response: data };
+    }
+    return { ok: true, response: data };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Meta CAPI request failed",
+    };
+  }
+}
+
+/** Ping Meta to verify dataset + token (shows in Events Manager → Test events if code set). */
+export async function sendMetaConnectionTest(): Promise<{
+  ok: boolean;
+  error?: string;
+  response?: unknown;
+  datasetId: string;
+}> {
+  const datasetId = getMetaDatasetId();
+  const result = await postMetaEvents({
+    data: [
+      {
+        event_name: "Lead",
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: `phx-connection-test-${Date.now()}`,
+        action_source: "business_messaging",
+        messaging_channel: "whatsapp",
+        user_data: {
+          country: [createHash("sha256").update("pk").digest("hex")],
+        },
+        custom_data: {
+          source: "pure_herbex_inbox",
+          test: "connection_check",
+        },
+      },
+    ],
+  });
+  return { ...result, datasetId };
 }
 
 export async function sendMetaCapiEvent(
   input: MetaCapiEventInput
 ): Promise<{ ok: boolean; error?: string; response?: unknown }> {
-  const pixelId = process.env.META_PIXEL_ID?.trim();
-  const token = process.env.META_CAPI_ACCESS_TOKEN?.trim();
-  if (!pixelId || !token) {
-    return { ok: false, error: "META_PIXEL_ID or META_CAPI_ACCESS_TOKEN not configured" };
+  if (!hasMetaCapiToken()) {
+    return { ok: false, error: "META_CAPI_ACCESS_TOKEN not configured" };
   }
 
   const ph = hashPhone(input.user.phone);
@@ -98,29 +170,5 @@ export async function sendMetaCapiEvent(
     event.custom_data = custom;
   }
 
-  const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${pixelId}/events`;
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        data: [event],
-        access_token: token,
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg =
-        (data as { error?: { message?: string } })?.error?.message ||
-        `Meta CAPI HTTP ${res.status}`;
-      return { ok: false, error: msg, response: data };
-    }
-    return { ok: true, response: data };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Meta CAPI request failed",
-    };
-  }
+  return postMetaEvents({ data: [event] });
 }

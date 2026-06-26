@@ -4,20 +4,28 @@ import { normalizePhone } from "@/lib/blocked";
 import { kv } from "@/lib/kv";
 import { contactKey } from "@/lib/kv-keys";
 import { resolveInboxLine } from "@/lib/inbox-request";
+import { getMetaDatasetId, hasMetaCapiToken, META_DATASET_ID } from "@/lib/meta-config";
+import { isMetaCapiConfigured, sendMetaConnectionTest } from "@/lib/meta-capi";
 import {
   getMetaLeadQualityStats,
   syncMetaLeadQualityForContact,
 } from "@/lib/meta-lead-quality";
-import { isMetaCapiConfigured } from "@/lib/meta-capi";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    if (!isInboxAuthed(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const stats = await getMetaLeadQualityStats();
     return NextResponse.json({
       ...stats,
       configured: isMetaCapiConfigured(),
+      datasetId: getMetaDatasetId(),
+      expectedDatasetId: META_DATASET_ID,
+      hasToken: hasMetaCapiToken(),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to load Meta stats";
@@ -25,7 +33,6 @@ export async function GET() {
   }
 }
 
-/** Re-send lead quality signals for one contact (manual sync). */
 export async function POST(request: NextRequest) {
   try {
     if (!isInboxAuthed(request)) {
@@ -33,6 +40,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    if (body.test === true) {
+      const result = await sendMetaConnectionTest();
+      return NextResponse.json({
+        status: result.ok ? "success" : "error",
+        datasetId: result.datasetId,
+        error: result.error,
+        response: result.response,
+        hint: result.ok
+          ? "Check Events Manager → Test events (or Overview in ~15 min)."
+          : "Add META_CAPI_ACCESS_TOKEN in Vercel, redeploy, then try again.",
+      });
+    }
+
     const line = resolveInboxLine(request, body);
     const phone = normalizePhone(body.phone || "");
     if (!phone) {
