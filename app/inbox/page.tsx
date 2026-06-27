@@ -2116,7 +2116,7 @@ export default function InboxPage() {
 
   // Dashboard Screen
   return (
-    <div className={`inbox-shell bg-[#0b141a] text-[#e9edef] min-h-screen flex h-screen overflow-hidden font-sans fixed inset-0${isAndroidApp ? " inbox-android-lite" : ""}`}>
+    <div className={`inbox-shell bg-[#0b141a] text-[#e9edef] font-sans fixed inset-0${isAndroidApp ? " inbox-android-lite inbox-android-shell flex flex-col overflow-hidden" : " min-h-screen flex h-screen overflow-hidden"}`}>
       {refreshNote && (
         <div className="md:hidden fixed left-1/2 -translate-x-1/2 z-[60] inbox-refresh-toast pointer-events-none"
           style={{ top: "calc(var(--inbox-safe-top) + 0.25rem)" }}
