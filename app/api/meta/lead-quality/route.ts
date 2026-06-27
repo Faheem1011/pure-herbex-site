@@ -4,7 +4,7 @@ import { normalizePhone } from "@/lib/blocked";
 import { kv } from "@/lib/kv";
 import { contactKey } from "@/lib/kv-keys";
 import { resolveInboxLine } from "@/lib/inbox-request";
-import { hasMetaCapiToken } from "@/lib/meta-config";
+import { getMetaCapiAccessToken, hasMetaCapiToken } from "@/lib/meta-config";
 import { isMetaCapiConfigured, sendMetaConnectionTest } from "@/lib/meta-capi";
 import {
   META_BUSINESS_DATASET_ID,
