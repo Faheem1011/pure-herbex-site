@@ -29,6 +29,7 @@ import InboxLineSwitch from "@/components/inbox/InboxLineSwitch";
 import MetaLeadQualityCard from "@/components/inbox/MetaLeadQualityCard";
 import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
+import { fixAndroidInboxScroll, useAndroidScrollFix } from "@/hooks/useAndroidScrollFix";
 import { exportMainInboxContacts } from "@/app/inbox/export-contacts";
 import OrdersPanel from "@/app/inbox/OrdersPanel";
 import { inboxLineLabel, withLineQuery, type InboxLine } from "@/lib/inbox-line";
@@ -163,6 +164,8 @@ export default function InboxPage() {
   useEffect(() => {
     setIsAndroidApp(!!getAndroidBridge());
   }, []);
+
+  useAndroidScrollFix(isAndroidApp);
 
   useEffect(() => {
     const ms = isAndroidApp ? 60_000 : 30_000;
@@ -1056,6 +1059,9 @@ export default function InboxPage() {
       });
     }
     if (contact.hasUnread && !contact.blocked) markChatRead(contact.phone);
+    if (isAndroidApp) {
+      requestAnimationFrame(() => fixAndroidInboxScroll());
+    }
   };
 
   const handleRefresh = async () => {
@@ -2685,7 +2691,7 @@ export default function InboxPage() {
       ) : (
         <>
       {/* 2. MIDDLE COLUMN: Conversation Lists (Sleek List View) */}
-      <section className={`w-full md:w-[320px] md:min-w-[320px] md:max-w-[320px] bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 min-h-0 ${activeChat ? "hidden md:flex" : "flex"}`}>
+      <section className={`w-full md:w-[320px] md:min-w-[320px] md:max-w-[320px] bg-zinc-900/40 border-r border-zinc-800/80 flex flex-col overflow-hidden shrink-0 min-h-0 ${isAndroidApp ? "inbox-android-list-panel" : ""} ${activeChat ? "hidden md:flex" : "flex"}`}>
         
         {/* Header Section */}
         <div className="inbox-mobile-top px-5 pb-5 border-b border-zinc-800/60 shrink-0 relative">
@@ -2830,7 +2836,7 @@ export default function InboxPage() {
       </section>
 
       {/* 3. RIGHT COLUMN: Active Chat Messages panel (Minimalistic details) */}
-      <main className={`flex-1 min-w-0 min-h-0 flex flex-col bg-zinc-950 overflow-hidden relative ${activeChat ? "max-md:fixed max-md:inset-0 max-md:z-50 max-md:flex max-md:h-[100dvh] flex" : "hidden md:flex"}`}>
+      <main className={`flex-1 min-w-0 min-h-0 flex flex-col bg-zinc-950 overflow-hidden relative ${activeChat ? (isAndroidApp ? "inbox-android-chat-main flex" : "max-md:fixed max-md:inset-0 max-md:z-50 max-md:flex max-md:h-[100dvh] flex") : "hidden md:flex"}`}>
         {activeChat ? (
           <>
             {/* Chat Info Header */}
