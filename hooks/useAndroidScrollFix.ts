@@ -12,7 +12,7 @@ export function fixAndroidInboxScroll(): void {
 
   document.querySelectorAll<HTMLElement>(".inbox-list-scroll, .inbox-chat-wallpaper").forEach((el) => {
     el.style.overflowY = "scroll";
-    el.style.webkitOverflowScrolling = "touch";
+    el.style.setProperty("-webkit-overflow-scrolling", "touch");
     el.style.touchAction = "auto";
     el.style.overscrollBehavior = "auto";
   });
