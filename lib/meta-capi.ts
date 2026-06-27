@@ -1,14 +1,17 @@
 import { createHash } from "crypto";
 import { normalizePhone } from "@/lib/blocked";
-import { getMetaCapiAccessToken } from "@/lib/meta-config";
+import { getMetaCapiAccessToken, getMetaFacebookPageId } from "@/lib/meta-config";
 import { resolveMetaCapiDataset } from "@/lib/meta-dataset";
 import { WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
+/** Internal event names used by inbox logic. */
 export type MetaCapiEventName =
-  | "Lead"
+  | "LeadSubmitted"
+  | "QualifiedLead"
   | "InitiateCheckout"
   | "Purchase"
-  | "UnqualifiedLead";
+  | "OrderCanceled"
+  | "OrderReturned";
 
 export type MetaCapiUser = {
   phone: string;
@@ -112,6 +115,7 @@ async function postMetaEvents(body: Record<string, unknown>): Promise<{
 
 function buildUserData(input: MetaCapiUser, wabaId?: string): Record<string, string | string[]> {
   const userData: Record<string, string | string[]> = {
+    page_id: getMetaFacebookPageId(),
     country: [sha256((input.country || "pk").toLowerCase())],
   };
 
@@ -134,7 +138,40 @@ function buildUserData(input: MetaCapiUser, wabaId?: string): Record<string, str
   return userData;
 }
 
-/** Ping Meta to verify dataset + token. */
+async function verifyMetaToken(): Promise<{
+  ok: boolean;
+  name?: string;
+  id?: string;
+  error?: string;
+}> {
+  const token = getMetaCapiAccessToken();
+  if (!token) {
+    return { ok: false, error: "Access token not configured" };
+  }
+
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/me?fields=id,name`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = (await res.json().catch(() => ({}))) as {
+      id?: string;
+      name?: string;
+      error?: { message?: string };
+    };
+    if (!res.ok) {
+      return { ok: false, error: data.error?.message || `Graph API HTTP ${res.status}` };
+    }
+    return { ok: true, id: data.id, name: data.name };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Token verification failed",
+    };
+  }
+}
+
+/** Verify token + dataset access. Real events need ctwa_clid from ad clicks. */
 export async function sendMetaConnectionTest(): Promise<{
   ok: boolean;
   error?: string;
@@ -142,49 +179,76 @@ export async function sendMetaConnectionTest(): Promise<{
   datasetId: string;
   wabaId?: string;
   hint?: string;
+  tokenName?: string;
 }> {
   const resolved = await resolveMetaCapiDataset();
-  const result = await postMetaEvents({
-    data: [
-      {
-        event_name: "Lead",
-        event_time: Math.floor(Date.now() / 1000),
-        event_id: `phx-connection-test-${Date.now()}`,
-        action_source: "business_messaging",
-        messaging_channel: "whatsapp",
-        user_data: buildUserData({ phone: "923001234567", country: "pk" }, resolved.wabaId),
-        custom_data: {
-          source: "pure_herbex_inbox",
-          test: "connection_check",
-        },
-      },
-    ],
-  });
+  const tokenCheck = await verifyMetaToken();
 
-  let hint: string | undefined;
-  if (!result.ok && result.error?.toLowerCase().includes("malformed access token")) {
-    hint =
-      "Token is invalid or expired. Generate a NEW token in Meta → WhatsApp → API Setup, paste with no quotes/spaces into WHATSAPP_ACCESS_TOKEN and META_CAPI_ACCESS_TOKEN, then redeploy.";
-  } else if (!result.ok && result.error?.includes("does not exist")) {
-    hint =
-      "Token lacks whatsapp_business_manage_events. In Meta Developer App → Permissions, request Advanced Access for whatsapp_business_manage_events, then regenerate token.";
+  if (!tokenCheck.ok) {
+    let hint =
+      "Token is invalid or expired. Generate a new System User token in Meta Business Suite → System users → Generate token, paste the Conversions API System User token in Vercel.";
+    if (tokenCheck.error?.toLowerCase().includes("malformed")) {
+      hint =
+        "Token paste is corrupted (extra spaces/quotes). Re-paste with no quotes into META_CAPI_ACCESS_TOKEN, then redeploy.";
+    }
+    return {
+      ok: false,
+      error: tokenCheck.error,
+      datasetId: resolved.datasetId,
+      wabaId: resolved.wabaId,
+      hint,
+    };
+  }
+
+  const datasetProbe = await fetch(
+    `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${resolved.datasetId}?fields=name`,
+    { headers: { Authorization: `Bearer ${getMetaCapiAccessToken()}` } }
+  );
+  const datasetData = (await datasetProbe.json().catch(() => ({}))) as {
+    name?: string;
+    error?: { message?: string };
+  };
+
+  if (!datasetProbe.ok) {
+    return {
+      ok: false,
+      error: datasetData.error?.message || "Cannot access WhatsApp dataset",
+      datasetId: resolved.datasetId,
+      wabaId: resolved.wabaId,
+      tokenName: tokenCheck.name,
+      hint:
+        "Token lacks whatsapp_business_manage_events. Regenerate the System User token with that permission.",
+    };
   }
 
   return {
-    ok: result.ok,
-    error: result.error,
-    response: result.response,
-    datasetId: result.datasetId || resolved.datasetId,
-    wabaId: result.wabaId || resolved.wabaId,
-    hint,
+    ok: true,
+    datasetId: resolved.datasetId,
+    wabaId: resolved.wabaId,
+    tokenName: tokenCheck.name,
+    response: {
+      token: tokenCheck.name,
+      dataset: datasetData.name,
+      pageId: getMetaFacebookPageId(),
+    },
+    hint:
+      "Token and dataset OK. Live events send when someone clicks your WhatsApp ad (ctwa_clid is captured automatically). Tag Confirm or mark Delivered to send QualifiedLead / Purchase.",
   };
 }
 
 export async function sendMetaCapiEvent(
   input: MetaCapiEventInput
-): Promise<{ ok: boolean; error?: string; response?: unknown }> {
+): Promise<{ ok: boolean; error?: string; response?: unknown; skipped?: boolean }> {
   if (!getMetaCapiAccessToken()) {
     return { ok: false, error: "Access token not configured" };
+  }
+
+  if (!input.user.ctwaClid) {
+    return {
+      ok: false,
+      skipped: true,
+      error: "No ctwa_clid — contact did not come from a Click-to-WhatsApp ad",
+    };
   }
 
   const resolved = await resolveMetaCapiDataset();

@@ -21,8 +21,11 @@ type CachedResolution = {
   cachedAt: number;
 };
 
+/** PK WhatsApp Business Account (316 line). US WABA: 1307951640969306. */
+export const META_PK_WABA_ID = "873082805829474";
+
 export function getWabaIdFromEnv(): string | undefined {
-  return process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim() || undefined;
+  return process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim() || META_PK_WABA_ID;
 }
 
 async function fetchJson(url: string, token: string): Promise<Record<string, unknown>> {

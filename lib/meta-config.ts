@@ -21,3 +21,10 @@ export function getMetaCapiAccessToken(): string | undefined {
 export function hasMetaCapiToken(): boolean {
   return !!getMetaCapiAccessToken();
 }
+
+/** Pure Herbex Facebook Page — required in WhatsApp CAPI user_data.page_id. */
+export const META_FACEBOOK_PAGE_ID = "1119457511257073";
+
+export function getMetaFacebookPageId(): string {
+  return process.env.META_FACEBOOK_PAGE_ID?.trim() || META_FACEBOOK_PAGE_ID;
+}

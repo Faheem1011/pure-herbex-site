@@ -116,6 +116,11 @@ async function emitEvent(params: {
     return { ok: true };
   }
 
+  if (result.skipped) {
+    await kv.del(`${SENT_PREFIX}${params.eventId}`);
+    return { ok: false, skipped: true, error: result.error };
+  }
+
   await kv.del(`${SENT_PREFIX}${params.eventId}`);
   await recordError(result.error || "Unknown Meta CAPI error");
   return { ok: false, error: result.error };
@@ -151,7 +156,7 @@ export async function notifyMetaAdLead(params: {
   const phone = normalizePhone(params.phone);
   if (!phone) return;
   await emitEvent({
-    eventName: "Lead",
+    eventName: "LeadSubmitted",
     eventId: `lead-${phone}`,
     phone,
     name: params.name,
@@ -176,7 +181,7 @@ export async function notifyMetaContactTagged(params: {
 
   if (params.tag === "Confirm") {
     await emitEvent({
-      eventName: "InitiateCheckout",
+      eventName: "QualifiedLead",
       eventId: `qualified-${phone}`,
       phone,
       name: params.name,
@@ -189,16 +194,8 @@ export async function notifyMetaContactTagged(params: {
   }
 
   if (params.tag === "Spam") {
-    await emitEvent({
-      eventName: "UnqualifiedLead",
-      eventId: `unqualified-spam-${phone}`,
-      phone,
-      name: params.name,
-      value: 0,
-      ctwaClid: params.adReferral?.ctwaClid,
-      customData: { lead_quality: "spam", inbox_tag: "Spam" },
-      statsBucket: "unqualified",
-    });
+    // Meta WhatsApp CAPI has no negative lead event — skip spam (no ctwa optimization signal).
+    return;
   }
 }
 
@@ -212,16 +209,7 @@ export async function notifyMetaContactBlocked(params: {
   const phone = normalizePhone(params.phone);
   if (!phone) return;
 
-  await emitEvent({
-    eventName: "UnqualifiedLead",
-    eventId: `unqualified-blocked-${phone}`,
-    phone,
-    name: params.name,
-    value: 0,
-    ctwaClid: params.adReferral?.ctwaClid,
-    customData: { lead_quality: "blocked" },
-    statsBucket: "unqualified",
-  });
+  // Meta WhatsApp CAPI has no negative lead event for blocked contacts.
 }
 
 /** Order confirmed or delivered — real purchase signal for ad optimization. */
@@ -271,8 +259,8 @@ export async function notifyMetaOrderStatus(params: {
     params.previousStatus !== params.status
   ) {
     await emitEvent({
-      eventName: "UnqualifiedLead",
-      eventId: `unqualified-order-${params.status}-${orderKey}`,
+      eventName: params.status === "cancelled" ? "OrderCanceled" : "OrderReturned",
+      eventId: `order-${params.status}-${orderKey}`,
       phone,
       name: params.customerName,
       value: 0,
@@ -297,7 +285,7 @@ export async function syncMetaLeadQualityForContact(contact: {
 
   if (contact.adReferral?.ctwaClid) {
     const r = await emitEvent({
-      eventName: "Lead",
+      eventName: "LeadSubmitted",
       eventId: `lead-resync-${phone}-${Date.now()}`,
       phone,
       name: contact.name,

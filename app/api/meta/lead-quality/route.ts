@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
 
     const resolved = await resolveMetaCapiDataset();
     const stats = await getMetaLeadQualityStats();
+    const token = getMetaCapiAccessToken();
     return NextResponse.json({
       ...stats,
       configured: isMetaCapiConfigured(),
@@ -37,6 +38,9 @@ export async function GET(request: NextRequest) {
       waEventDatasetId: META_WA_EVENT_DATASET_ID,
       webPixelId: META_WEB_PIXEL_ID,
       hasToken: hasMetaCapiToken(),
+      tokenLength: token?.length ?? 0,
+      tokenStartsWith: token ? token.slice(0, 20) : "",
+      tokenEndsWith: token ? token.slice(-8) : "",
       resolveNote: resolved.error,
     });
   } catch (error: unknown) {
@@ -63,9 +67,10 @@ export async function POST(request: NextRequest) {
         hint: result.hint,
         response: result.response,
         help: result.ok
-          ? "Open Events Manager → WhatsApp Marketing Messages dataset → Test events."
+          ? result.hint ||
+            "Token verified. Events send automatically when ad leads message you and you tag Confirm or mark Delivered."
           : result.hint ||
-            "Use WHATSAPP_ACCESS_TOKEN (with whatsapp_business_manage_events) or a System User token in META_CAPI_ACCESS_TOKEN.",
+            "Use a System User token with whatsapp_business_manage_events in META_CAPI_ACCESS_TOKEN.",
       });
     }
 
