@@ -180,10 +180,9 @@ export async function notifyMetaAdLead(params: {
     phone,
     name: params.name,
     ctwaClid: params.referral?.ctwaClid,
-    customData: {
-      lead_source: "whatsapp_ad",
-      ad_id: params.referral?.sourceId || "",
-    },
+    ...(params.referral?.sourceId
+      ? { customData: { ad_id: params.referral.sourceId } }
+      : {}),
     statsBucket: "adLeads",
   });
 }
@@ -218,7 +217,7 @@ export async function notifyMetaContactTagged(params: {
       name: params.name,
       value: DEFAULT_ORDER_VALUE,
       ctwaClid: params.adReferral.ctwaClid,
-      customData: { lead_quality: "qualified", inbox_tag: "Confirm" },
+      customData: { inbox_tag: "Confirm" },
       statsBucket: "qualified",
     });
     if (result.ok) {

@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { normalizePhone } from "@/lib/blocked";
-import { getMetaCapiAccessToken, getMetaFacebookPageId } from "@/lib/meta-config";
+import { getMetaCapiAccessToken } from "@/lib/meta-config";
 import { resolveMetaCapiDataset } from "@/lib/meta-dataset";
 import { WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
@@ -91,8 +91,12 @@ async function postMetaEvents(body: Record<string, unknown>): Promise<{
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+      const err = (data as {
+        error?: { message?: string; error_user_msg?: string; error_subcode?: number };
+      })?.error;
       const msg =
-        (data as { error?: { message?: string } })?.error?.message ||
+        err?.error_user_msg ||
+        err?.message ||
         `Meta CAPI HTTP ${res.status}`;
       return {
         ok: false,
@@ -114,10 +118,7 @@ async function postMetaEvents(body: Record<string, unknown>): Promise<{
 }
 
 function buildUserData(input: MetaCapiUser, wabaId?: string): Record<string, string | string[]> {
-  const userData: Record<string, string | string[]> = {
-    page_id: getMetaFacebookPageId(),
-    country: [sha256((input.country || "pk").toLowerCase())],
-  };
+  const userData: Record<string, string | string[]> = {};
 
   const ph = hashPhone(input.phone);
   if (ph) userData.ph = [ph];
@@ -229,7 +230,7 @@ export async function sendMetaConnectionTest(): Promise<{
     response: {
       token: tokenCheck.name,
       dataset: datasetData.name,
-      pageId: getMetaFacebookPageId(),
+      wabaId: resolved.wabaId,
     },
     hint:
       "Token and dataset OK. Live events send when someone clicks your WhatsApp ad (ctwa_clid is captured automatically). Tag Confirm or mark Delivered to send QualifiedLead / Purchase.",

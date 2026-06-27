@@ -3,11 +3,14 @@ import { kv } from "@/lib/kv";
 import { getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 import { WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
-const CACHE_KEY = "meta:capi:resolved";
+const CACHE_KEY = "meta:capi:resolved:v2";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-/** WhatsApp Marketing Message Event Sharing dataset (Events Manager URL id). */
-export const META_WA_EVENT_DATASET_ID = "2315143692344751";
+/** WABA-linked CAPI dataset (POST /{waba}/dataset). The old Events Manager id 2315143692344751 is NOT linked to WABA. */
+export const META_WA_EVENT_DATASET_ID = "2515247765619865";
+
+/** Legacy dataset shown in Events Manager — not linked to WABA/Page for CAPI (causes Invalid parameter). */
+export const META_LEGACY_WA_DATASET_ID = "2315143692344751";
 
 /** Business portfolio id shown on Pure Herbex card — NOT the CAPI events endpoint. */
 export const META_BUSINESS_DATASET_ID = "1887451258612774";
@@ -53,16 +56,27 @@ async function resolveWabaId(token: string): Promise<string | undefined> {
 }
 
 async function fetchDatasetForWaba(wabaId: string, token: string): Promise<string | undefined> {
-  const data = await fetchJson(
-    `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${wabaId}/dataset`,
-    token
-  );
+  const baseUrl = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${wabaId}/dataset`;
+
+  const data = await fetchJson(baseUrl, token);
   if (typeof data.id === "string") return data.id;
   const nested = data.data;
   if (Array.isArray(nested) && nested[0]?.id) {
     return String(nested[0].id);
   }
+
+  const createRes = await fetch(baseUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const created = (await createRes.json().catch(() => ({}))) as { id?: string };
+  if (typeof created.id === "string") return created.id;
+
   return undefined;
+}
+
+function isDeprecatedDatasetId(id: string): boolean {
+  return id === META_BUSINESS_DATASET_ID || id === META_LEGACY_WA_DATASET_ID;
 }
 
 /** Resolve the dataset id Meta accepts for POST /{id}/events (WhatsApp business messaging). */
@@ -75,7 +89,7 @@ export async function resolveMetaCapiDataset(): Promise<{
   const explicit =
     process.env.META_CAPI_DATASET_ID?.trim() ||
     process.env.META_DATASET_ID?.trim();
-  if (explicit && explicit !== META_BUSINESS_DATASET_ID) {
+  if (explicit && !isDeprecatedDatasetId(explicit)) {
     return { datasetId: explicit, wabaId: getWabaIdFromEnv(), source: "env" };
   }
 

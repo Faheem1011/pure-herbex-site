@@ -107,7 +107,7 @@ export default function MetaLeadQualityCard({ apiPath, sessionToken }: Props) {
           <p className="text-[10px] text-zinc-400">
             WhatsApp dataset:{" "}
             <span className="text-zinc-200 font-mono">
-              {stats?.waEventDatasetId || "2315143692344751"}
+              {stats?.waEventDatasetId || "2515247765619865"}
             </span>
           </p>
           <p className="text-[10px] text-zinc-500">
