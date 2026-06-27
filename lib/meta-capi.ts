@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { normalizePhone } from "@/lib/blocked";
-import { getMetaCapiAccessToken } from "@/lib/meta-dataset";
+import { getMetaCapiAccessToken } from "@/lib/meta-config";
 import { resolveMetaCapiDataset } from "@/lib/meta-dataset";
 import { WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
@@ -162,7 +162,10 @@ export async function sendMetaConnectionTest(): Promise<{
   });
 
   let hint: string | undefined;
-  if (!result.ok && result.error?.includes("does not exist")) {
+  if (!result.ok && result.error?.toLowerCase().includes("malformed access token")) {
+    hint =
+      "Token is invalid or expired. Generate a NEW token in Meta → WhatsApp → API Setup, paste with no quotes/spaces into WHATSAPP_ACCESS_TOKEN and META_CAPI_ACCESS_TOKEN, then redeploy.";
+  } else if (!result.ok && result.error?.includes("does not exist")) {
     hint =
       "Token lacks whatsapp_business_manage_events. In Meta Developer App → Permissions, request Advanced Access for whatsapp_business_manage_events, then regenerate token.";
   }

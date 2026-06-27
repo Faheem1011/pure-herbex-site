@@ -1,3 +1,4 @@
+import { getMetaCapiAccessToken } from "@/lib/meta-config";
 import { kv } from "@/lib/kv";
 import { getWhatsAppPhoneNumberId } from "@/lib/whatsapp";
 import { WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
@@ -19,14 +20,6 @@ type CachedResolution = {
   wabaId: string;
   cachedAt: number;
 };
-
-export function getMetaCapiAccessToken(): string | undefined {
-  return (
-    process.env.META_CAPI_ACCESS_TOKEN?.trim() ||
-    process.env.WHATSAPP_ACCESS_TOKEN?.trim() ||
-    undefined
-  );
-}
 
 export function getWabaIdFromEnv(): string | undefined {
   return process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim() || undefined;
