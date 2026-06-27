@@ -30,6 +30,13 @@ export type MarketingContact = {
   }>;
   unreadCount?: number;
   hasUnread?: boolean;
+  adReferral?: {
+    ctwaClid?: string;
+    sourceId?: string;
+    sourceType?: string;
+    sourceUrl?: string;
+    capturedAt?: number;
+  };
   archived?: boolean;
 };
 

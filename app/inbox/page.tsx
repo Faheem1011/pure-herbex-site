@@ -1701,6 +1701,14 @@ export default function InboxPage() {
           await addToOrdersCrm(phone, contact.name, true);
         }
       }
+
+      if (tag === "Confirm" && data.meta) {
+        if (data.meta.sent) {
+          alert("Sent QualifiedLead to Facebook for this ad lead.");
+        } else if (data.meta.reason) {
+          alert(`Facebook: ${data.meta.reason}`);
+        }
+      }
     } catch (err) {
       console.error(err);
       setContacts((prev) =>

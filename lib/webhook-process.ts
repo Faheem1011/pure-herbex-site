@@ -121,15 +121,28 @@ export async function processIncomingWebhookMessage(
       }
     }
   } else {
-    let contact: MarketingContact | null = await kv.get(marketingContactKey(line, from));
+    let contact: MarketingContact & { adReferral?: AdReferral } | null = await kv.get(
+      marketingContactKey(line, from)
+    );
     if (!contact) {
       contact = { name: profileName, phone: from, messages: [] };
+    }
+    if (adReferral && !contact.adReferral?.ctwaClid) {
+      contact.adReferral = adReferral;
     }
     if (!contact.messages.some((m) => m.id === msgId)) {
       contact.messages.push(incomingMsg);
       recomputeUnread(contact as unknown as ReadableContact);
       await saveMarketingContact(contact, line);
       await bumpInboxVersion(line);
+
+      if (adReferral) {
+        void notifyMetaAdLead({
+          phone: from,
+          name: contact.name,
+          referral: adReferral,
+        });
+      }
     }
   }
 }

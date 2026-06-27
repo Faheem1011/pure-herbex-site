@@ -10,8 +10,10 @@ type MetaLeadStats = {
   purchases: number;
   adLeads: number;
   errors: number;
+  skippedNoAdClick?: number;
   lastEventAt?: number;
   lastError?: string;
+  lastSkipReason?: string;
   datasetId?: string;
   wabaId?: string;
   waEventDatasetId?: string;
@@ -85,7 +87,7 @@ export default function MetaLeadQualityCard({ apiPath, sessionToken }: Props) {
         <div>
           <p className="text-xs font-bold text-sky-300">Facebook ad quality</p>
           <p className="text-[10px] text-zinc-500 mt-0.5 leading-snug">
-            Auto-reports Confirm orders vs Spam/blocked leads to Meta so ads optimize for real buyers.
+            Confirm on Facebook ad leads sends QualifiedLead to Meta. Block/Spam does not send — Meta only accepts positive signals.
           </p>
         </div>
         <button
@@ -147,6 +149,12 @@ export default function MetaLeadQualityCard({ apiPath, sessionToken }: Props) {
             <div className="text-base font-bold text-zinc-300">{stats.adLeads}</div>
             <div className="text-[9px] text-zinc-500">From Facebook ads</div>
           </div>
+          {(stats.skippedNoAdClick ?? 0) > 0 ? (
+            <div className="col-span-2 rounded-lg bg-amber-500/10 border border-amber-500/25 p-2 text-center">
+              <div className="text-base font-bold text-amber-400">{stats.skippedNoAdClick}</div>
+              <div className="text-[9px] text-amber-600">Skipped (not from Facebook ad)</div>
+            </div>
+          ) : null}
           </div>
           <button
             type="button"
@@ -168,6 +176,10 @@ export default function MetaLeadQualityCard({ apiPath, sessionToken }: Props) {
           {stats.errors} send error{stats.errors === 1 ? "" : "s"}
           {stats.lastError ? `: ${stats.lastError}` : ""}
         </p>
+      ) : null}
+
+      {stats?.lastSkipReason && !stats.errors ? (
+        <p className="text-[10px] text-amber-400/80 mt-2">{stats.lastSkipReason}</p>
       ) : null}
     </div>
   );

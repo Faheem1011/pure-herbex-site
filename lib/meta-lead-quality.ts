@@ -26,8 +26,10 @@ export type MetaLeadQualityStats = {
   purchases: number;
   adLeads: number;
   errors: number;
+  skippedNoAdClick: number;
   lastEventAt?: number;
   lastError?: string;
+  lastSkipReason?: string;
 };
 
 type StatsRecord = MetaLeadQualityStats;
@@ -40,6 +42,7 @@ function defaultStats(): StatsRecord {
     purchases: 0,
     adLeads: 0,
     errors: 0,
+    skippedNoAdClick: 0,
   };
 }
 
@@ -77,6 +80,21 @@ async function recordError(message: string): Promise<void> {
   stats.lastEventAt = Date.now();
   await saveStats(stats);
 }
+
+async function recordSkip(reason: string): Promise<void> {
+  const stats = await loadStats();
+  stats.skippedNoAdClick += 1;
+  stats.lastSkipReason = reason.slice(0, 240);
+  stats.lastEventAt = Date.now();
+  await saveStats(stats);
+}
+
+export type MetaTagSendResult = {
+  sent: boolean;
+  skipped?: boolean;
+  reason?: string;
+  eventName?: MetaCapiEventName;
+};
 
 async function emitEvent(params: {
   eventName: MetaCapiEventName;
@@ -118,6 +136,7 @@ async function emitEvent(params: {
 
   if (result.skipped) {
     await kv.del(`${SENT_PREFIX}${params.eventId}`);
+    await recordSkip(result.error || "Event skipped");
     return { ok: false, skipped: true, error: result.error };
   }
 
@@ -169,34 +188,59 @@ export async function notifyMetaAdLead(params: {
   });
 }
 
-/** Tag changed — tell Meta if lead is real (Confirm) or junk (Spam). */
+/** Tag changed — tell Meta if lead is real (Confirm). Spam/block do not send events. */
 export async function notifyMetaContactTagged(params: {
   phone: string;
   name?: string;
   tag: string | null;
   adReferral?: AdReferral;
-}): Promise<void> {
+}): Promise<MetaTagSendResult> {
   const phone = normalizePhone(params.phone);
-  if (!phone || !params.tag) return;
+  if (!phone || !params.tag) {
+    return { sent: false, skipped: true, reason: "No tag" };
+  }
 
   if (params.tag === "Confirm") {
-    await emitEvent({
+    if (!params.adReferral?.ctwaClid) {
+      await recordSkip("Confirm skipped — contact did not come from a Facebook/WhatsApp ad");
+      return {
+        sent: false,
+        skipped: true,
+        reason:
+          "This contact did not come from a Facebook ad click. Meta only accepts events for ad leads.",
+      };
+    }
+
+    const result = await emitEvent({
       eventName: "QualifiedLead",
       eventId: `qualified-${phone}`,
       phone,
       name: params.name,
       value: DEFAULT_ORDER_VALUE,
-      ctwaClid: params.adReferral?.ctwaClid,
+      ctwaClid: params.adReferral.ctwaClid,
       customData: { lead_quality: "qualified", inbox_tag: "Confirm" },
       statsBucket: "qualified",
     });
-    return;
+    if (result.ok) {
+      return { sent: true, eventName: "QualifiedLead" };
+    }
+    return {
+      sent: false,
+      skipped: result.skipped,
+      reason: result.error || "Meta rejected event",
+      eventName: "QualifiedLead",
+    };
   }
 
   if (params.tag === "Spam") {
-    // Meta WhatsApp CAPI has no negative lead event — skip spam (no ctwa optimization signal).
-    return;
+    return {
+      sent: false,
+      skipped: true,
+      reason: "Meta WhatsApp CAPI has no spam/unqualified event — use Confirm on real ad leads instead.",
+    };
   }
+
+  return { sent: false, skipped: true, reason: "Tag not sent to Meta" };
 }
 
 export async function notifyMetaContactBlocked(params: {
@@ -204,12 +248,17 @@ export async function notifyMetaContactBlocked(params: {
   name?: string;
   blocked: boolean;
   adReferral?: AdReferral;
-}): Promise<void> {
-  if (!params.blocked) return;
-  const phone = normalizePhone(params.phone);
-  if (!phone) return;
+}): Promise<MetaTagSendResult> {
+  if (!params.blocked) {
+    return { sent: false, skipped: true, reason: "Not blocked" };
+  }
 
-  // Meta WhatsApp CAPI has no negative lead event for blocked contacts.
+  return {
+    sent: false,
+    skipped: true,
+    reason:
+      "Block does not send to Meta. Meta WhatsApp CAPI only accepts positive signals (Confirm, Delivered).",
+  };
 }
 
 /** Order confirmed or delivered — real purchase signal for ad optimization. */

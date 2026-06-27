@@ -61,11 +61,17 @@ export async function POST(request: NextRequest) {
     await bumpInboxVersion(line);
 
     if (nextTag) {
-      void notifyMetaContactTagged({
+      const meta = await notifyMetaContactTagged({
         phone: normalized,
         name: contact.name,
         tag: nextTag,
         adReferral: contact.adReferral,
+      });
+      return NextResponse.json({
+        status: "success",
+        tag: contact.tag,
+        phone: normalized,
+        meta,
       });
     }
 
