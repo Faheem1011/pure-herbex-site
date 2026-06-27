@@ -4,8 +4,14 @@ import { normalizePhone } from "@/lib/blocked";
 import { kv } from "@/lib/kv";
 import { contactKey } from "@/lib/kv-keys";
 import { resolveInboxLine } from "@/lib/inbox-request";
-import { getMetaDatasetId, hasMetaCapiToken, META_DATASET_ID } from "@/lib/meta-config";
+import { hasMetaCapiToken } from "@/lib/meta-config";
 import { isMetaCapiConfigured, sendMetaConnectionTest } from "@/lib/meta-capi";
+import {
+  META_BUSINESS_DATASET_ID,
+  META_WA_EVENT_DATASET_ID,
+  META_WEB_PIXEL_ID,
+  resolveMetaCapiDataset,
+} from "@/lib/meta-dataset";
 import {
   getMetaLeadQualityStats,
   syncMetaLeadQualityForContact,
@@ -19,13 +25,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const resolved = await resolveMetaCapiDataset();
     const stats = await getMetaLeadQualityStats();
     return NextResponse.json({
       ...stats,
       configured: isMetaCapiConfigured(),
-      datasetId: getMetaDatasetId(),
-      expectedDatasetId: META_DATASET_ID,
+      datasetId: resolved.datasetId,
+      wabaId: resolved.wabaId,
+      datasetSource: resolved.source,
+      businessPortfolioId: META_BUSINESS_DATASET_ID,
+      waEventDatasetId: META_WA_EVENT_DATASET_ID,
+      webPixelId: META_WEB_PIXEL_ID,
       hasToken: hasMetaCapiToken(),
+      resolveNote: resolved.error,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to load Meta stats";
@@ -46,11 +58,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         status: result.ok ? "success" : "error",
         datasetId: result.datasetId,
+        wabaId: result.wabaId,
         error: result.error,
+        hint: result.hint,
         response: result.response,
-        hint: result.ok
-          ? "Check Events Manager → Test events (or Overview in ~15 min)."
-          : "Add META_CAPI_ACCESS_TOKEN in Vercel, redeploy, then try again.",
+        help: result.ok
+          ? "Open Events Manager → WhatsApp Marketing Messages dataset → Test events."
+          : result.hint ||
+            "Use WHATSAPP_ACCESS_TOKEN (with whatsapp_business_manage_events) or a System User token in META_CAPI_ACCESS_TOKEN.",
       });
     }
 

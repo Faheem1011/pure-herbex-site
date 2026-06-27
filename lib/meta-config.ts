@@ -1,10 +1,9 @@
-/** Pure Herbex WhatsApp Marketing Messages dataset (Events Manager). */
-export const META_DATASET_ID = "1887451258612774";
-
-export function getMetaDatasetId(): string {
-  return process.env.META_PIXEL_ID?.trim() || META_DATASET_ID;
-}
+/** @deprecated use lib/meta-dataset.ts constants */
+export { META_BUSINESS_DATASET_ID as META_DATASET_ID } from "@/lib/meta-dataset";
 
 export function hasMetaCapiToken(): boolean {
-  return !!process.env.META_CAPI_ACCESS_TOKEN?.trim();
+  return !!(
+    process.env.META_CAPI_ACCESS_TOKEN?.trim() ||
+    process.env.WHATSAPP_ACCESS_TOKEN?.trim()
+  );
 }

@@ -13,7 +13,9 @@ type MetaLeadStats = {
   lastEventAt?: number;
   lastError?: string;
   datasetId?: string;
-  expectedDatasetId?: string;
+  wabaId?: string;
+  waEventDatasetId?: string;
+  webPixelId?: string;
   hasToken?: boolean;
 };
 
@@ -61,9 +63,11 @@ export default function MetaLeadQualityCard({ apiPath, sessionToken }: Props) {
       });
       const data = await res.json().catch(() => ({}));
       if (data.status === "success") {
-        setTestMsg("Test event sent — check Events Manager Overview in ~15 min.");
+        setTestMsg(
+          `Test sent to dataset ${data.datasetId || "?"} — check Events Manager → Test events.`
+        );
       } else {
-        setTestMsg(data.error || data.hint || "Test failed");
+        setTestMsg([data.error, data.hint || data.help].filter(Boolean).join(" — "));
       }
       await load();
     } catch {
@@ -99,7 +103,13 @@ export default function MetaLeadQualityCard({ apiPath, sessionToken }: Props) {
       {!stats?.configured ? (
         <div className="space-y-2">
           <p className="text-[10px] text-zinc-400">
-            Dataset: <span className="text-zinc-200 font-mono">{stats?.expectedDatasetId || "1887451258612774"}</span>
+            WhatsApp dataset:{" "}
+            <span className="text-zinc-200 font-mono">
+              {stats?.waEventDatasetId || "2315143692344751"}
+            </span>
+          </p>
+          <p className="text-[10px] text-zinc-500">
+            Do not use business id 1887451258612774 — that is not the CAPI endpoint.
           </p>
           <p className="text-[10px] text-amber-400/90">
             {stats?.hasToken

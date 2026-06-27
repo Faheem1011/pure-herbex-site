@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { normalizePhone } from "@/lib/blocked";
-import { getMetaDatasetId, hasMetaCapiToken } from "@/lib/meta-config";
+import { getMetaCapiAccessToken } from "@/lib/meta-dataset";
+import { resolveMetaCapiDataset } from "@/lib/meta-dataset";
 import { WHATSAPP_GRAPH_API_VERSION } from "@/lib/whatsapp";
 
 export type MetaCapiEventName =
@@ -14,6 +15,7 @@ export type MetaCapiUser = {
   name?: string;
   country?: string;
   ctwaClid?: string;
+  wabaId?: string;
 };
 
 export type MetaCapiEventInput = {
@@ -49,19 +51,23 @@ function hashNamePart(name: string): string | undefined {
 }
 
 export function isMetaCapiConfigured(): boolean {
-  return !!(getMetaDatasetId() && hasMetaCapiToken());
+  return !!getMetaCapiAccessToken();
 }
 
 async function postMetaEvents(body: Record<string, unknown>): Promise<{
   ok: boolean;
   error?: string;
   response?: unknown;
+  datasetId?: string;
+  wabaId?: string;
 }> {
-  const pixelId = getMetaDatasetId();
-  const token = process.env.META_CAPI_ACCESS_TOKEN?.trim();
+  const token = getMetaCapiAccessToken();
   if (!token) {
-    return { ok: false, error: "META_CAPI_ACCESS_TOKEN not configured" };
+    return { ok: false, error: "META_CAPI_ACCESS_TOKEN / WHATSAPP_ACCESS_TOKEN not configured" };
   }
+
+  const resolved = await resolveMetaCapiDataset();
+  const datasetId = resolved.datasetId;
 
   const testCode = process.env.META_TEST_EVENT_CODE?.trim();
   const payload: Record<string, unknown> = {
@@ -72,7 +78,7 @@ async function postMetaEvents(body: Record<string, unknown>): Promise<{
     payload.test_event_code = testCode;
   }
 
-  const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${pixelId}/events`;
+  const url = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}/${datasetId}/events`;
 
   try {
     const res = await fetch(url, {
@@ -85,25 +91,59 @@ async function postMetaEvents(body: Record<string, unknown>): Promise<{
       const msg =
         (data as { error?: { message?: string } })?.error?.message ||
         `Meta CAPI HTTP ${res.status}`;
-      return { ok: false, error: msg, response: data };
+      return {
+        ok: false,
+        error: msg,
+        response: data,
+        datasetId,
+        wabaId: resolved.wabaId,
+      };
     }
-    return { ok: true, response: data };
+    return { ok: true, response: data, datasetId, wabaId: resolved.wabaId };
   } catch (err) {
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Meta CAPI request failed",
+      datasetId,
+      wabaId: resolved.wabaId,
     };
   }
 }
 
-/** Ping Meta to verify dataset + token (shows in Events Manager → Test events if code set). */
+function buildUserData(input: MetaCapiUser, wabaId?: string): Record<string, string | string[]> {
+  const userData: Record<string, string | string[]> = {
+    country: [sha256((input.country || "pk").toLowerCase())],
+  };
+
+  const ph = hashPhone(input.phone);
+  if (ph) userData.ph = [ph];
+
+  const firstName = input.name?.trim().split(/\s+/)[0];
+  const fn = firstName ? hashNamePart(firstName) : undefined;
+  if (fn) userData.fn = [fn];
+
+  const waba = input.wabaId || wabaId;
+  if (waba) {
+    userData.whatsapp_business_account_id = waba;
+  }
+
+  if (input.ctwaClid) {
+    userData.ctwa_clid = input.ctwaClid;
+  }
+
+  return userData;
+}
+
+/** Ping Meta to verify dataset + token. */
 export async function sendMetaConnectionTest(): Promise<{
   ok: boolean;
   error?: string;
   response?: unknown;
   datasetId: string;
+  wabaId?: string;
+  hint?: string;
 }> {
-  const datasetId = getMetaDatasetId();
+  const resolved = await resolveMetaCapiDataset();
   const result = await postMetaEvents({
     data: [
       {
@@ -112,9 +152,7 @@ export async function sendMetaConnectionTest(): Promise<{
         event_id: `phx-connection-test-${Date.now()}`,
         action_source: "business_messaging",
         messaging_channel: "whatsapp",
-        user_data: {
-          country: [createHash("sha256").update("pk").digest("hex")],
-        },
+        user_data: buildUserData({ phone: "923001234567", country: "pk" }, resolved.wabaId),
         custom_data: {
           source: "pure_herbex_inbox",
           test: "connection_check",
@@ -122,42 +160,31 @@ export async function sendMetaConnectionTest(): Promise<{
       },
     ],
   });
-  return { ...result, datasetId };
+
+  let hint: string | undefined;
+  if (!result.ok && result.error?.includes("does not exist")) {
+    hint =
+      "Token lacks whatsapp_business_manage_events. In Meta Developer App → Permissions, request Advanced Access for whatsapp_business_manage_events, then regenerate token.";
+  }
+
+  return {
+    ok: result.ok,
+    error: result.error,
+    response: result.response,
+    datasetId: result.datasetId || resolved.datasetId,
+    wabaId: result.wabaId || resolved.wabaId,
+    hint,
+  };
 }
 
 export async function sendMetaCapiEvent(
   input: MetaCapiEventInput
 ): Promise<{ ok: boolean; error?: string; response?: unknown }> {
-  if (!hasMetaCapiToken()) {
-    return { ok: false, error: "META_CAPI_ACCESS_TOKEN not configured" };
+  if (!getMetaCapiAccessToken()) {
+    return { ok: false, error: "Access token not configured" };
   }
 
-  const ph = hashPhone(input.user.phone);
-  if (!ph) {
-    return { ok: false, error: "Invalid phone for Meta CAPI" };
-  }
-
-  const userData: Record<string, string[]> = {
-    ph: [ph],
-    country: [sha256((input.user.country || "pk").toLowerCase())],
-  };
-
-  const firstName = input.user.name?.trim().split(/\s+/)[0];
-  const fn = firstName ? hashNamePart(firstName) : undefined;
-  if (fn) userData.fn = [fn];
-
-  const event: Record<string, unknown> = {
-    event_name: input.eventName,
-    event_time: Math.floor(Date.now() / 1000),
-    event_id: input.eventId,
-    action_source: "business_messaging",
-    messaging_channel: "whatsapp",
-    user_data: userData,
-  };
-
-  if (input.user.ctwaClid) {
-    event.ctwa_clid = input.user.ctwaClid;
-  }
+  const resolved = await resolveMetaCapiDataset();
 
   const custom: Record<string, string | number> = {
     ...(input.customData || {}),
@@ -166,6 +193,19 @@ export async function sendMetaCapiEvent(
     custom.value = input.value;
     custom.currency = input.currency || "PKR";
   }
+
+  const event: Record<string, unknown> = {
+    event_name: input.eventName,
+    event_time: Math.floor(Date.now() / 1000),
+    event_id: input.eventId,
+    action_source: "business_messaging",
+    messaging_channel: "whatsapp",
+    user_data: buildUserData(
+      { ...input.user, wabaId: input.user.wabaId || resolved.wabaId },
+      resolved.wabaId
+    ),
+  };
+
   if (Object.keys(custom).length > 0) {
     event.custom_data = custom;
   }
