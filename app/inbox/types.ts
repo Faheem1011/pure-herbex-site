@@ -37,6 +37,11 @@ export interface Contact {
   archived?: boolean;
   pinned?: boolean;
   blocked?: boolean;
+  /** True when Meta WhatsApp block_users API succeeded */
+  whatsappBlocked?: boolean;
+  whatsappBlockError?: string;
+  autoSpamBlocked?: boolean;
+  blockedReason?: "manual" | "auto_spam";
   avatarUrl?: string;
   unreadCount?: number;
   hasUnread?: boolean;

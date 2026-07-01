@@ -21,11 +21,8 @@ import {
 } from "@/lib/message-status";
 import { parseWebhookMessage } from "@/lib/parse-webhook-message";
 import { recomputeUnread, type ReadableContact } from "@/lib/read-state";
-import {
-  notifyMetaAdLead,
-  parseAdReferral,
-  type AdReferral,
-} from "@/lib/meta-lead-quality";
+import { handleIncomingSpamCheck } from "@/lib/contact-block";
+import { parseAdReferral, type AdReferral } from "@/lib/meta-lead-quality";
 
 type WebhookValue = {
   contacts?: Array<{ wa_id?: string; profile?: { name?: string } }>;
@@ -60,6 +57,21 @@ export async function processIncomingWebhookMessage(
     profileName,
     businessPhone: value.metadata?.display_phone_number,
   });
+
+  const existingMain: { tag?: string } | null = await kv.get(contactKey(line, from));
+  const spamCheck = await handleIncomingSpamCheck({
+    phone: from,
+    profileName,
+    firstMessageText: parsed.text,
+    line,
+    hasConfirmTag: existingMain?.tag === "Confirm",
+  });
+  if (spamCheck.blocked) {
+    console.info(
+      `[spam-block] ${from} "${profileName}" score=${spamCheck.assessment.score} ${spamCheck.assessment.reasons.join(",")}`
+    );
+    return;
+  }
 
   const replyToId = (message.context as { id?: string } | undefined)?.id;
   const adReferral = parseAdReferral(message.referral);
@@ -111,14 +123,6 @@ export async function processIncomingWebhookMessage(
       await kv.set(contactKey(line, from), contact);
       await kv.sadd(activeContactsKey(line), from);
       await bumpInboxVersion(line);
-
-      if (adReferral) {
-        void notifyMetaAdLead({
-          phone: from,
-          name: contact.name,
-          referral: adReferral,
-        });
-      }
     }
   } else {
     let contact: MarketingContact & { adReferral?: AdReferral } | null = await kv.get(
@@ -135,14 +139,6 @@ export async function processIncomingWebhookMessage(
       recomputeUnread(contact as unknown as ReadableContact);
       await saveMarketingContact(contact, line);
       await bumpInboxVersion(line);
-
-      if (adReferral) {
-        void notifyMetaAdLead({
-          phone: from,
-          name: contact.name,
-          referral: adReferral,
-        });
-      }
     }
   }
 }

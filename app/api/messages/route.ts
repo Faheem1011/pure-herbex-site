@@ -2,7 +2,8 @@ import { VALID_TAG_IDS } from "@/app/inbox/constants";
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { isInboxAuthed } from "@/lib/auth";
-import { isPhoneBlocked, normalizePhone, setPhoneBlocked } from "@/lib/blocked";
+import { isPhoneBlocked, normalizePhone } from "@/lib/blocked";
+import { blockContactCompletely, unblockContactCompletely } from "@/lib/contact-block";
 import { getWhatsAppPhoneNumberIdForLine } from "@/lib/inbox-line";
 import { resolveInboxLine } from "@/lib/inbox-request";
 import { registerKnownMediaId } from "@/lib/media-index";
@@ -255,6 +256,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const normalized = normalizePhone(phone);
+    let whatsappBlockStatus: {
+      whatsappBlocked?: boolean;
+      whatsappError?: string;
+    } = {};
     let contact: any = await kv.get(contactKey(line, normalized));
     if (!contact && blocked !== undefined) {
       contact = {
@@ -284,12 +289,54 @@ export async function PATCH(request: NextRequest) {
         contact.pinned = !!pinned;
       }
       if (blocked !== undefined) {
-        contact.blocked = !!blocked;
-        await setPhoneBlocked(normalized, !!blocked, line);
+        if (blocked) {
+          const result = await blockContactCompletely({
+            phone: normalized,
+            line,
+            name: contact.name,
+            reason: "manual",
+            tagSpam: contact.tag === "Spam",
+          });
+          contact.blocked = true;
+          contact.whatsappBlocked = result.whatsappBlocked;
+          if (result.whatsappError) contact.whatsappBlockError = result.whatsappError;
+          else delete contact.whatsappBlockError;
+          whatsappBlockStatus = {
+            whatsappBlocked: result.whatsappBlocked,
+            whatsappError: result.whatsappError,
+          };
+        } else {
+          const result = await unblockContactCompletely({ phone: normalized, line });
+          contact.blocked = false;
+          contact.whatsappBlocked = false;
+          delete contact.blockedReason;
+          delete contact.autoSpamBlocked;
+          delete contact.whatsappBlockError;
+          whatsappBlockStatus = {
+            whatsappBlocked: !result.whatsappUnblocked ? false : undefined,
+            whatsappError: result.whatsappError,
+          };
+        }
       }
       if (body.tag !== undefined) {
         const rawTag = body.tag;
         contact.tag = rawTag && VALID_TAG_IDS.has(rawTag) ? rawTag : null;
+        if (contact.tag === "Spam" && !contact.blocked) {
+          const result = await blockContactCompletely({
+            phone: normalized,
+            line,
+            name: contact.name,
+            reason: "manual",
+            tagSpam: true,
+          });
+          contact.blocked = true;
+          contact.whatsappBlocked = result.whatsappBlocked;
+          if (result.whatsappError) contact.whatsappBlockError = result.whatsappError;
+          whatsappBlockStatus = {
+            whatsappBlocked: result.whatsappBlocked,
+            whatsappError: result.whatsappError,
+          };
+        }
       }
       if (deleteMessageId) {
         if (contact.messages) {
@@ -343,7 +390,10 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ status: "success" });
+    return NextResponse.json({
+      status: "success",
+      ...(blocked !== undefined ? { whatsappBlock: whatsappBlockStatus } : {}),
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -27,6 +27,7 @@ import MessageContent from "@/components/inbox/MessageContent";
 import DeliveryTicks from "@/components/inbox/DeliveryTicks";
 import InboxLineSwitch from "@/components/inbox/InboxLineSwitch";
 import MetaLeadQualityCard from "@/components/inbox/MetaLeadQualityCard";
+import SpamProtectionCard from "@/components/inbox/SpamProtectionCard";
 import { useAndroidBridge, getAndroidBridge } from "@/hooks/useAndroidBridge";
 import { useSafeAreaInsets } from "@/hooks/useSafeAreaInsets";
 import { fixAndroidInboxScroll, useAndroidScrollFix } from "@/hooks/useAndroidScrollFix";
@@ -1755,9 +1756,41 @@ export default function InboxPage() {
   };
 
   const pinContact = (phone: string, pinned: boolean) => updateContactFlag(phone, { pinned });
-  const blockContact = (phone: string, blocked: boolean) => {
-    updateContactFlag(phone, { blocked });
+  const blockContact = async (phone: string, blocked: boolean) => {
+    setContacts((prev) =>
+      prev.map((c) => (c.phone === phone ? { ...c, blocked } : c))
+    );
     if (blocked && activeChat?.phone === phone) setActiveChat(null);
+    try {
+      const res = await fetch(api("/api/messages/"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ phone, blocked }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.whatsappBlock) {
+        const wa = data.whatsappBlock as { whatsappBlocked?: boolean; whatsappError?: string };
+        setContacts((prev) =>
+          prev.map((c) =>
+            c.phone === phone
+              ? {
+                  ...c,
+                  blocked,
+                  whatsappBlocked: wa.whatsappBlocked,
+                  whatsappBlockError: wa.whatsappError,
+                }
+              : c
+          )
+        );
+        if (blocked && wa.whatsappError && !wa.whatsappBlocked) {
+          alert(
+            `Inbox blocked. WhatsApp block needs a recent message (24h): ${wa.whatsappError}`
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Failed to block contact", e);
+    }
   };
 
   const archiveContact = async (phone: string, archived: boolean) => {
@@ -2782,6 +2815,14 @@ export default function InboxPage() {
             </button>
           </div>
         </div>
+
+        {viewMode === "inbox" && sessionToken ? (
+          <SpamProtectionCard
+            apiPath={api("/api/spam/scan/")}
+            sessionToken={sessionToken}
+            onScanComplete={() => void handleRefresh()}
+          />
+        ) : null}
         
         {/* Chats list */}
         <div className="flex-1 overflow-y-auto space-y-1 p-3 pb-20 md:pb-3 inbox-list-scroll">
@@ -3287,7 +3328,13 @@ export default function InboxPage() {
                 <div className="flex items-center justify-between gap-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-rose-300">Contact blocked</p>
-                    <p className="text-[11px] text-zinc-500">They cannot message you and you cannot reply until you unblock.</p>
+                    <p className="text-[11px] text-zinc-500">
+                      {activeChat.whatsappBlocked === false && activeChat.whatsappBlockError
+                        ? `Inbox only — WhatsApp: ${activeChat.whatsappBlockError}`
+                        : activeChat.autoSpamBlocked
+                          ? "Auto-blocked spam profile — they cannot message on WhatsApp."
+                          : "Blocked on WhatsApp — they cannot message you."}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -3966,6 +4013,40 @@ export default function InboxPage() {
                   setViewMode("inbox");
                   setActiveTab("archived");
                   setMobileNavMoreOpen(false);
+                },
+              },
+              {
+                label: "Scan spam names",
+                action: () => {
+                  setMobileNavMoreOpen(false);
+                  void fetch(api("/api/spam/scan/"), {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${sessionToken}`,
+                    },
+                    body: JSON.stringify({ dryRun: true }),
+                  })
+                    .then((r) => r.json())
+                    .then((data) => {
+                      if (data.matched > 0) {
+                        const go = confirm(
+                          `Found ${data.matched} spam-style names. Block all on WhatsApp now?`
+                        );
+                        if (go) {
+                          return fetch(api("/api/spam/scan/"), {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${sessionToken}`,
+                            },
+                            body: JSON.stringify({ dryRun: false }),
+                          }).then(() => handleRefresh());
+                        }
+                      } else {
+                        alert("No new spam-style names found.");
+                      }
+                    });
                 },
               },
               {
