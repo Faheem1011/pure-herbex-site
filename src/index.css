@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FAF5EB;
+    color: #2C1E14;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+  }
+}
+
+/* Custom Sun Bum Style Animations & Retro Utilities */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: 200%;
+  animation: marquee 25s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.shadow-retro {
+  box-shadow: 4px 4px 0px 0px #2C1E14;
+}
+
+.shadow-retro-lg {
+  box-shadow: 6px 6px 0px 0px #2C1E14;
+}
+
+.shadow-retro-sm {
+  box-shadow: 2px 2px 0px 0px #2C1E14;
+}
+
+.shadow-retro-yellow {
+  box-shadow: 4px 4px 0px 0px #F5B014;
+}
+
+.badge-sticker {
+  display: inline-block;
+  background-color: #F5B014;
+  color: #2C1E14;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  border: 2px solid #2C1E14;
+  box-shadow: 2px 2px 0px 0px #2C1E14;
+  transform: rotate(-2deg);
+}
+
+.badge-sticker-green {
+  background-color: #10B981;
+  color: #FFFFFF;
+  transform: rotate(2deg);
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FAF5EB;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #F5B014;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #E09E00;
+}
