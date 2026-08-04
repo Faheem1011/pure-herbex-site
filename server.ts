@@ -108,11 +108,11 @@ app.post('/api/orders', async (req, res) => {
   try {
     const payload = {
       client_code: '6943',
-      auth_key: '23d4734f-0clc-4586-90f6-210c4ec8d2f9',
+      auth_key: '23d4734f-0c1c-4586-90f6-210c4ec8d2f9',
       service_type: 'Overnight',
       product: 'Overnight',
-      profile_id: '20002',
-      origin: 'Lahore',
+      profile_id: '5943',
+      origin: 'Okara',
       receiver_phone: phone,
       destination: city,
       receiver_name: fullName,
@@ -126,7 +126,7 @@ app.post('/api/orders', async (req, res) => {
       product_description: productDescription,
       special_instruction: 'Leopards COD booking',
       order_id: 'KGV-' + Math.floor(1000 + Math.random() * 9000),
-      api_vendor: '28|1' // leopards COD service
+      api_vendor: '5|0' // Leopard2 COD service (configured on active account)
     };
 
     console.log('[Run Couriers Booking] Sending booking payload:', JSON.stringify(payload, null, 2));
