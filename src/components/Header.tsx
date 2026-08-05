@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Sparkles, Truck, ShieldCheck, MapPin } from 'lucide-react';
+import { ShoppingBag, Sparkles, Truck, ShieldCheck, MapPin, Lock, Menu, X } from 'lucide-react';
 
 interface HeaderProps {
   cartCount: number;
+  onNavigate: (route: string) => void;
   onOpenCart: () => void;
   onOpenTrackOrder: () => void;
   onOpenQuiz: () => void;
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   cartCount,
+  onNavigate,
   onOpenCart,
   onOpenTrackOrder,
   onOpenQuiz,
@@ -18,21 +20,10 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleNavClick = (category: string) => {
+  const handleShopNav = (category: string) => {
     onSelectCategory(category);
+    onNavigate('shop');
     setIsMobileMenuOpen(false);
-    const shopSection = document.getElementById('shop-section');
-    if (shopSection) {
-      shopSection.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handleScrollTo = (id: string) => {
-    setIsMobileMenuOpen(false);
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
   };
 
   return (
@@ -65,34 +56,40 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Left Navigation */}
           <nav className="hidden lg:flex items-center gap-6 font-extrabold text-sm uppercase tracking-wider text-sun-dark">
             <button 
-              onClick={() => handleNavClick('all')} 
+              onClick={() => handleShopNav('all')} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow"
             >
               Shop All
             </button>
             <button 
-              onClick={() => handleNavClick('kits')} 
+              onClick={() => handleShopNav('kits')} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow text-amber-700 font-black flex items-center gap-1"
             >
               <Sparkles className="w-4 h-4 text-sun-yellow" /> Complete Kit (Rs. 1,500)
             </button>
             <button 
-              onClick={() => handleScrollTo('story-section')} 
+              onClick={() => { onNavigate('story'); setIsMobileMenuOpen(false); }} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow"
             >
               Trust The Glow
             </button>
             <button 
-              onClick={onOpenQuiz} 
+              onClick={() => { onNavigate('routine-finder'); setIsMobileMenuOpen(false); }} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow text-emerald-700"
             >
               Routine Finder
+            </button>
+            <button 
+              onClick={() => { onNavigate('policies'); setIsMobileMenuOpen(false); }} 
+              className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow"
+            >
+              Policies & Support
             </button>
           </nav>
 
           {/* Logo Center */}
           <div className="flex items-center gap-3">
-            <a href="#" className="flex items-center gap-2 group">
+            <button onClick={() => onNavigate('home')} className="flex items-center gap-2 group text-left">
               <img 
                 src="/images/brand_logo.png" 
                 alt="Pure Herbex Logo" 
@@ -106,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
                   by Pure Herbex
                 </span>
               </div>
-            </a>
+            </button>
           </div>
 
           {/* Right Actions */}
@@ -116,8 +113,17 @@ export const Header: React.FC<HeaderProps> = ({
               className="hidden sm:flex items-center gap-1.5 text-xs font-bold bg-sun-sand border-2 border-sun-dark px-3 py-1.5 rounded-full hover:bg-sun-yellow transition-colors shadow-retro-sm"
               title="Track Order"
             >
-              <MapPin className="w-3.5 h-3.5" />
+              <MapPin className="w-3.5 h-3.5 text-amber-700" />
               <span>Track</span>
+            </button>
+
+            <button 
+              onClick={() => onNavigate('admin')}
+              className="hidden sm:flex items-center gap-1 text-xs font-black bg-amber-100 text-amber-900 border-2 border-sun-dark px-3 py-1.5 rounded-full hover:bg-sun-yellow transition-colors shadow-retro-sm"
+              title="Admin Section"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Admin</span>
             </button>
 
             <button 
@@ -130,10 +136,33 @@ export const Header: React.FC<HeaderProps> = ({
                 {cartCount}
               </span>
             </button>
+
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 bg-sun-sand border-2 border-sun-dark rounded-xl"
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
 
         </div>
       </div>
+
+      {/* Mobile Drawer Navigation */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden bg-sun-cream border-t-2 border-sun-dark p-4 space-y-3 font-black text-sm uppercase">
+          <button onClick={() => handleShopNav('all')} className="block w-full text-left py-2 hover:text-amber-600">Shop All Products</button>
+          <button onClick={() => handleShopNav('kits')} className="block w-full text-left py-2 text-amber-700">Complete Kit (Rs. 1,500)</button>
+          <button onClick={() => { onNavigate('story'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2">Trust The Glow (Brand Story)</button>
+          <button onClick={() => { onNavigate('routine-finder'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-emerald-700">Routine Finder Quiz</button>
+          <button onClick={() => { onNavigate('policies'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2">Policies & Customer Care</button>
+          <button onClick={() => { onOpenTrackOrder(); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-amber-800">Track Order (Leopards COD)</button>
+          <button onClick={() => { onNavigate('admin'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-red-800 flex items-center gap-2">
+            <Lock className="w-4 h-4" /> Admin Portal Section
+          </button>
+        </div>
+      )}
     </header>
   );
 };
+

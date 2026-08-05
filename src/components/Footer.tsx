@@ -1,13 +1,19 @@
 import React from 'react';
-import { Sparkles, ShieldCheck, Heart, Mail, Instagram, Facebook, Youtube } from 'lucide-react';
+import { Sparkles, ShieldCheck, Heart, Mail, Instagram, Facebook, Youtube, Lock } from 'lucide-react';
 
 interface FooterProps {
+  onNavigate: (route: string) => void;
   onOpenTrackOrder: () => void;
   onOpenQuiz: () => void;
   onSelectCategory: (category: string) => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenTrackOrder, onOpenQuiz, onSelectCategory }) => {
+export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, onOpenQuiz, onSelectCategory }) => {
+  const handleCategoryNav = (cat: string) => {
+    onSelectCategory(cat);
+    onNavigate('shop');
+  };
+
   return (
     <footer className="bg-sun-dark text-sun-cream border-t-4 border-sun-dark pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -47,7 +53,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTrackOrder, onOpenQuiz, on
           
           {/* Brand Info */}
           <div className="space-y-4 md:col-span-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('home')}>
               <img src="/images/brand_logo.png" alt="Pure Herbex" className="h-10 w-auto" />
               <span className="font-display font-black text-xl text-sun-yellow">
                 KOVERIA<span className="text-sun-cream">GLOW</span>
@@ -67,11 +73,11 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTrackOrder, onOpenQuiz, on
           <div>
             <h4 className="font-display font-black text-sm uppercase text-sun-yellow tracking-wider mb-3">Shop Koveria</h4>
             <ul className="space-y-2 text-xs font-bold text-gray-300">
-              <li><button onClick={() => onSelectCategory('all')} className="hover:text-sun-yellow">All Products</button></li>
-              <li><button onClick={() => onSelectCategory('serums')} className="hover:text-sun-yellow">Flagship Serums</button></li>
-              <li><button onClick={() => onSelectCategory('oils')} className="hover:text-sun-yellow">Radiance Oils</button></li>
-              <li><button onClick={() => onSelectCategory('mists')} className="hover:text-sun-yellow">Dewy Mists</button></li>
-              <li><button onClick={() => onSelectCategory('bundles')} className="hover:text-sun-yellow">B.Y.O.G. Custom Kits</button></li>
+              <li><button onClick={() => handleCategoryNav('all')} className="hover:text-sun-yellow">All Products</button></li>
+              <li><button onClick={() => handleCategoryNav('kits')} className="hover:text-sun-yellow">Flagship Complete Kit</button></li>
+              <li><button onClick={() => handleCategoryNav('facepack')} className="hover:text-sun-yellow">Face Pack Powder</button></li>
+              <li><button onClick={() => handleCategoryNav('toner')} className="hover:text-sun-yellow">Hydrating Toner</button></li>
+              <li><button onClick={() => handleCategoryNav('rosewater')} className="hover:text-sun-yellow">Pure Rose Water</button></li>
             </ul>
           </div>
 
@@ -81,13 +87,13 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTrackOrder, onOpenQuiz, on
             <ul className="space-y-2 text-xs font-bold text-gray-300">
               <li><button onClick={onOpenTrackOrder} className="hover:text-sun-yellow text-amber-400">Track Order (Run Couriers)</button></li>
               <li><button onClick={onOpenQuiz} className="hover:text-sun-yellow text-emerald-400">Routine Finder Quiz</button></li>
-              <li><a href="#" className="hover:text-sun-yellow">Shipping & COD Policies</a></li>
-              <li><a href="#" className="hover:text-sun-yellow">Returns & Exchange</a></li>
-              <li><a href="#" className="hover:text-sun-yellow">Ask Pure Herbex FAQ</a></li>
+              <li><button onClick={() => onNavigate('policies')} className="hover:text-sun-yellow">Shipping & COD Policies</button></li>
+              <li><button onClick={() => onNavigate('policies')} className="hover:text-sun-yellow">Returns & Exchange</button></li>
+              <li><button onClick={() => onNavigate('policies')} className="hover:text-sun-yellow">Ask Pure Herbex FAQ</button></li>
             </ul>
           </div>
 
-          {/* Guarantees */}
+          {/* Guarantees & Internal Link */}
           <div className="space-y-3">
             <h4 className="font-display font-black text-sm uppercase text-sun-yellow tracking-wider">Our Promise</h4>
             <div className="bg-sun-brown p-3 rounded-2xl border border-sun-cream/20 text-xs text-gray-300 space-y-1 font-medium">
@@ -96,6 +102,14 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTrackOrder, onOpenQuiz, on
               </div>
               <p>Express 2-day delivery across all cities in Pakistan via Run Couriers.</p>
             </div>
+
+            <button 
+              onClick={() => onNavigate('admin')} 
+              className="w-full mt-2 bg-amber-900/50 hover:bg-sun-yellow hover:text-sun-dark text-sun-cream text-xs font-bold py-2 px-3 rounded-xl border border-sun-cream/30 flex items-center justify-center gap-2 transition-colors"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Admin Portal Login</span>
+            </button>
           </div>
 
         </div>
@@ -106,9 +120,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTrackOrder, onOpenQuiz, on
             © {new Date().getFullYear()} Koveria Glow by Pure Herbex®. All Rights Reserved. Inspired by Sun Bum® design aesthetic.
           </div>
           <div className="flex gap-4">
-            <a href="#" className="hover:underline">Privacy Policy</a>
-            <a href="#" className="hover:underline">Terms of Service</a>
-            <a href="#" className="hover:underline">COD Conditions</a>
+            <button onClick={() => onNavigate('policies')} className="hover:underline">Privacy Policy</button>
+            <button onClick={() => onNavigate('policies')} className="hover:underline">Terms of Service</button>
+            <button onClick={() => onNavigate('policies')} className="hover:underline">COD Conditions</button>
           </div>
         </div>
 
@@ -116,3 +130,4 @@ export const Footer: React.FC<FooterProps> = ({ onOpenTrackOrder, onOpenQuiz, on
     </footer>
   );
 };
+
