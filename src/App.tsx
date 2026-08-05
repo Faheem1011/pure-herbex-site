@@ -17,6 +17,7 @@ import { MascotWidget } from './components/MascotWidget';
 
 import { PRODUCTS as DEFAULT_PRODUCTS } from './data/products';
 import { Product, CartItem } from './types';
+import { fetchLiveProducts } from './services/supabase';
 
 export function App() {
   // Routing State synced with window.location
@@ -52,20 +53,16 @@ export function App() {
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
-  // Fetch live products from backend database
+  // Fetch live products from database / Supabase Cloud
   const loadProducts = async () => {
     setLoadingProducts(true);
     try {
-      const res = await fetch('/api/products');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.products && data.products.length > 0) {
-          setProductsList(data.products);
-          localStorage.setItem('pureherbex_products_db', JSON.stringify(data.products));
-        }
+      const prods = await fetchLiveProducts();
+      if (prods && prods.length > 0) {
+        setProductsList(prods);
       }
     } catch (err) {
-      console.warn('Backend API server unavailable, using local product catalog.', err);
+      console.warn('Could not load products', err);
     } finally {
       setLoadingProducts(false);
     }

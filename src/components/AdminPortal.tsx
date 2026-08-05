@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Truck, Package, DollarSign, Printer, Search, RefreshCw, X, LogOut, Lock, Plus, Edit2, Trash2, Database, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Order, Product } from '../types';
 import { PRODUCTS as DEFAULT_PRODUCTS } from '../data/products';
+import { fetchLiveOrders, fetchLiveProducts, saveLiveProduct, deleteLiveProduct, updateLiveOrderStatus } from '../services/supabase';
 
 export const AdminPortal: React.FC = () => {
   // Navigation & Tabs
@@ -15,18 +16,8 @@ export const AdminPortal: React.FC = () => {
   const [filterCity, setFilterCity] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Products State (initialized with cached or default products)
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('pureherbex_products_db');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return DEFAULT_PRODUCTS;
-  });
-
+  // Products State
+  const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -44,8 +35,8 @@ export const AdminPortal: React.FC = () => {
   const [newProdImage, setNewProdImage] = useState('/images/glow-kit.png');
 
   // Database Config State
-  const [dbProvider, setDbProvider] = useState<'json' | 'supabase' | 'mongodb'>('json');
-  const [supabaseUrl, setSupabaseUrl] = useState('');
+  const [dbProvider, setDbProvider] = useState<'json' | 'supabase' | 'mongodb'>('supabase');
+  const [supabaseUrl, setSupabaseUrl] = useState('https://ycxsitqyhhsfcgxifsov.supabase.co');
   const [supabaseKey, setSupabaseKey] = useState('');
   const [mongoUri, setMongoUri] = useState('');
   const [dbConfigMessage, setDbConfigMessage] = useState('');
@@ -59,59 +50,28 @@ export const AdminPortal: React.FC = () => {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
 
-  // Fetch Orders
+  // Fetch Orders from Supabase Cloud DB & Cache
   const fetchOrders = async () => {
     setLoadingOrders(true);
-    let loadedOrders: Order[] = [];
-    const saved = localStorage.getItem('pureherbex_orders_db');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) loadedOrders = parsed;
-      } catch (e) {}
-    }
-
     try {
-      const res = await fetch('/api/orders');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.orders && data.orders.length > 0) {
-          const combined = [...data.orders];
-          loadedOrders.forEach(o => {
-            if (!combined.some(c => c.id === o.id || c.trackingNumber === o.trackingNumber)) {
-              combined.push(o);
-            }
-          });
-          loadedOrders = combined;
-        }
-      }
+      const data = await fetchLiveOrders();
+      setOrders(data.orders);
+      setStats(data.stats);
     } catch (err) {
-      console.warn('API endpoint offline, using local cached orders.', err);
+      console.error('Failed to fetch live orders', err);
     } finally {
-      setOrders(loadedOrders);
-      setStats({
-        totalOrders: loadedOrders.length,
-        totalSales: loadedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0)
-      });
       setLoadingOrders(false);
     }
   };
 
-  // Fetch Products
+  // Fetch Products from Supabase Cloud DB & Cache
   const fetchProducts = async () => {
     setLoadingProducts(true);
     try {
-      const res = await fetch('/api/products');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.products && data.products.length > 0) {
-          setProducts(data.products);
-          localStorage.setItem('pureherbex_products_db', JSON.stringify(data.products));
-          return;
-        }
-      }
+      const prods = await fetchLiveProducts();
+      setProducts(prods);
     } catch (err) {
-      console.warn('API unavailable, using default products list.', err);
+      console.error('Failed to fetch live products', err);
     } finally {
       setLoadingProducts(false);
     }
@@ -124,29 +84,14 @@ export const AdminPortal: React.FC = () => {
       try {
         const parsed = JSON.parse(saved);
         setDbProvider(parsed.provider || 'supabase');
-        setSupabaseUrl(parsed.supabaseUrl || '');
+        setSupabaseUrl(parsed.supabaseUrl || 'https://ycxsitqyhhsfcgxifsov.supabase.co');
         setSupabaseKey(parsed.supabaseKey || '');
         setMongoUri(parsed.mongoUri || '');
       } catch (e) {}
     } else {
       setDbProvider('supabase');
-      setSupabaseUrl('');
+      setSupabaseUrl('https://ycxsitqyhhsfcgxifsov.supabase.co');
       setSupabaseKey('');
-    }
-
-    try {
-      const res = await fetch('/api/db-config');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.config) {
-          setDbProvider(data.config.provider || 'supabase');
-          if (data.config.supabaseUrl) setSupabaseUrl(data.config.supabaseUrl);
-          if (data.config.supabaseKey) setSupabaseKey(data.config.supabaseKey);
-          if (data.config.mongoUri) setMongoUri(data.config.mongoUri);
-        }
-      }
-    } catch (err) {
-      console.warn('Backend API endpoint offline, using local configuration.', err);
     }
   };
 
@@ -179,18 +124,8 @@ export const AdminPortal: React.FC = () => {
 
   // Order Handlers
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      if (res.ok) {
-        fetchOrders();
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    await updateLiveOrderStatus(orderId, newStatus);
+    await fetchOrders();
   };
 
   // Product CRUD Handlers
@@ -207,7 +142,7 @@ export const AdminPortal: React.FC = () => {
       reviewCount: 1,
       category: newProdCategory,
       image: newProdImage || '/images/glow-kit.png',
-      badge: 'NEW',
+      badge: newProdTagline || 'NEW',
       description: newProdDescription || 'Artisanal natural botanical skincare formula.',
       benefits: ['✴️ Handcrafted organic formula'],
       ingredients: ['Organic Botanicals'],
@@ -217,9 +152,8 @@ export const AdminPortal: React.FC = () => {
       isBestseller: false
     };
 
-    const updated = [createdItem, ...products];
-    setProducts(updated);
-    localStorage.setItem('pureherbex_products_db', JSON.stringify(updated));
+    await saveLiveProduct(createdItem);
+    await fetchProducts();
     setIsAddModalOpen(false);
     setNewProdName('');
     setNewProdPrice('');
@@ -228,52 +162,21 @@ export const AdminPortal: React.FC = () => {
     setNewProdTagline('');
     setNewProdDescription('');
     setNewProdSize('');
-
-    try {
-      await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(createdItem)
-      });
-    } catch (err) {
-      console.warn('Backend API update delayed, saved locally.', err);
-    }
   };
 
   const handleUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
 
-    const updated = products.map(p => p.id === editingProduct.id ? editingProduct : p);
-    setProducts(updated);
-    localStorage.setItem('pureherbex_products_db', JSON.stringify(updated));
+    await saveLiveProduct(editingProduct);
+    await fetchProducts();
     setEditingProduct(null);
-
-    try {
-      await fetch(`/api/products/${editingProduct.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingProduct)
-      });
-    } catch (err) {
-      console.warn('Backend API update delayed, saved locally.', err);
-    }
   };
 
   const handleDeleteProduct = async (productId: string) => {
     if (!window.confirm('Are you sure you want to delete this product from the database?')) return;
-
-    const updated = products.filter(p => p.id !== productId);
-    setProducts(updated);
-    localStorage.setItem('pureherbex_products_db', JSON.stringify(updated));
-
-    try {
-      await fetch(`/api/products/${productId}`, {
-        method: 'DELETE'
-      });
-    } catch (err) {
-      console.warn('Backend API update delayed, deleted locally.', err);
-    }
+    await deleteLiveProduct(productId);
+    await fetchProducts();
   };
 
   // DB Config Handler
@@ -290,6 +193,8 @@ export const AdminPortal: React.FC = () => {
     };
 
     localStorage.setItem('pureherbex_db_config', JSON.stringify(configData));
+    if (supabaseUrl) localStorage.setItem('pureherbex_supabase_url', supabaseUrl);
+    if (supabaseKey) localStorage.setItem('pureherbex_supabase_key', supabaseKey);
     setDbConfigMessage(`✅ Connected to ${dbProvider.toUpperCase()} Database successfully!`);
     setLoadingDbConfig(false);
 

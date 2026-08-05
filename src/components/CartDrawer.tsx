@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Plus, Minus, Trash2, ShoppingBag, Truck, ShieldCheck, CheckCircle, ArrowRight, Gift, Sparkles } from 'lucide-react';
 import { CartItem, Product } from '../types';
 import { PRODUCTS } from '../data/products';
+import { submitCustomerOrder } from '../services/supabase';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -63,56 +64,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newOrder = {
-      id: 'RC-' + Math.floor(100000 + Math.random() * 900000),
-      orderDate: new Date().toISOString(),
-      fullName: formData.fullName,
-      address: formData.address,
-      city: formData.city,
-      phone: formData.phone,
-      items: cartItems,
-      subtotal,
-      shippingFee: shippingCost,
-      totalAmount,
-      courier: 'Leopards COD (Run Couriers)' as const,
-      trackingNumber: 'LP-' + Math.floor(100000000 + Math.random() * 900000000),
-      status: 'Booked via Leopards' as const
-    };
-
-    // Save order locally first to guarantee zero lost orders
-    const existingSaved = localStorage.getItem('pureherbex_orders_db');
-    let ordersList = [];
-    if (existingSaved) {
-      try { ordersList = JSON.parse(existingSaved); } catch (err) {}
-    }
-    ordersList.unshift(newOrder);
-    localStorage.setItem('pureherbex_orders_db', JSON.stringify(ordersList));
-
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: formData.fullName,
-          phone: formData.phone,
-          city: formData.city,
-          address: formData.address,
-          items: cartItems
-        })
+      const createdOrder = await submitCustomerOrder({
+        fullName: formData.fullName,
+        phone: formData.phone,
+        city: formData.city,
+        address: formData.address,
+        items: cartItems,
+        subtotal,
+        shippingFee: shippingCost,
+        totalAmount
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.order && data.order.trackingNumber) {
-          setOrderTrackingCode(data.order.trackingNumber);
-        } else {
-          setOrderTrackingCode(newOrder.trackingNumber);
-        }
-      } else {
-        setOrderTrackingCode(newOrder.trackingNumber);
-      }
+      setOrderTrackingCode(createdOrder.trackingNumber);
     } catch (err) {
-      console.warn('API endpoint offline, order saved locally.', err);
-      setOrderTrackingCode(newOrder.trackingNumber);
+      console.warn('Checkout error:', err);
     } finally {
       setOrderComplete(true);
       onClearCart();
