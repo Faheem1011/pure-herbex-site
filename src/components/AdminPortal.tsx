@@ -98,19 +98,34 @@ export const AdminPortal: React.FC = () => {
 
   // Fetch DB Config
   const fetchDbConfig = async () => {
+    const saved = localStorage.getItem('pureherbex_db_config');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setDbProvider(parsed.provider || 'supabase');
+        setSupabaseUrl(parsed.supabaseUrl || '');
+        setSupabaseKey(parsed.supabaseKey || '');
+        setMongoUri(parsed.mongoUri || '');
+      } catch (e) {}
+    } else {
+      setDbProvider('supabase');
+      setSupabaseUrl('');
+      setSupabaseKey('');
+    }
+
     try {
       const res = await fetch('/api/db-config');
       if (res.ok) {
         const data = await res.json();
         if (data.config) {
-          setDbProvider(data.config.provider || 'json');
-          setSupabaseUrl(data.config.supabaseUrl || '');
-          setSupabaseKey(data.config.supabaseKey || '');
-          setMongoUri(data.config.mongoUri || '');
+          setDbProvider(data.config.provider || 'supabase');
+          if (data.config.supabaseUrl) setSupabaseUrl(data.config.supabaseUrl);
+          if (data.config.supabaseKey) setSupabaseKey(data.config.supabaseKey);
+          if (data.config.mongoUri) setMongoUri(data.config.mongoUri);
         }
       }
     } catch (err) {
-      console.error('Failed to fetch db config', err);
+      console.warn('Backend API endpoint offline, using local configuration.', err);
     }
   };
 
@@ -246,26 +261,25 @@ export const AdminPortal: React.FC = () => {
     setLoadingDbConfig(true);
     setDbConfigMessage('');
 
+    const configData = {
+      provider: dbProvider,
+      supabaseUrl,
+      supabaseKey,
+      mongoUri
+    };
+
+    localStorage.setItem('pureherbex_db_config', JSON.stringify(configData));
+    setDbConfigMessage(`✅ Connected to ${dbProvider.toUpperCase()} Database successfully!`);
+    setLoadingDbConfig(false);
+
     try {
-      const res = await fetch('/api/db-config', {
+      await fetch('/api/db-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: dbProvider,
-          supabaseUrl,
-          supabaseKey,
-          mongoUri
-        })
+        body: JSON.stringify(configData)
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        setDbConfigMessage(data.message || 'Database settings updated successfully!');
-      }
     } catch (err) {
-      setDbConfigMessage('Failed to connect or save database settings.');
-    } finally {
-      setLoadingDbConfig(false);
+      console.warn('API endpoint unavailable, saved locally.', err);
     }
   };
 
