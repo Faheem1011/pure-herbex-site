@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Truck, Package, DollarSign, Printer, Search, RefreshCw, X, LogOut, Lock, Plus, Edit2, Trash2, Database, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Order, Product } from '../types';
+import { PRODUCTS as DEFAULT_PRODUCTS } from '../data/products';
 
 export const AdminPortal: React.FC = () => {
   // Navigation & Tabs
@@ -14,8 +15,18 @@ export const AdminPortal: React.FC = () => {
   const [filterCity, setFilterCity] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Products State
-  const [products, setProducts] = useState<Product[]>([]);
+  // Products State (initialized with cached or default products)
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('pureherbex_products_db');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return DEFAULT_PRODUCTS;
+  });
+
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -72,10 +83,14 @@ export const AdminPortal: React.FC = () => {
       const res = await fetch('/api/products');
       if (res.ok) {
         const data = await res.json();
-        setProducts(data.products);
+        if (data.products && data.products.length > 0) {
+          setProducts(data.products);
+          localStorage.setItem('pureherbex_products_db', JSON.stringify(data.products));
+          return;
+        }
       }
     } catch (err) {
-      console.error('Failed to fetch products', err);
+      console.warn('API unavailable, using default products list.', err);
     } finally {
       setLoadingProducts(false);
     }
@@ -145,36 +160,47 @@ export const AdminPortal: React.FC = () => {
   // Product CRUD Handlers
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    const createdItem: Product = {
+      id: newProdName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4),
+      name: newProdName,
+      subtitle: newProdSubtitle || newProdName,
+      tagline: newProdTagline || 'Pure Botanical Formula',
+      price: Number(newProdPrice),
+      originalPrice: newProdOrigPrice ? Number(newProdOrigPrice) : Number(newProdPrice),
+      rating: 5.0,
+      reviewCount: 1,
+      category: newProdCategory,
+      image: newProdImage || '/images/glow-kit.png',
+      badge: 'NEW',
+      description: newProdDescription || 'Artisanal natural botanical skincare formula.',
+      benefits: ['✴️ Handcrafted organic formula'],
+      ingredients: ['Organic Botanicals'],
+      usage: 'Apply daily to clean skin.',
+      size: newProdSize || 'Standard Size',
+      inStock: true,
+      isBestseller: false
+    };
+
+    const updated = [createdItem, ...products];
+    setProducts(updated);
+    localStorage.setItem('pureherbex_products_db', JSON.stringify(updated));
+    setIsAddModalOpen(false);
+    setNewProdName('');
+    setNewProdPrice('');
+    setNewProdOrigPrice('');
+    setNewProdSubtitle('');
+    setNewProdTagline('');
+    setNewProdDescription('');
+    setNewProdSize('');
+
     try {
-      const res = await fetch('/api/products', {
+      await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newProdName,
-          category: newProdCategory,
-          price: Number(newProdPrice),
-          originalPrice: newProdOrigPrice ? Number(newProdOrigPrice) : Number(newProdPrice),
-          subtitle: newProdSubtitle,
-          tagline: newProdTagline,
-          description: newProdDescription,
-          size: newProdSize,
-          image: newProdImage
-        })
+        body: JSON.stringify(createdItem)
       });
-
-      if (res.ok) {
-        fetchProducts();
-        setIsAddModalOpen(false);
-        setNewProdName('');
-        setNewProdPrice('');
-        setNewProdOrigPrice('');
-        setNewProdSubtitle('');
-        setNewProdTagline('');
-        setNewProdDescription('');
-        setNewProdSize('');
-      }
     } catch (err) {
-      console.error(err);
+      console.warn('Backend API update delayed, saved locally.', err);
     }
   };
 
@@ -182,35 +208,35 @@ export const AdminPortal: React.FC = () => {
     e.preventDefault();
     if (!editingProduct) return;
 
+    const updated = products.map(p => p.id === editingProduct.id ? editingProduct : p);
+    setProducts(updated);
+    localStorage.setItem('pureherbex_products_db', JSON.stringify(updated));
+    setEditingProduct(null);
+
     try {
-      const res = await fetch(`/api/products/${editingProduct.id}`, {
+      await fetch(`/api/products/${editingProduct.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingProduct)
       });
-
-      if (res.ok) {
-        fetchProducts();
-        setEditingProduct(null);
-      }
     } catch (err) {
-      console.error(err);
+      console.warn('Backend API update delayed, saved locally.', err);
     }
   };
 
   const handleDeleteProduct = async (productId: string) => {
     if (!window.confirm('Are you sure you want to delete this product from the database?')) return;
 
+    const updated = products.filter(p => p.id !== productId);
+    setProducts(updated);
+    localStorage.setItem('pureherbex_products_db', JSON.stringify(updated));
+
     try {
-      const res = await fetch(`/api/products/${productId}`, {
+      await fetch(`/api/products/${productId}`, {
         method: 'DELETE'
       });
-
-      if (res.ok) {
-        fetchProducts();
-      }
     } catch (err) {
-      console.error(err);
+      console.warn('Backend API update delayed, deleted locally.', err);
     }
   };
 

@@ -30,8 +30,17 @@ export function App() {
     return match ? match[1] : null;
   });
 
-  // Dynamic Products List loaded from Database
-  const [productsList, setProductsList] = useState<Product[]>(DEFAULT_PRODUCTS);
+  // Dynamic Products List loaded from Database / Cache
+  const [productsList, setProductsList] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('pureherbex_products_db');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return DEFAULT_PRODUCTS;
+  });
   const [loadingProducts, setLoadingProducts] = useState(false);
 
   // Cart & UI Dialog States
@@ -52,6 +61,7 @@ export function App() {
         const data = await res.json();
         if (data.products && data.products.length > 0) {
           setProductsList(data.products);
+          localStorage.setItem('pureherbex_products_db', JSON.stringify(data.products));
         }
       }
     } catch (err) {
