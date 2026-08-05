@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Truck, Package, DollarSign, Printer, Search, RefreshCw, X, LogOut, Lock, Plus, Edit2, Trash2, Database, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Order, Product } from '../types';
 import { PRODUCTS as DEFAULT_PRODUCTS } from '../data/products';
-import { fetchLiveOrders, fetchLiveProducts, saveLiveProduct, deleteLiveProduct, updateLiveOrderStatus } from '../services/supabase';
+import { fetchLiveOrders, fetchLiveProducts, saveLiveProduct, deleteLiveProduct, updateLiveOrderStatus, seedDefaultCatalog } from '../services/supabase';
 
 export const AdminPortal: React.FC = () => {
   // Navigation & Tabs
@@ -522,12 +522,23 @@ export const AdminPortal: React.FC = () => {
                 />
               </div>
 
-              <button 
-                onClick={() => setIsAddModalOpen(true)}
-                className="bg-sun-yellow text-sun-dark font-black px-4 py-2.5 rounded-full border-2 border-sun-dark shadow-retro hover:bg-amber-400 text-xs uppercase flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> Add New Product To DB
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={async () => {
+                    const restored = await seedDefaultCatalog();
+                    setProducts(restored);
+                  }}
+                  className="bg-sun-sand text-sun-dark font-black px-4 py-2.5 rounded-full border-2 border-sun-dark shadow-retro hover:bg-sun-yellow text-xs uppercase flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" /> Restore Default Catalog
+                </button>
+                <button 
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="bg-sun-yellow text-sun-dark font-black px-4 py-2.5 rounded-full border-2 border-sun-dark shadow-retro hover:bg-amber-400 text-xs uppercase flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Add New Product To DB
+                </button>
+              </div>
             </div>
 
             {/* Products Table */}
