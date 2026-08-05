@@ -62,16 +62,37 @@ export const AdminPortal: React.FC = () => {
   // Fetch Orders
   const fetchOrders = async () => {
     setLoadingOrders(true);
+    let loadedOrders: Order[] = [];
+    const saved = localStorage.getItem('pureherbex_orders_db');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) loadedOrders = parsed;
+      } catch (e) {}
+    }
+
     try {
       const res = await fetch('/api/orders');
       if (res.ok) {
         const data = await res.json();
-        setOrders(data.orders);
-        setStats(data.stats);
+        if (data.orders && data.orders.length > 0) {
+          const combined = [...data.orders];
+          loadedOrders.forEach(o => {
+            if (!combined.some(c => c.id === o.id || c.trackingNumber === o.trackingNumber)) {
+              combined.push(o);
+            }
+          });
+          loadedOrders = combined;
+        }
       }
     } catch (err) {
-      console.error('Failed to fetch orders', err);
+      console.warn('API endpoint offline, using local cached orders.', err);
     } finally {
+      setOrders(loadedOrders);
+      setStats({
+        totalOrders: loadedOrders.length,
+        totalSales: loadedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0)
+      });
       setLoadingOrders(false);
     }
   };
