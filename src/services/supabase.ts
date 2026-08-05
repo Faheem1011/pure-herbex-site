@@ -2,32 +2,11 @@ import { createClient } from '@supabase/supabase-js';
 import { Product, Order } from '../types';
 import { PRODUCTS as DEFAULT_PRODUCTS } from '../data/products';
 
-// Encoded Supabase Production Credentials (Out-of-the-box ready)
-const DEFAULT_URL = 'https://ycxsitqyhhsfcgxifsov.supabase.co';
-const DEFAULT_KEY_B64 = 'c2Jfc2VjcmV0X3Jxc0djeFh6c2ctMzNTLTZUU21BX3dfOUhTZENPNFc=';
+// Live Supabase Production Configuration (Retrieved via Supabase MCP)
+const SUPABASE_URL = 'https://ycxsitqyhhsfcgxifsov.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljeHNpdHF5aGhzZmNneGlmc292Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NDI5MjEsImV4cCI6MjEwMTUxODkyMX0.sYL1Rj_dxzLqVUbjExhT3TwZMof6rFeFLBN36DpkvpM';
 
-function getSupabaseCredentials() {
-  let url = DEFAULT_URL;
-  let key = '';
-
-  try {
-    key = typeof window !== 'undefined' ? atob(DEFAULT_KEY_B64) : Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
-  } catch (e) {
-    key = '';
-  }
-
-  if (typeof window !== 'undefined') {
-    const savedUrl = localStorage.getItem('pureherbex_supabase_url');
-    const savedKey = localStorage.getItem('pureherbex_supabase_key');
-    if (savedUrl) url = savedUrl;
-    if (savedKey) key = savedKey;
-  }
-
-  return { url, key };
-}
-
-const creds = getSupabaseCredentials();
-export const supabase = createClient(creds.url, creds.key);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
 // PRODUCTS SERVICE
@@ -62,10 +41,10 @@ export async function fetchLiveProducts(): Promise<Product[]> {
       }));
     }
   } catch (err) {
-    console.warn('[Supabase Products] Fetch failed or table empty, using fallback', err);
+    console.warn('[Supabase Products] Fetch error, using fallback', err);
   }
 
-  // Local Cache Fallback
+  // Fallback to cache or default products
   const cached = localStorage.getItem('pureherbex_products_db');
   if (cached) {
     try {
@@ -74,7 +53,6 @@ export async function fetchLiveProducts(): Promise<Product[]> {
     } catch (e) {}
   }
 
-  // If no products found anywhere, seed default products catalog
   localStorage.setItem('pureherbex_products_db', JSON.stringify(DEFAULT_PRODUCTS));
   return DEFAULT_PRODUCTS;
 }
@@ -92,7 +70,6 @@ export async function seedDefaultCatalog(): Promise<Product[]> {
 }
 
 export async function saveLiveProduct(product: Product): Promise<boolean> {
-  // 1. Local storage update
   const existing = await fetchLiveProducts();
   const index = existing.findIndex(p => p.id === product.id);
   let updatedList: Product[];
@@ -104,7 +81,6 @@ export async function saveLiveProduct(product: Product): Promise<boolean> {
   }
   localStorage.setItem('pureherbex_products_db', JSON.stringify(updatedList));
 
-  // 2. Supabase DB update
   try {
     const payload = {
       id: product.id,
@@ -178,7 +154,7 @@ export async function submitCustomerOrder(orderData: {
     status: 'Booked via Leopards'
   };
 
-  // 1. Local Storage update
+  // 1. Save to Local Cache immediately
   const existingSaved = localStorage.getItem('pureherbex_orders_db');
   let ordersList: Order[] = [];
   if (existingSaved) {
@@ -187,7 +163,7 @@ export async function submitCustomerOrder(orderData: {
   ordersList.unshift(newOrder);
   localStorage.setItem('pureherbex_orders_db', JSON.stringify(ordersList));
 
-  // 2. Supabase DB insert
+  // 2. Insert into Supabase Orders Cloud Table
   try {
     const payload = {
       id: newOrder.id,
@@ -205,17 +181,17 @@ export async function submitCustomerOrder(orderData: {
       status: newOrder.status
     };
 
-    const { error } = await supabase.from('orders').insert(payload);
+    const { data, error } = await supabase.from('orders').insert(payload).select();
     if (error) {
-      console.warn('[Supabase Insert Order Note]', error.message);
+      console.error('[Supabase Insert Order Error]', error.message, error.details);
     } else {
-      console.log('✅ Order synced with Supabase Cloud DB:', newOrder.id);
+      console.log('✅ Order synced live with Supabase Cloud DB:', data);
     }
   } catch (err) {
-    console.warn('[Supabase Insert Order Error]', err);
+    console.error('[Supabase Insert Order Exception]', err);
   }
 
-  // 3. Run Couriers Leopards API booking
+  // 3. Book with Run Couriers (Leopards COD API)
   try {
     const pad = (n: number) => n.toString().padStart(2, '0');
     const now = new Date();
@@ -260,7 +236,7 @@ export async function submitCustomerOrder(orderData: {
 export async function fetchLiveOrders(): Promise<{ orders: Order[]; stats: { totalOrders: number; totalSales: number } }> {
   let loadedOrders: Order[] = [];
 
-  // Read Local Storage
+  // Read Local Cache
   const saved = localStorage.getItem('pureherbex_orders_db');
   if (saved) {
     try {
