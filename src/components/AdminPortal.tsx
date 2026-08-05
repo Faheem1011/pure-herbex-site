@@ -100,6 +100,13 @@ export const AdminPortal: React.FC = () => {
       fetchOrders();
       fetchProducts();
       fetchDbConfig();
+
+      const interval = setInterval(() => {
+        fetchOrders();
+        fetchProducts();
+      }, 15000);
+
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 

@@ -154,16 +154,7 @@ export async function submitCustomerOrder(orderData: {
     status: 'Booked via Leopards'
   };
 
-  // 1. Save to Local Cache immediately
-  const existingSaved = localStorage.getItem('pureherbex_orders_db');
-  let ordersList: Order[] = [];
-  if (existingSaved) {
-    try { ordersList = JSON.parse(existingSaved); } catch (e) {}
-  }
-  ordersList.unshift(newOrder);
-  localStorage.setItem('pureherbex_orders_db', JSON.stringify(ordersList));
-
-  // 2. Insert into Supabase Orders Cloud Table
+  // 1. Insert into Supabase Orders Cloud Table (Primary Action)
   try {
     const payload = {
       id: newOrder.id,
@@ -181,7 +172,7 @@ export async function submitCustomerOrder(orderData: {
       status: newOrder.status
     };
 
-    const { data, error } = await supabase.from('orders').insert(payload).select();
+    const { data, error } = await supabase.from('orders').upsert(payload).select();
     if (error) {
       console.error('[Supabase Insert Order Error]', error.message, error.details);
     } else {
@@ -191,44 +182,57 @@ export async function submitCustomerOrder(orderData: {
     console.error('[Supabase Insert Order Exception]', err);
   }
 
-  // 3. Book with Run Couriers (Leopards COD API)
+  // 2. Save to Local Cache as secondary backup
   try {
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const now = new Date();
-    const orderDateFormatted = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-    const productDescription = orderData.items.map((i: any) => `${i.quantity}x ${i.product.name}`).join(', ');
+    const existingSaved = localStorage.getItem('pureherbex_orders_db');
+    let ordersList: Order[] = [];
+    if (existingSaved) {
+      try { ordersList = JSON.parse(existingSaved); } catch (e) {}
+    }
+    ordersList.unshift(newOrder);
+    localStorage.setItem('pureherbex_orders_db', JSON.stringify(ordersList));
+  } catch (e) {}
 
-    const courierPayload = {
-      client_code: '6943',
-      auth_key: '23d4734f-0c1c-4586-90f6-210c4ec8d2f9',
-      service_type: 'Overnight',
-      product: 'Overnight',
-      profile_id: '5943',
-      origin: 'Okara',
-      receiver_phone: orderData.phone,
-      destination: orderData.city,
-      receiver_name: orderData.fullName,
-      receiver_email: '',
-      receiver_address: orderData.address,
-      pieces: 1,
-      tracking_no: '',
-      weight: 1,
-      order_date: orderDateFormatted,
-      collection_amount: orderData.totalAmount.toString(),
-      product_description: productDescription,
-      special_instruction: 'Leopards COD booking',
-      order_id: 'KGV-' + Math.floor(1000 + Math.random() * 9000),
-      api_vendor: '5|0'
-    };
+  // 3. Non-blocking Run Couriers Leopards API booking
+  setTimeout(() => {
+    try {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const now = new Date();
+      const orderDateFormatted = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const productDescription = orderData.items.map((i: any) => `${i.quantity}x ${i.product?.name || 'Item'}`).join(', ');
 
-    await fetch('https://portal.runcourier.com/API/CreateOrder.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(courierPayload)
-    });
-  } catch (err) {
-    console.warn('[Run Couriers Booking Notice]', err);
-  }
+      const courierPayload = {
+        client_code: '6943',
+        auth_key: '23d4734f-0c1c-4586-90f6-210c4ec8d2f9',
+        service_type: 'Overnight',
+        product: 'Overnight',
+        profile_id: '5943',
+        origin: 'Okara',
+        receiver_phone: orderData.phone,
+        destination: orderData.city,
+        receiver_name: orderData.fullName,
+        receiver_email: '',
+        receiver_address: orderData.address,
+        pieces: 1,
+        tracking_no: '',
+        weight: 1,
+        order_date: orderDateFormatted,
+        collection_amount: orderData.totalAmount.toString(),
+        product_description: productDescription,
+        special_instruction: 'Leopards COD booking',
+        order_id: 'KGV-' + Math.floor(1000 + Math.random() * 9000),
+        api_vendor: '5|0'
+      };
+
+      fetch('https://portal.runcourier.com/API/CreateOrder.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(courierPayload)
+      }).catch(err => console.warn('[Run Couriers Notice]', err));
+    } catch (err) {
+      console.warn('[Run Couriers Booking Notice]', err);
+    }
+  }, 100);
 
   return newOrder;
 }
@@ -236,16 +240,7 @@ export async function submitCustomerOrder(orderData: {
 export async function fetchLiveOrders(): Promise<{ orders: Order[]; stats: { totalOrders: number; totalSales: number } }> {
   let loadedOrders: Order[] = [];
 
-  // Read Local Cache
-  const saved = localStorage.getItem('pureherbex_orders_db');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) loadedOrders = parsed;
-    } catch (e) {}
-  }
-
-  // Read Supabase DB
+  // Read Supabase Cloud DB First
   try {
     const { data, error } = await supabase
       .from('orders')
@@ -253,7 +248,7 @@ export async function fetchLiveOrders(): Promise<{ orders: Order[]; stats: { tot
       .order('created_at', { ascending: false });
 
     if (!error && data && data.length > 0) {
-      const supabaseOrders: Order[] = data.map((item: any) => ({
+      loadedOrders = data.map((item: any) => ({
         id: item.id || item.tracking_number,
         orderDate: item.order_date || item.created_at || new Date().toISOString(),
         fullName: item.full_name,
@@ -269,16 +264,22 @@ export async function fetchLiveOrders(): Promise<{ orders: Order[]; stats: { tot
         status: item.status || 'Booked via Leopards'
       }));
 
-      const merged = [...supabaseOrders];
-      loadedOrders.forEach(l => {
-        if (!merged.some(m => m.id === l.id || m.trackingNumber === l.trackingNumber)) {
-          merged.push(l);
-        }
-      });
-      loadedOrders = merged;
+      // Cache live Supabase orders locally
+      localStorage.setItem('pureherbex_orders_db', JSON.stringify(loadedOrders));
     }
   } catch (err) {
     console.warn('[Supabase Fetch Orders Error]', err);
+  }
+
+  // Fallback to Local Cache if Supabase query returned no data or failed
+  if (loadedOrders.length === 0) {
+    const saved = localStorage.getItem('pureherbex_orders_db');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) loadedOrders = parsed;
+      } catch (e) {}
+    }
   }
 
   const totalSales = loadedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
