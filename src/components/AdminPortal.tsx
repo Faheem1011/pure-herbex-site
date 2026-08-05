@@ -711,7 +711,7 @@ export const AdminPortal: React.FC = () => {
                     <label className="block text-[11px] font-bold text-sun-dark mb-1">Supabase Project URL</label>
                     <input 
                       type="text" 
-                      placeholder="https://your-project.supabase.co"
+                      placeholder="Enter your Supabase Project URL..."
                       value={supabaseUrl}
                       onChange={(e) => setSupabaseUrl(e.target.value)}
                       className="w-full bg-sun-sand border border-sun-dark rounded-xl px-3 py-2 text-xs font-mono"
@@ -721,7 +721,7 @@ export const AdminPortal: React.FC = () => {
                     <label className="block text-[11px] font-bold text-sun-dark mb-1">Supabase Anon Key / Service Key</label>
                     <input 
                       type="password" 
-                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                      placeholder="Enter your Supabase Key..."
                       value={supabaseKey}
                       onChange={(e) => setSupabaseKey(e.target.value)}
                       className="w-full bg-sun-sand border border-sun-dark rounded-xl px-3 py-2 text-xs font-mono"
@@ -738,7 +738,7 @@ export const AdminPortal: React.FC = () => {
                     <label className="block text-[11px] font-bold text-sun-dark mb-1">MongoDB Connection URI</label>
                     <input 
                       type="password" 
-                      placeholder="mongodb+srv://admin:password@cluster.mongodb.net/pureherbex"
+                      placeholder="Enter your MongoDB Atlas Connection URI..."
                       value={mongoUri}
                       onChange={(e) => setMongoUri(e.target.value)}
                       className="w-full bg-sun-sand border border-sun-dark rounded-xl px-3 py-2 text-xs font-mono"

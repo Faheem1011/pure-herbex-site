@@ -29,3 +29,7 @@ pnpm-debug.log*
 # System files
 .DS_Store
 Thumbs.db
+API_KEYS_AND_CREDENTIALS.txt
+*.pem
+*.key
+
