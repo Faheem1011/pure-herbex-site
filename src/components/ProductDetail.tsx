@@ -42,7 +42,8 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, onAddToCa
               )}
               <img 
                 src={product.image} 
-                alt={product.name} 
+                alt={`${product.name} - Pure Herbex Koveria Glow Botanical Skincare`} 
+                title={`${product.name} - Artisanal Natural Ritual`}
                 className="w-full max-h-[380px] object-contain transform group-hover:scale-105 transition-transform duration-300"
               />
             </div>

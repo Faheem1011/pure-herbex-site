@@ -54,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-20">
           
           {/* Left Navigation */}
-          <nav className="hidden lg:flex items-center gap-6 font-extrabold text-sm uppercase tracking-wider text-sun-dark">
+          <nav className="hidden lg:flex items-center gap-5 font-extrabold text-xs sm:text-sm uppercase tracking-wider text-sun-dark">
             <button 
               onClick={() => handleShopNav('all')} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow"
@@ -65,25 +65,37 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => handleShopNav('kits')} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow text-amber-700 font-black flex items-center gap-1"
             >
-              <Sparkles className="w-4 h-4 text-sun-yellow" /> Complete Kit (Rs. 1,500)
+              <Sparkles className="w-3.5 h-3.5 text-sun-yellow" /> Complete Kit
+            </button>
+            <button 
+              onClick={() => { onNavigate('ingredients'); setIsMobileMenuOpen(false); }} 
+              className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow text-emerald-800"
+            >
+              Ingredients
+            </button>
+            <button 
+              onClick={() => { onNavigate('journal'); setIsMobileMenuOpen(false); }} 
+              className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow text-amber-900"
+            >
+              Journal
             </button>
             <button 
               onClick={() => { onNavigate('story'); setIsMobileMenuOpen(false); }} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow"
             >
-              Trust The Glow
+              Story
             </button>
             <button 
-              onClick={() => { onNavigate('routine-finder'); setIsMobileMenuOpen(false); }} 
-              className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow text-emerald-700"
-            >
-              Routine Finder
-            </button>
-            <button 
-              onClick={() => { onNavigate('policies'); setIsMobileMenuOpen(false); }} 
+              onClick={() => { onNavigate('faq'); setIsMobileMenuOpen(false); }} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow"
             >
-              Policies & Support
+              FAQ
+            </button>
+            <button 
+              onClick={() => { onNavigate('contact'); setIsMobileMenuOpen(false); }} 
+              className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow"
+            >
+              Contact
             </button>
           </nav>
 

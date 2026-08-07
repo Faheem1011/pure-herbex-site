@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+                            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <!-- Homepage -->
+  <url>
+    <loc>https://pureherbex.com/</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://pureherbex.com/images/glow-kit.png</image:loc>
+      <image:title>Koveria Glow Complete 3-Piece Kit</image:title>
+    </image:image>
+  </url>
+
+  <!-- Shop Catalog Page -->
+  <url>
+    <loc>https://pureherbex.com/shop</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Botanical Ingredients Encyclopedia -->
+  <url>
+    <loc>https://pureherbex.com/ingredients</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Skincare Radiance Journal Index -->
+  <url>
+    <loc>https://pureherbex.com/journal</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Journal Article 1 -->
+  <url>
+    <loc>https://pureherbex.com/journal/5-benefits-of-steam-distilled-rose-water</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.80</priority>
+  </url>
+
+  <!-- Journal Article 2 -->
+  <url>
+    <loc>https://pureherbex.com/journal/why-artisanal-herbal-powder-masks-beat-chemical-sheet-masks</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.80</priority>
+  </url>
+
+  <!-- Journal Article 3 -->
+  <url>
+    <loc>https://pureherbex.com/journal/ultimate-3-step-skincare-ritual-for-sun-stressed-skin</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.80</priority>
+  </url>
+
+  <!-- Knowledge Base & FAQ Portal -->
+  <url>
+    <loc>https://pureherbex.com/faq</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.75</priority>
+  </url>
+
+  <!-- Contact Us Page -->
+  <url>
+    <loc>https://pureherbex.com/contact</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+  <!-- Brand Story Page -->
+  <url>
+    <loc>https://pureherbex.com/story</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Customer Policies Page -->
+  <url>
+    <loc>https://pureherbex.com/policies</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Product 1: Complete Koveria Glow 3-Piece Kit -->
+  <url>
+    <loc>https://pureherbex.com/product/koveria-glow-complete-kit</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <!-- Product 2: Koveria Glow Face Pack -->
+  <url>
+    <loc>https://pureherbex.com/product/koveria-glow-face-pack</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <!-- Product 3: Koveria Glow Hydrating Toner -->
+  <url>
+    <loc>https://pureherbex.com/product/koveria-glow-toner</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Product 4: Pure Steam-Distilled Rose Water -->
+  <url>
+    <loc>https://pureherbex.com/product/pure-rose-water</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Product 5: Lip Glow Rose Oil Elixir -->
+  <url>
+    <loc>https://pureherbex.com/product/koveria-lip-glow-elixir</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Product 6: Sun Radiance Herbal Body Butter -->
+  <url>
+    <loc>https://pureherbex.com/product/koveria-body-butter-balm</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Product 7: Neem & Haldi Clarifying Herbal Scrub -->
+  <url>
+    <loc>https://pureherbex.com/product/koveria-detox-neem-scrub</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Product 8: Night Repair Secret Botanical Elixir -->
+  <url>
+    <loc>https://pureherbex.com/product/koveria-night-glow-oil</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+</urlset>

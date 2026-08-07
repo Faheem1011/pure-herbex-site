@@ -1,0 +1,19 @@
+# Robots.txt for Pure Herbex - Koveria Glow Skincare
+# Optimization for Google, Bing, Asus, DuckDuckGo, Yahoo, and Yandex
+
+User-agent: *
+Allow: /
+Allow: /shop
+Allow: /story
+Allow: /policies
+Allow: /product/
+Allow: /images/
+
+# Disallow internal admin, cart, and API routes from crawling
+Disallow: /admin
+Disallow: /api/
+Disallow: /track-order
+
+# Host and Sitemap specification
+Sitemap: https://pureherbex.com/sitemap.xml
+Sitemap: http://localhost:3001/sitemap.xml

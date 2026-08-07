@@ -71,13 +71,13 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
 
           {/* Quick Links */}
           <div>
-            <h4 className="font-display font-black text-sm uppercase text-sun-yellow tracking-wider mb-3">Shop Koveria</h4>
+            <h4 className="font-display font-black text-sm uppercase text-sun-yellow tracking-wider mb-3">Discover Koveria</h4>
             <ul className="space-y-2 text-xs font-bold text-gray-300">
-              <li><button onClick={() => handleCategoryNav('all')} className="hover:text-sun-yellow">All Products</button></li>
-              <li><button onClick={() => handleCategoryNav('kits')} className="hover:text-sun-yellow">Flagship Complete Kit</button></li>
-              <li><button onClick={() => handleCategoryNav('facepack')} className="hover:text-sun-yellow">Face Pack Powder</button></li>
-              <li><button onClick={() => handleCategoryNav('toner')} className="hover:text-sun-yellow">Hydrating Toner</button></li>
-              <li><button onClick={() => handleCategoryNav('rosewater')} className="hover:text-sun-yellow">Pure Rose Water</button></li>
+              <li><button onClick={() => handleCategoryNav('all')} className="hover:text-sun-yellow">All 8 Products</button></li>
+              <li><button onClick={() => onNavigate('ingredients')} className="hover:text-sun-yellow text-emerald-400">Botanical Actives Glossary</button></li>
+              <li><button onClick={() => onNavigate('journal')} className="hover:text-sun-yellow text-amber-300">Skincare Radiance Journal</button></li>
+              <li><button onClick={() => onNavigate('story')} className="hover:text-sun-yellow">Trust The Glow Story</button></li>
+              <li><button onClick={() => handleCategoryNav('kits')} className="hover:text-sun-yellow">Flagship 3-Piece Kit</button></li>
             </ul>
           </div>
 
@@ -85,11 +85,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
           <div>
             <h4 className="font-display font-black text-sm uppercase text-sun-yellow tracking-wider mb-3">Support & Help</h4>
             <ul className="space-y-2 text-xs font-bold text-gray-300">
-              <li><button onClick={onOpenTrackOrder} className="hover:text-sun-yellow text-amber-400">Track Order (Run Couriers)</button></li>
-              <li><button onClick={onOpenQuiz} className="hover:text-sun-yellow text-emerald-400">Routine Finder Quiz</button></li>
+              <li><button onClick={onOpenTrackOrder} className="hover:text-sun-yellow text-amber-400">Track Order (Leopards COD)</button></li>
+              <li><button onClick={() => onNavigate('faq')} className="hover:text-sun-yellow text-emerald-400">Ask Pure Herbex FAQ</button></li>
+              <li><button onClick={() => onNavigate('contact')} className="hover:text-sun-yellow">Contact Customer Support</button></li>
+              <li><button onClick={onOpenQuiz} className="hover:text-sun-yellow text-amber-300">Routine Finder Quiz</button></li>
               <li><button onClick={() => onNavigate('policies')} className="hover:text-sun-yellow">Shipping & COD Policies</button></li>
-              <li><button onClick={() => onNavigate('policies')} className="hover:text-sun-yellow">Returns & Exchange</button></li>
-              <li><button onClick={() => onNavigate('policies')} className="hover:text-sun-yellow">Ask Pure Herbex FAQ</button></li>
             </ul>
           </div>
 

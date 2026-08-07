@@ -18,7 +18,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
   };
 
   return (
-    <div className="group bg-sun-cream border-3 border-sun-dark rounded-3xl p-5 shadow-retro transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between relative overflow-hidden">
+    <article className="group bg-sun-cream border-3 border-sun-dark rounded-3xl p-5 shadow-retro transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between relative overflow-hidden">
       
       {/* Badge sticker top left */}
       {product.badge && (
@@ -36,7 +36,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
       >
         <img 
           src={product.image} 
-          alt={product.name} 
+          alt={`${product.name} - Pure Herbex Artisanal Botanical Skincare`} 
+          title={`${product.name} by Pure Herbex`}
+          loading="lazy"
           className="h-56 sm:h-64 object-contain filter drop-shadow-md transform group-hover:scale-105 transition-transform duration-300"
         />
 
@@ -115,6 +117,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
         </div>
       </div>
 
-    </div>
+    </article>
   );
 };

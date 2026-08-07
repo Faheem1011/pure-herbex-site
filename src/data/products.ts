@@ -110,5 +110,102 @@ export const PRODUCTS: Product[] = [
     usage: 'Spritz generously onto face or use to blend the Koveria Glow Face Pack into a paste.',
     size: '150ml / 5.0 fl. oz.',
     inStock: true
+  },
+  {
+    id: 'koveria-lip-glow-elixir',
+    name: 'Koveria Lip Glow Rose Oil Elixir',
+    subtitle: 'Rose Petal & Moringa Lip Treatment',
+    tagline: 'Plump & Hydrated Botanical Lips',
+    price: 499,
+    originalPrice: 650,
+    rating: 4.9,
+    reviewCount: 142,
+    category: 'lipcare',
+    image: '/images/glow-elixir.png',
+    badge: '💋 NEW LAUNCH',
+    description: 'Nourishing botanical lip treatment oil infused with real rose petal infusion, cold-pressed moringa oil, and pure Vitamin E to soften chapped lips and add natural pink sheen.',
+    benefits: [
+      '✴️ Deeply nourishes dry, chapped lips',
+      '✴️ Natural rose sheen without stickiness',
+      '✴️ Rich in anti-aging Vitamin E & antioxidants',
+      '✴️ Protects lips from sun & wind damage'
+    ],
+    ingredients: ['Rose Petal Infusion Oil', 'Cold-Pressed Moringa Oil', 'Vitamin E', 'Organic Sweet Almond Oil'],
+    usage: 'Apply directly onto lips using applicator whenever extra moisture or natural shine is needed.',
+    size: '10ml / 0.34 fl. oz.',
+    inStock: true
+  },
+  {
+    id: 'koveria-body-butter-balm',
+    name: 'Sun Radiance Herbal Body Butter',
+    subtitle: 'Whipped Aloe & Shea Botanical Balm',
+    tagline: 'Velvet Soft Body Nourishment',
+    price: 899,
+    originalPrice: 1100,
+    rating: 4.8,
+    reviewCount: 98,
+    category: 'bodycare',
+    image: '/images/glow-kit.png',
+    badge: '✨ INTENSE MOISTURE',
+    description: 'Ultra-luxurious whipped body butter enriched with organic Aloe Vera, Shea Butter, and secret sun-radiance botanical extracts for silky smooth, deeply hydrated skin.',
+    benefits: [
+      '✴️ 24-hour intense moisture retention',
+      '✴️ Fades dry skin patches & rough elbows/knees',
+      '✴️ Non-greasy quick absorption',
+      '✴️ Smells like pure botanical radiance'
+    ],
+    ingredients: ['Raw Shea Butter', 'Organic Aloe Vera Gel', 'Moringa Oil', 'Rose Hydrosol', 'Botanical Elixir'],
+    usage: 'Massage generously all over body after bathing or whenever skin needs intense hydrating comfort.',
+    size: '200g / 7.0 oz',
+    inStock: true
+  },
+  {
+    id: 'koveria-detox-neem-scrub',
+    name: 'Neem & Haldi Clarifying Herbal Scrub',
+    subtitle: 'Acne Defense & Deep Pore Exfoliant',
+    tagline: 'Pure Herbal Detox Mask',
+    price: 699,
+    originalPrice: 850,
+    rating: 4.9,
+    reviewCount: 165,
+    category: 'scrub',
+    image: '/images/glow-serum.png',
+    badge: '🌿 ACNE CLEAR',
+    description: 'Targeted deep-pore purifying scrub formulated with organic Neem powder, Wild Haldi (Turmeric), and fine Multani mitti to clear breakouts and diminish acne scars.',
+    benefits: [
+      '✴️ Fights acne-causing bacteria naturally',
+      '✴️ Draws out stubborn blackheads & whiteheads',
+      '✴️ Wild Haldi brightens post-acne dark marks',
+      '✴️ Soothes active skin breakouts'
+    ],
+    ingredients: ['Organic Neem Leaf Powder', 'Wild Haldi (Turmeric)', 'Multani Mitti', 'Walnut Shell Powder'],
+    usage: 'Gently massage onto damp face in circular motions for 2 minutes, leave as mask for 5 minutes, then rinse off.',
+    size: '150g / 5.3 oz',
+    inStock: true
+  },
+  {
+    id: 'koveria-night-glow-oil',
+    name: 'Night Repair Secret Botanical Elixir',
+    subtitle: 'Concentrated Facial Glow Oil',
+    tagline: 'Overnight Skin Transformation',
+    price: 1299,
+    originalPrice: 1600,
+    rating: 5.0,
+    reviewCount: 215,
+    category: 'serum',
+    image: '/images/glow-mist.png',
+    badge: '🌙 NIGHT REPAIR',
+    description: 'Potent overnight botanical serum elixir infused with 7 cold-pressed seed oils, rosehip extract, and secret plant actives that work overnight to repair skin cells and restore morning radiance.',
+    benefits: [
+      '✴️ Repairs cell damage & boosts collagen while sleeping',
+      '✴️ Fades hyperpigmentation & dark spots',
+      '✴️ Wakes you up to luminous, dewy skin',
+      '✴️ Lightweight & non-comedogenic formula'
+    ],
+    ingredients: ['Rosehip Seed Oil', 'Moringa Oil', 'Jojoba Oil', 'Pomegranate Seed Oil', 'Secret Plant Elixir'],
+    usage: 'Warm 3-4 drops between fingertips at night and gently press into clean face and neck.',
+    size: '30ml / 1.0 fl. oz.',
+    inStock: true,
+    isBestseller: true
   }
 ];

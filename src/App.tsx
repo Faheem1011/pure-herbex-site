@@ -14,6 +14,11 @@ import { ProductDetail } from './components/ProductDetail';
 import { PoliciesPage } from './components/PoliciesPage';
 import { Footer } from './components/Footer';
 import { MascotWidget } from './components/MascotWidget';
+import { SEOHead } from './components/SEOHead';
+import { BotanicalGlossaryPage } from './components/BotanicalGlossaryPage';
+import { SkincareJournalPage } from './components/SkincareJournalPage';
+import { FAQPage } from './components/FAQPage';
+import { ContactPage } from './components/ContactPage';
 
 import { PRODUCTS as DEFAULT_PRODUCTS } from './data/products';
 import { Product, CartItem } from './types';
@@ -73,20 +78,26 @@ export function App() {
   }, []);
 
   // Sync route changes with browser address bar & history
-  const navigateTo = (route: string, productId?: string) => {
+  const navigateTo = (route: string, itemId?: string) => {
     let path = '/';
     if (route === 'admin') path = '/admin';
     else if (route === 'shop') path = '/shop';
     else if (route === 'story') path = '/story';
     else if (route === 'policies') path = '/policies';
+    else if (route === 'ingredients') path = '/ingredients';
+    else if (route === 'journal') path = itemId ? `/journal/${itemId}` : '/journal';
+    else if (route === 'faq') path = '/faq';
+    else if (route === 'contact') path = '/contact';
     else if (route === 'track-order') path = '/track-order';
     else if (route === 'routine-finder') path = '/routine-finder';
-    else if (route === 'product' && productId) path = `/product/${productId}`;
+    else if (route === 'product' && itemId) path = `/product/${itemId}`;
 
     window.history.pushState({}, '', path);
     setCurrentRoute(route);
-    if (productId) {
-      setSelectedProductId(productId);
+    if (route === 'product' && itemId) {
+      setSelectedProductId(itemId);
+    } else if (route === 'journal' && itemId) {
+      setSelectedProductId(itemId);
     } else {
       setSelectedProductId(null);
     }
@@ -104,10 +115,14 @@ export function App() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.replace(/^\//, '');
-      const match = window.location.pathname.match(/^\/product\/(.+)$/);
-      if (match) {
+      const productMatch = window.location.pathname.match(/^\/product\/(.+)$/);
+      const journalMatch = window.location.pathname.match(/^\/journal\/(.+)$/);
+      if (productMatch) {
         setCurrentRoute('product');
-        setSelectedProductId(match[1]);
+        setSelectedProductId(productMatch[1]);
+      } else if (journalMatch) {
+        setCurrentRoute('journal');
+        setSelectedProductId(journalMatch[1]);
       } else {
         setCurrentRoute(path || 'home');
         setSelectedProductId(null);
@@ -180,13 +195,31 @@ export function App() {
 
   // ROUTE 1: Dedicated Admin Portal Route (/admin)
   if (currentRoute === 'admin') {
-    return <AdminPortal />;
+    return (
+      <>
+        <SEOHead title="Admin Dashboard" path="/admin" />
+        <AdminPortal />
+      </>
+    );
   }
 
   // ROUTE 2: Dedicated Product Detail Route (/product/:id)
   if (currentRoute === 'product' && activeProduct) {
     return (
       <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
+        <SEOHead 
+          title={activeProduct.name}
+          description={activeProduct.description}
+          image={activeProduct.image}
+          path={`/product/${activeProduct.id}`}
+          type="product"
+          product={activeProduct}
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Shop', url: '/shop' },
+            { name: activeProduct.name, url: `/product/${activeProduct.id}` }
+          ]}
+        />
         <Header 
           cartCount={cartCount}
           onNavigate={navigateTo}
@@ -225,6 +258,15 @@ export function App() {
   if (currentRoute === 'policies') {
     return (
       <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
+        <SEOHead 
+          title="Customer Policies & Nationwide COD Shipping"
+          description="Pure Herbex store policies on shipping, cash on delivery (COD), easy returns, and customer privacy."
+          path="/policies"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Policies', url: '/policies' }
+          ]}
+        />
         <Header 
           cartCount={cartCount}
           onNavigate={navigateTo}
@@ -250,6 +292,15 @@ export function App() {
   if (currentRoute === 'story') {
     return (
       <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
+        <SEOHead 
+          title="Our Artisanal Story & Efficacy"
+          description="Discover the story behind Pure Herbex and Koveria Glow. Handcrafted botanical skincare rituals with 100% natural rose petals, moringa, and steam-distilled hydrosols."
+          path="/story"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Brand Story', url: '/story' }
+          ]}
+        />
         <Header 
           cartCount={cartCount}
           onNavigate={navigateTo}
@@ -276,6 +327,15 @@ export function App() {
   if (currentRoute === 'shop') {
     return (
       <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
+        <SEOHead 
+          title="Shop Koveria Glow Botanical Skincare"
+          description="Browse Koveria Glow face packs, aloe hydration toners, steam-distilled rose water, and custom glow kits by Pure Herbex."
+          path="/shop"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Shop Catalog', url: '/shop' }
+          ]}
+        />
         <Header 
           cartCount={cartCount}
           onNavigate={navigateTo}
@@ -316,9 +376,169 @@ export function App() {
     );
   }
 
+  // ROUTE 6: Botanical Ingredients Encyclopedia (/ingredients)
+  if (currentRoute === 'ingredients') {
+    return (
+      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
+        <SEOHead 
+          title="Botanical Ingredients Encyclopedia & Science"
+          description="Learn about the clinical efficacy, origins, and natural benefits of Damask Rose, Moringa, Multani Mitti, and Organic Coffee in Pure Herbex skincare."
+          path="/ingredients"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Botanical Glossary', url: '/ingredients' }
+          ]}
+        />
+        <Header 
+          cartCount={cartCount}
+          onNavigate={navigateTo}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          onOpenQuiz={() => setIsQuizOpen(true)}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
+        />
+        <main className="flex-grow">
+          <BotanicalGlossaryPage onNavigate={navigateTo} />
+        </main>
+        <Footer 
+          onNavigate={navigateTo}
+          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          onOpenQuiz={() => setIsQuizOpen(true)}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
+        />
+      </div>
+    );
+  }
+
+  // ROUTE 7: Skincare Radiance Journal (/journal)
+  if (currentRoute === 'journal') {
+    return (
+      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
+        <SEOHead 
+          title="Pure Radiance Skincare Journal & Beauty Guides"
+          description="Read expert botanical skincare guides, natural beauty tips, and morning radiance rituals curated by Pure Herbex."
+          path={selectedProductId ? `/journal/${selectedProductId}` : '/journal'}
+          type="article"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Skincare Journal', url: '/journal' }
+          ]}
+        />
+        <Header 
+          cartCount={cartCount}
+          onNavigate={navigateTo}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          onOpenQuiz={() => setIsQuizOpen(true)}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
+        />
+        <main className="flex-grow">
+          <SkincareJournalPage 
+            selectedArticleId={selectedProductId}
+            onNavigate={navigateTo}
+            onAddToCart={handleAddToCart}
+          />
+        </main>
+        <Footer 
+          onNavigate={navigateTo}
+          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          onOpenQuiz={() => setIsQuizOpen(true)}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
+        />
+        <CartDrawer 
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          cartItems={cartItems}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onClearCart={handleClearCart}
+          onAddToCart={handleAddToCart}
+        />
+      </div>
+    );
+  }
+
+  // ROUTE 8: Knowledge Base & FAQ (/faq)
+  if (currentRoute === 'faq') {
+    return (
+      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
+        <SEOHead 
+          title="Frequently Asked Questions & Help Portal"
+          description="Find answers to common questions about Pure Herbex artisanal products, ingredients, shipping times across Pakistan, and COD."
+          path="/faq"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'FAQ & Help', url: '/faq' }
+          ]}
+        />
+        <Header 
+          cartCount={cartCount}
+          onNavigate={navigateTo}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          onOpenQuiz={() => setIsQuizOpen(true)}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
+        />
+        <main className="flex-grow">
+          <FAQPage 
+            onNavigate={navigateTo}
+            onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          />
+        </main>
+        <Footer 
+          onNavigate={navigateTo}
+          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          onOpenQuiz={() => setIsQuizOpen(true)}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
+        />
+      </div>
+    );
+  }
+
+  // ROUTE 9: Customer Support & Contact Us (/contact)
+  if (currentRoute === 'contact') {
+    return (
+      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
+        <SEOHead 
+          title="Contact Pure Herbex Customer Support"
+          description="Get in touch with Pure Herbex customer support for order tracking, custom skincare consultations, and delivery queries."
+          path="/contact"
+          breadcrumbs={[
+            { name: 'Home', url: '/' },
+            { name: 'Contact Us', url: '/contact' }
+          ]}
+        />
+        <Header 
+          cartCount={cartCount}
+          onNavigate={navigateTo}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          onOpenQuiz={() => setIsQuizOpen(true)}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
+        />
+        <main className="flex-grow">
+          <ContactPage />
+        </main>
+        <Footer 
+          onNavigate={navigateTo}
+          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+          onOpenQuiz={() => setIsQuizOpen(true)}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
+        />
+      </div>
+    );
+  }
+
   // ROUTE 6: Main Homepage (/)
   return (
     <div className="min-h-screen bg-sun-sand flex flex-col font-sans selection:bg-sun-yellow selection:text-sun-dark">
+      <SEOHead 
+        isHome={true}
+        path="/"
+        breadcrumbs={[
+          { name: 'Home', url: '/' }
+        ]}
+      />
       {/* Navigation Header */}
       <Header 
         cartCount={cartCount}

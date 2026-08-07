@@ -7,7 +7,7 @@ export interface Product {
   originalPrice?: number;
   rating: number;
   reviewCount: number;
-  category: 'kits' | 'facepack' | 'toner' | 'rosewater';
+  category: 'kits' | 'facepack' | 'toner' | 'rosewater' | 'lipcare' | 'bodycare' | 'scrub' | 'serum';
   image: string;
   badge?: string;
   description: string;
