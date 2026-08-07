@@ -1,17 +1,28 @@
-import React from 'react';
-import { Sparkles, ArrowRight, ShieldCheck, Sun, Star } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, ArrowRight, ShieldCheck, Sun, Star, ShoppingBag, Eye, Check } from 'lucide-react';
 import { Product } from '../types';
 
 interface HeroProps {
   flagshipProduct: Product;
   onAddToCart: (product: Product) => void;
   onOpenQuiz: () => void;
+  onViewDetails?: (product: Product) => void;
 }
 
-export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpenQuiz }) => {
-  const handleScrollToShop = () => {
-    const el = document.getElementById('shop-section');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpenQuiz, onViewDetails }) => {
+  const [added, setAdded] = useState(false);
+
+  const handleCardAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAddToCart(flagshipProduct);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1800);
+  };
+
+  const handleCardClick = () => {
+    if (onViewDetails) {
+      onViewDetails(flagshipProduct);
+    }
   };
 
   return (
@@ -127,29 +138,89 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
           <div className="lg:col-span-5 flex justify-center relative">
             <div className="relative group max-w-md w-full">
               
-              <div className="bg-sun-cream border-4 border-sun-dark p-6 rounded-3xl shadow-retro-lg transform -rotate-1 group-hover:rotate-0 transition-transform duration-300 relative">
+              <div 
+                onClick={handleCardClick}
+                className="bg-sun-cream border-4 border-sun-dark p-6 rounded-3xl shadow-retro-lg transform -rotate-1 group-hover:rotate-0 transition-all duration-300 relative cursor-pointer group-hover:shadow-2xl"
+              >
                 
-                <div className="absolute -top-4 -right-4 bg-sun-coral text-white font-extrabold text-xs px-4 py-2 rounded-full border-2 border-sun-dark shadow-retro-sm transform rotate-6">
+                <div className="absolute -top-4 -right-4 bg-sun-coral text-white font-extrabold text-xs px-4 py-2 rounded-full border-2 border-sun-dark shadow-retro-sm transform rotate-6 z-10">
                   20% OFF COMPLETE KIT
                 </div>
 
-                <div className="bg-gradient-to-b from-amber-100 to-amber-50 rounded-2xl p-6 border-2 border-sun-dark flex items-center justify-center">
+                <div className="bg-gradient-to-b from-amber-100 to-amber-50 rounded-2xl p-6 border-2 border-sun-dark flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100/80 transition-colors">
                   <img 
-                    src="/images/glow-kit.png" 
-                    alt="Koveria Glow Complete Kit" 
+                    src={flagshipProduct.image || "/images/glow-kit.png"} 
+                    alt={flagshipProduct.name || "Koveria Glow Complete Kit"} 
                     className="h-80 sm:h-96 object-contain filter drop-shadow-xl transform group-hover:scale-105 transition-transform duration-300"
                   />
+
+                  {/* Hover Prompt Badge */}
+                  <div className="absolute top-3 left-3 bg-sun-dark/80 text-sun-cream text-xs font-black px-3 py-1.5 rounded-full border border-sun-cream opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 shadow-md">
+                    <Eye className="w-3.5 h-3.5 text-sun-yellow" />
+                    <span>Click Image to View Details</span>
+                  </div>
                 </div>
 
-                <div className="mt-4 text-center space-y-1">
+                <div className="mt-4 text-center space-y-2">
                   <div className="flex justify-center items-center gap-1 text-amber-500">
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} className="w-4 h-4 fill-current" />
                     ))}
-                    <span className="text-xs font-bold text-sun-dark ml-1">(5.0/5.0)</span>
+                    <span className="text-xs font-bold text-sun-dark ml-1">({flagshipProduct.rating || '5.0'})</span>
                   </div>
-                  <h3 className="font-display font-black text-xl text-sun-dark uppercase">COMPLETE KOVERIA GLOW KIT</h3>
-                  <p className="text-xs font-bold text-sun-brown">Face Pack + Toner + Rose Water + Free Bag</p>
+                  <h3 className="font-display font-black text-xl text-sun-dark uppercase group-hover:text-amber-800 transition-colors">
+                    {flagshipProduct.name || 'COMPLETE KOVERIA GLOW KIT'}
+                  </h3>
+                  <p className="text-xs font-bold text-sun-brown">
+                    {flagshipProduct.subtitle || 'Face Pack + Toner + Rose Water + Free Bag'}
+                  </p>
+
+                  {/* Price Tag & Direct Quick Action Buttons */}
+                  <div className="pt-2 flex flex-col gap-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-2xl font-black text-emerald-800">
+                        Rs. {flagshipProduct.price ? flagshipProduct.price.toLocaleString() : '1,500'}
+                      </span>
+                      {flagshipProduct.originalPrice && (
+                        <span className="text-sm text-gray-400 line-through font-bold">
+                          Rs. {flagshipProduct.originalPrice.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={handleCardAddToCart}
+                        className={`font-black text-xs py-3 px-3 rounded-full border-2 border-sun-dark transition-all transform active:scale-95 flex items-center justify-center gap-1.5 uppercase shadow-retro-sm ${
+                          added 
+                            ? 'bg-emerald-600 text-white' 
+                            : 'bg-sun-yellow text-sun-dark hover:bg-amber-400'
+                        }`}
+                      >
+                        {added ? (
+                          <>
+                            <Check className="w-4 h-4" /> Added ✓
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag className="w-4 h-4" /> Add to Cart
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCardClick();
+                        }}
+                        className="font-black text-xs py-3 px-3 rounded-full border-2 border-sun-dark bg-sun-cream text-sun-dark hover:bg-sun-sand transition-all transform active:scale-95 flex items-center justify-center gap-1.5 uppercase shadow-retro-sm"
+                      >
+                        <Eye className="w-4 h-4 text-amber-700" />
+                        <span>View Details</span>
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
@@ -161,3 +232,4 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
     </section>
   );
 };
+

@@ -555,6 +555,7 @@ export function App() {
         <Hero 
           flagshipProduct={flagshipProduct}
           onAddToCart={handleAddToCart}
+          onViewDetails={(prod) => navigateTo('product', prod.id)}
           onOpenQuiz={() => setIsQuizOpen(true)}
         />
 
