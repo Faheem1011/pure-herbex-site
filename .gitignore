@@ -32,4 +32,5 @@ Thumbs.db
 API_KEYS_AND_CREDENTIALS.txt
 *.pem
 *.key
+*google_service_account.json
 

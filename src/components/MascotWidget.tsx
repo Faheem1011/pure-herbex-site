@@ -28,7 +28,7 @@ export const MascotWidget: React.FC = () => {
       <div className={`pointer-events-auto bg-sun-cream border-3 border-sun-dark p-4 rounded-2xl shadow-retro max-w-xs transition-all duration-300 transform origin-bottom-left ${
         isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
       }`}>
-        <div className="relative">
+        <div className="relative space-y-2">
           <button 
             onClick={() => setIsOpen(false)}
             className="absolute -top-3 -right-3 p-1 bg-sun-sand rounded-full border border-sun-dark text-xs"
@@ -38,6 +38,24 @@ export const MascotWidget: React.FC = () => {
           <p className="text-xs font-black text-sun-dark leading-relaxed">
             {bubbleText}
           </p>
+          <div className="pt-2 border-t border-sun-dark/15 flex flex-col gap-1.5">
+            <a 
+              href="https://wa.me/923206972422?text=Assalam-o-Alaikum%20Pure%20Herbex!%20I%20have%20a%20question."
+              target="_blank"
+              rel="noreferrer"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black py-1.5 px-3 rounded-full border border-sun-dark flex items-center justify-center gap-1 shadow-retro-sm"
+            >
+              💬 WhatsApp Line 1 (+92 320 6972422)
+            </a>
+            <a 
+              href="https://wa.me/923086952333?text=Assalam-o-Alaikum%20Pure%20Herbex!%20I%20have%20a%20question."
+              target="_blank"
+              rel="noreferrer"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black py-1.5 px-3 rounded-full border border-sun-dark flex items-center justify-center gap-1 shadow-retro-sm"
+            >
+              💬 WhatsApp Line 2 (+92 308 6952333)
+            </a>
+          </div>
         </div>
       </div>
 

@@ -56,11 +56,26 @@ export const ContactPage: React.FC = () => {
 
                 <div className="flex items-start gap-3 p-3 bg-sun-sand rounded-2xl border border-sun-dark/20">
                   <Phone className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="block font-black uppercase text-emerald-900">WhatsApp / Helpline</span>
-                    <a href="https://wa.me/923000000000" target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">
-                      +92 300 0000000 (WhatsApp Active)
-                    </a>
+                  <div className="space-y-1">
+                    <span className="block font-black uppercase text-emerald-900">WhatsApp / Direct Order Support</span>
+                    <div className="flex flex-col gap-1 text-xs">
+                      <a 
+                        href="https://wa.me/923206972422" 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="text-emerald-700 font-bold hover:underline flex items-center gap-1.5"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span> +92 320 6972422 (Primary WhatsApp)
+                      </a>
+                      <a 
+                        href="https://wa.me/923086952333" 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="text-emerald-700 font-bold hover:underline flex items-center gap-1.5"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span> +92 308 6952333 (Secondary WhatsApp)
+                      </a>
+                    </div>
                   </div>
                 </div>
 
