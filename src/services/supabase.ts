@@ -14,9 +14,12 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export async function fetchLiveProducts(): Promise<Product[]> {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*');
+    const fetchPromise = supabase.from('products').select('*');
+    const timeoutPromise = new Promise<{ data: null; error: Error }>((_, reject) =>
+      setTimeout(() => reject(new Error('Supabase request timeout')), 2000)
+    );
+
+    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
     if (!error && data && data.length > 0) {
       return data.map((item: any) => ({
@@ -41,7 +44,7 @@ export async function fetchLiveProducts(): Promise<Product[]> {
       }));
     }
   } catch (err) {
-    console.warn('[Supabase Products] Fetch error, using fallback', err);
+    console.warn('[Supabase Products] Fetch error or timeout, using fallback', err);
   }
 
   // Fallback to cache or default products

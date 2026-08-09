@@ -26,6 +26,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [isCheckoutStep, setIsCheckoutStep] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderTrackingCode, setOrderTrackingCode] = useState('');
+  const [lastWaMessage, setLastWaMessage] = useState('');
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -41,7 +42,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const shippingCost = 150; // Flat Rs. 150 delivery charges
   const totalAmount = subtotal + shippingCost;
 
-  // Check if eligible for upselling to the Complete Kit (contains face pack, toner or rose water individually)
+  // Check if eligible for upselling to the Complete Kit
   const hasFacePack = cartItems.some(i => i.product.id === 'koveria-glow-face-pack');
   const hasToner = cartItems.some(i => i.product.id === 'koveria-glow-toner');
   const hasRoseWater = cartItems.some(i => i.product.id === 'pure-rose-water');
@@ -50,19 +51,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const showUpsell = (hasFacePack || hasToner || hasRoseWater) && !hasCompleteKit;
 
   const handleUpgradeToKit = () => {
-    // Remove individual items
     onRemoveItem('koveria-glow-face-pack');
     onRemoveItem('koveria-glow-toner');
     onRemoveItem('pure-rose-water');
     
-    // Add Complete Kit
     const kitProduct = PRODUCTS.find(p => p.id === 'koveria-glow-complete-kit');
     if (kitProduct) {
       onAddToCart(kitProduct);
     }
   };
-
-  const [lastWaMessage, setLastWaMessage] = useState('');
 
   const buildWaMessage = (trackingCode: string) => {
     const itemsSummary = cartItems.map(i => `• ${i.quantity}x ${i.product.name} (Rs. ${(i.product.price * i.quantity).toLocaleString()})`).join('\n');
