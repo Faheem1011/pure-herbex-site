@@ -138,7 +138,7 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
               </span>
               {isComplete && (
                 <>
-                  <span className="text-lg text-gray-400 line-through">
+                  <span className="text-lg text-amber-950/75 line-through font-extrabold">
                     Rs. {rawTotal.toLocaleString()}
                   </span>
                   <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-2.5 py-1 rounded-full border border-emerald-500">

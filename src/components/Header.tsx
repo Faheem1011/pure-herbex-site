@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-sun-cream border-b-4 border-sun-dark shadow-sm">
       {/* Top Announcement Ticker */}
-      <div className="bg-sun-yellow text-sun-dark overflow-hidden py-2 border-b-2 border-sun-dark font-bold text-xs sm:text-sm">
+      <div className="bg-sun-yellow text-sun-dark overflow-hidden py-2 border-b-2 border-sun-dark font-extrabold text-xs sm:text-sm">
         <div className="animate-marquee whitespace-nowrap flex items-center gap-8">
           <span className="flex items-center gap-2">
             <Truck className="w-4 h-4" /> FLAT RS. 150 NATIONWIDE DELIVERY ACROSS PAKISTAN (3-4 DAYS)
@@ -65,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => handleShopNav('kits')} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow text-amber-700 font-black flex items-center gap-1"
             >
-              <Sparkles className="w-3.5 h-3.5 text-sun-yellow" /> Complete Kit
+              <Sparkles className="w-3.5 h-3.5 text-amber-700" /> Complete Kit
             </button>
             <button 
               onClick={() => { onNavigate('ingredients'); setIsMobileMenuOpen(false); }} 
@@ -109,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
               />
               <div className="flex flex-col text-left">
                 <span className="font-display font-black text-2xl tracking-tight text-sun-dark leading-none">
-                  KOVERIA<span className="text-sun-yellow">GLOW</span>
+                  KOVERIA<span className="text-amber-700">GLOW</span>
                 </span>
                 <span className="text-[10px] font-black tracking-widest text-amber-800 uppercase">
                   by Pure Herbex

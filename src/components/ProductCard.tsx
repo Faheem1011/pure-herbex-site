@@ -90,7 +90,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
               Rs. {product.price.toLocaleString()}
             </span>
             {product.originalPrice && (
-              <span className="text-xs text-gray-400 line-through ml-1.5 font-bold">
+              <span className="text-xs text-amber-950/75 line-through ml-1.5 font-extrabold">
                 Rs. {product.originalPrice.toLocaleString()}
               </span>
             )}

@@ -1,0 +1,31 @@
+# PURE HERBEX ENTERPRISE SECURITY & PERFORMANCE HEADERS
+
+<IfModule mod_headers.c>
+    # 1. Content Security Policy (CSP) - Mitigate XSS & Unsafe Injections
+    Header set Content-Security-Policy "default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; object-src 'none'; base-uri 'self';"
+
+    # 2. HTTP Strict Transport Security (HSTS)
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # 3. Cross-Origin Opener Policy (COOP)
+    Header set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+
+    # 4. Prevent MIME Sniffing
+    Header set X-Content-Type-Options "nosniff"
+
+    # 5. Prevent Clickjacking
+    Header set X-Frame-Options "SAMEORIGIN"
+
+    # 6. Referrer Policy
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# SPA Fallback Routing for React SPA
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    RewriteRule ^index\.html$ - [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . /index.html [L]
+</IfModule>

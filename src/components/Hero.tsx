@@ -91,12 +91,12 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
             {/* Complete Kit Deal Callout */}
             <div className="bg-sun-cream border-2 border-sun-dark p-3.5 rounded-2xl shadow-retro-sm text-left max-w-lg mx-auto lg:mx-0 flex items-center justify-between gap-4">
               <div>
-                <div className="text-[10px] font-black text-amber-800 uppercase tracking-widest">🎁 LIMITED TIME OFFER</div>
+                <div className="text-[10px] font-black text-amber-950 uppercase tracking-widest">🎁 LIMITED TIME OFFER</div>
                 <div className="font-display font-black text-base text-sun-dark uppercase">Koveria Complete 3-Piece Kit</div>
-                <p className="text-xs text-sun-brown font-semibold">Face Pack + Toner + Pure Rose Water</p>
+                <p className="text-xs text-amber-950 font-bold">Face Pack + Toner + Pure Rose Water</p>
               </div>
               <div className="text-right">
-                <span className="text-gray-400 line-through text-xs font-bold mr-1.5">Rs. 1,800</span>
+                <span className="text-amber-950/75 line-through text-xs font-extrabold mr-1.5">Rs. 1,800</span>
                 <span className="text-xl font-black text-emerald-800">Rs. 1,500</span>
               </div>
             </div>
@@ -143,7 +143,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                 className="bg-sun-cream border-4 border-sun-dark p-6 rounded-3xl shadow-retro-lg transform -rotate-1 group-hover:rotate-0 transition-all duration-300 relative cursor-pointer group-hover:shadow-2xl"
               >
                 
-                <div className="absolute -top-4 -right-4 bg-sun-coral text-white font-extrabold text-xs px-4 py-2 rounded-full border-2 border-sun-dark shadow-retro-sm transform rotate-6 z-10">
+                <div className="absolute -top-4 -right-4 bg-rose-900 text-white font-black text-xs px-4 py-2 rounded-full border-2 border-sun-dark shadow-retro-sm transform rotate-6 z-10">
                   20% OFF COMPLETE KIT
                 </div>
 
@@ -168,10 +168,10 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                     ))}
                     <span className="text-xs font-bold text-sun-dark ml-1">({flagshipProduct.rating || '5.0'})</span>
                   </div>
-                  <h3 className="font-display font-black text-xl text-sun-dark uppercase group-hover:text-amber-800 transition-colors">
+                  <h2 className="font-display font-black text-xl text-sun-dark uppercase group-hover:text-amber-800 transition-colors">
                     {flagshipProduct.name || 'COMPLETE KOVERIA GLOW KIT'}
-                  </h3>
-                  <p className="text-xs font-bold text-sun-brown">
+                  </h2>
+                  <p className="text-xs font-bold text-amber-950">
                     {flagshipProduct.subtitle || 'Face Pack + Toner + Rose Water + Free Bag'}
                   </p>
 
@@ -182,7 +182,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                         Rs. {flagshipProduct.price ? flagshipProduct.price.toLocaleString() : '1,500'}
                       </span>
                       {flagshipProduct.originalPrice && (
-                        <span className="text-sm text-gray-400 line-through font-bold">
+                        <span className="text-sm text-amber-950/75 line-through font-extrabold">
                           Rs. {flagshipProduct.originalPrice.toLocaleString()}
                         </span>
                       )}

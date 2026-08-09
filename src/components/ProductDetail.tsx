@@ -92,7 +92,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, onAddToCa
                   Rs. {product.price.toLocaleString()}
                 </span>
                 {product.originalPrice && product.originalPrice > product.price && (
-                  <span className="text-lg font-bold text-gray-400 line-through">
+                  <span className="text-lg font-extrabold text-amber-950/75 line-through">
                     Rs. {product.originalPrice.toLocaleString()}
                   </span>
                 )}

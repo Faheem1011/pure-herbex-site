@@ -56,7 +56,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, onClose
             <div className="text-2xl font-black text-sun-dark">
               Rs. {product.price.toLocaleString()}
               {product.originalPrice && (
-                <span className="text-sm text-gray-400 line-through ml-2 font-bold">
+                <span className="text-sm text-amber-950/75 line-through ml-2 font-extrabold">
                   Rs. {product.originalPrice.toLocaleString()}
                 </span>
               )}
