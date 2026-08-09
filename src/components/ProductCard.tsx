@@ -32,7 +32,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
       {/* Product Image Container */}
       <div 
         onClick={() => onQuickView(product)}
-        className="cursor-pointer bg-gradient-to-b from-amber-50 to-sun-sand rounded-2xl p-6 mb-4 border-2 border-sun-dark/10 flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100 transition-colors"
+        className="cursor-pointer bg-gradient-to-b from-amber-50 to-sun-sand rounded-2xl p-4 mb-4 border-2 border-sun-dark/10 flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100 transition-colors aspect-square h-56 sm:h-64 w-full"
       >
         <img 
           src={product.image} 
@@ -42,7 +42,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
           width="300"
           height="300"
           decoding="async"
-          className="h-56 sm:h-64 object-contain filter drop-shadow-md transform group-hover:scale-105 transition-transform duration-300"
+          className="h-full w-full object-contain filter drop-shadow-md transform group-hover:scale-105 transition-transform duration-300"
         />
 
         <button 

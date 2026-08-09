@@ -150,7 +150,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                   20% OFF COMPLETE KIT
                 </div>
 
-                <div className="bg-gradient-to-b from-amber-100 to-amber-50 rounded-2xl p-6 border-2 border-sun-dark flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100/80 transition-colors">
+                <div className="bg-gradient-to-b from-amber-100 to-amber-50 rounded-2xl p-4 border-2 border-sun-dark flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100/80 transition-colors h-80 sm:h-96 w-full aspect-square">
                   <img 
                     src={flagshipProduct.image || "/images/glow-kit.png"} 
                     alt={flagshipProduct.name || "Koveria Glow Complete Kit"} 
@@ -158,7 +158,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                     height="400"
                     decoding="async"
                     fetchPriority="high"
-                    className="h-80 sm:h-96 object-contain filter drop-shadow-xl transform group-hover:scale-105 transition-transform duration-300"
+                    className="h-full w-full object-contain filter drop-shadow-xl transform group-hover:scale-105 transition-transform duration-300"
                   />
 
                   {/* Hover Prompt Badge */}
