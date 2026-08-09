@@ -54,7 +54,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
           {/* Brand Info */}
           <div className="space-y-4 md:col-span-1">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('home')}>
-              <img src="/images/brand_logo.png" alt="Pure Herbex" className="h-10 w-auto" />
+              <img src="/images/brand_logo.png" alt="Pure Herbex Logo" width="160" height="40" decoding="async" className="h-10 w-auto" />
               <span className="font-display font-black text-xl text-sun-yellow">
                 KOVERIA<span className="text-sun-cream">GLOW</span>
               </span>
@@ -63,9 +63,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
               Pure Herbex creates clean, clinical-grade botanical skincare and sun protection products crafted for radiant, healthy skin under the sun.
             </p>
             <div className="flex items-center gap-3 text-sun-yellow">
-              <a href="#" className="p-2 bg-sun-brown rounded-full hover:bg-sun-yellow hover:text-sun-dark transition-colors"><Instagram className="w-4 h-4" /></a>
-              <a href="#" className="p-2 bg-sun-brown rounded-full hover:bg-sun-yellow hover:text-sun-dark transition-colors"><Facebook className="w-4 h-4" /></a>
-              <a href="#" className="p-2 bg-sun-brown rounded-full hover:bg-sun-yellow hover:text-sun-dark transition-colors"><Youtube className="w-4 h-4" /></a>
+              <a href="#" aria-label="Follow Pure Herbex on Instagram" className="p-2 bg-sun-brown rounded-full hover:bg-sun-yellow hover:text-sun-dark transition-colors"><Instagram className="w-4 h-4" /></a>
+              <a href="#" aria-label="Follow Pure Herbex on Facebook" className="p-2 bg-sun-brown rounded-full hover:bg-sun-yellow hover:text-sun-dark transition-colors"><Facebook className="w-4 h-4" /></a>
+              <a href="#" aria-label="Follow Pure Herbex on YouTube" className="p-2 bg-sun-brown rounded-full hover:bg-sun-yellow hover:text-sun-dark transition-colors"><Youtube className="w-4 h-4" /></a>
             </div>
           </div>
 

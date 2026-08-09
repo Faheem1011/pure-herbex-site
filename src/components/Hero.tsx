@@ -43,6 +43,9 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                 <img 
                   src="/images/mascot_glow_koala.png" 
                   alt="Kovera Mascot" 
+                  width="64"
+                  height="64"
+                  decoding="async"
                   className="w-16 h-16 rounded-full border-3 border-sun-dark object-cover shadow-retro transform group-hover:rotate-6 transition-transform"
                 />
                 <div className="absolute -bottom-1 -right-1 bg-sun-yellow border-2 border-sun-dark p-1 rounded-full text-xs font-black shadow-retro-sm">
@@ -151,6 +154,10 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                   <img 
                     src={flagshipProduct.image || "/images/glow-kit.png"} 
                     alt={flagshipProduct.name || "Koveria Glow Complete Kit"} 
+                    width="400"
+                    height="400"
+                    decoding="async"
+                    fetchPriority="high"
                     className="h-80 sm:h-96 object-contain filter drop-shadow-xl transform group-hover:scale-105 transition-transform duration-300"
                   />
 

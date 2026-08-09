@@ -82,25 +82,25 @@ export const ReviewsSection: React.FC = () => {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
             <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden flex items-center justify-center p-2 relative group">
-              <img src="/images/koveria-flagship.png" alt="User review" className="h-full object-contain transform group-hover:scale-110 transition-transform" />
+              <img src="/images/koveria-flagship.png" alt="Koveria Glow Complete Kit Customer Review by Ayesha" width="200" height="200" loading="lazy" decoding="async" className="h-full object-contain transform group-hover:scale-110 transition-transform" />
               <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs">
                 @ayesha_k
               </div>
             </div>
             <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden flex items-center justify-center p-2 relative group">
-              <img src="/images/glow-elixir.png" alt="User review" className="h-full object-contain transform group-hover:scale-110 transition-transform" />
+              <img src="/images/glow-elixir.png" alt="Pure Steam Distilled Rose Water Customer Review by Zainab" width="200" height="200" loading="lazy" decoding="async" className="h-full object-contain transform group-hover:scale-110 transition-transform" />
               <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs">
                 @zainab_m
               </div>
             </div>
             <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden flex items-center justify-center p-2 relative group">
-              <img src="/images/glow-mist.png" alt="User review" className="h-full object-contain transform group-hover:scale-110 transition-transform" />
+              <img src="/images/glow-mist.png" alt="Koveria Glow Hydrating Toner Customer Review by Bilal" width="200" height="200" loading="lazy" decoding="async" className="h-full object-contain transform group-hover:scale-110 transition-transform" />
               <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs">
                 @bilal_r
               </div>
             </div>
             <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden flex items-center justify-center p-2 relative group">
-              <img src="/images/glow-kit.png" alt="User review" className="h-full object-contain transform group-hover:scale-110 transition-transform" />
+              <img src="/images/glow-kit.png" alt="Koveria Glow 3 Piece Bundle Customer Review by Fatima" width="200" height="200" loading="lazy" decoding="async" className="h-full object-contain transform group-hover:scale-110 transition-transform" />
               <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs">
                 @fatima_h
               </div>

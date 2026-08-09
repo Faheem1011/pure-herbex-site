@@ -93,6 +93,10 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
                   <img 
                     src={product.image} 
                     alt={product.name} 
+                    width="200"
+                    height="200"
+                    decoding="async"
+                    loading="lazy"
                     className="h-44 object-contain"
                   />
                 </div>

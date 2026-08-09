@@ -64,10 +64,14 @@ export const MascotWidget: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="pointer-events-auto relative group bg-sun-yellow border-3 border-sun-dark p-1.5 rounded-full shadow-retro hover:bg-amber-400 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center"
         title="Chat with Kovera"
+        aria-label="Chat with Kovera Mascot"
       >
         <img 
           src="/images/mascot_glow_koala.png" 
           alt="Kovera Mascot" 
+          width="56"
+          height="56"
+          decoding="async"
           className="w-14 h-14 rounded-full border-2 border-sun-dark object-cover"
         />
         <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border border-sun-dark shadow-retro-sm text-[10px] animate-pulse">

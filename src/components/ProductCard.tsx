@@ -39,6 +39,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
           alt={`${product.name} - Pure Herbex Artisanal Botanical Skincare`} 
           title={`${product.name} by Pure Herbex`}
           loading="lazy"
+          width="300"
+          height="300"
+          decoding="async"
           className="h-56 sm:h-64 object-contain filter drop-shadow-md transform group-hover:scale-105 transition-transform duration-300"
         />
 
