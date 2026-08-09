@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ShoppingBag, Sparkles, Truck, ShieldCheck, MapPin, Lock, Menu, X } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface HeaderProps {
   cartCount: number;
@@ -102,22 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Logo Center */}
           <div className="flex items-center gap-3">
             <button onClick={() => onNavigate('home')} className="flex items-center gap-2 group text-left">
-              <img 
-                src="/images/brand_logo.png" 
-                alt="Pure Herbex Logo" 
-                width="180"
-                height="48"
-                decoding="async"
-                className="h-12 w-auto object-contain transform group-hover:scale-105 transition-transform" 
-              />
-              <div className="flex flex-col text-left">
-                <span className="font-display font-black text-2xl tracking-tight text-sun-dark leading-none">
-                  KOVERIA<span className="text-amber-700">GLOW</span>
-                </span>
-                <span className="text-[10px] font-black tracking-widest text-amber-800 uppercase">
-                  by Pure Herbex
-                </span>
-              </div>
+              <BrandLogo className="transform group-hover:scale-105 transition-transform" />
             </button>
           </div>
 

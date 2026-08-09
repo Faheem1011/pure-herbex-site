@@ -41,11 +41,14 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
               <div className="relative flex-shrink-0 group">
                 <img 
-                  src="/images/mascot_glow_koala.png" 
+                  src="https://images.unsplash.com/photo-1540573133985-780688d172c7?q=80&w=400&auto=format&fit=crop" 
                   alt="Kovera Mascot" 
                   width="64"
                   height="64"
                   decoding="async"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/images/mascot_glow_koala.png';
+                  }}
                   className="w-16 h-16 rounded-full border-3 border-sun-dark object-cover shadow-retro transform group-hover:rotate-6 transition-transform"
                 />
                 <div className="absolute -bottom-1 -right-1 bg-sun-yellow border-2 border-sun-dark p-1 rounded-full text-xs font-black shadow-retro-sm">
@@ -150,15 +153,18 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                   20% OFF COMPLETE KIT
                 </div>
 
-                <div className="bg-gradient-to-b from-amber-100 to-amber-50 rounded-2xl p-4 border-2 border-sun-dark flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100/80 transition-colors h-80 sm:h-96 w-full aspect-square">
+                <div className="bg-gradient-to-b from-amber-100 to-amber-50 rounded-2xl p-2 border-2 border-sun-dark flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100/80 transition-colors h-80 sm:h-96 w-full aspect-square">
                   <img 
-                    src={flagshipProduct.image || "/images/glow-kit.png"} 
+                    src={flagshipProduct.image || "https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop"} 
                     alt={flagshipProduct.name || "Koveria Glow Complete Kit"} 
                     width="400"
                     height="400"
                     decoding="async"
                     fetchPriority="high"
-                    className="h-full w-full object-contain filter drop-shadow-xl transform group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                    }}
+                    className="h-full w-full object-cover rounded-xl filter drop-shadow-xl transform group-hover:scale-105 transition-transform duration-500"
                   />
 
                   {/* Hover Prompt Badge */}

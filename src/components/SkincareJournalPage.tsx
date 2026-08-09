@@ -63,7 +63,10 @@ export const SkincareJournalPage: React.FC<SkincareJournalPageProps> = ({
             <img 
               src={currentPost.image} 
               alt={currentPost.title} 
-              className="w-full max-h-[400px] object-cover rounded-2xl border-3 border-sun-dark shadow-retro"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+              }}
+              className="w-full max-h-[400px] aspect-video object-cover rounded-2xl border-3 border-sun-dark shadow-retro"
             />
 
             {/* Article Intro */}
@@ -113,7 +116,14 @@ export const SkincareJournalPage: React.FC<SkincareJournalPageProps> = ({
                 {relatedProducts.map(prod => (
                   <div key={prod!.id} className="bg-sun-sand border-2 border-sun-dark rounded-2xl p-4 space-y-3 flex flex-col justify-between">
                     <div>
-                      <img src={prod!.image} alt={prod!.name} className="h-32 object-contain mx-auto mb-2" />
+                      <img 
+                        src={prod!.image} 
+                        alt={prod!.name} 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                        }}
+                        className="h-32 w-full object-cover rounded-xl mb-2" 
+                      />
                       <h4 className="font-display font-black text-sm text-sun-dark line-clamp-1">{prod!.name}</h4>
                       <p className="text-xs font-bold text-sun-brown mt-0.5">Rs. {prod!.price.toLocaleString()}</p>
                     </div>
@@ -166,7 +176,10 @@ export const SkincareJournalPage: React.FC<SkincareJournalPageProps> = ({
                   <img 
                     src={post.image} 
                     alt={post.title} 
-                    className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                   />
                 </div>
 

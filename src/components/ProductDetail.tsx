@@ -34,7 +34,7 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, onAddToCa
         <div className="bg-sun-cream border-4 border-sun-dark rounded-3xl p-6 sm:p-10 shadow-retro-lg grid grid-cols-1 md:grid-cols-2 gap-10">
           {/* Left Column: Product Image */}
           <div className="space-y-4">
-            <div className="relative bg-sun-sand rounded-2xl border-3 border-sun-dark p-8 overflow-hidden shadow-retro group flex items-center justify-center min-h-[350px]">
+            <div className="relative bg-sun-sand rounded-2xl border-3 border-sun-dark p-3 overflow-hidden shadow-retro group flex items-center justify-center aspect-square w-full max-h-[420px]">
               {product.badge && (
                 <span className="badge-sticker bg-sun-yellow text-sun-dark text-xs uppercase absolute top-4 left-4 z-10">
                   {product.badge}
@@ -44,7 +44,10 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, onAddToCa
                 src={product.image} 
                 alt={`${product.name} - Pure Herbex Koveria Glow Botanical Skincare`} 
                 title={`${product.name} - Artisanal Natural Ritual`}
-                className="w-full max-h-[380px] object-contain transform group-hover:scale-105 transition-transform duration-300"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                }}
+                className="w-full h-full object-cover rounded-xl transform group-hover:scale-105 transition-transform duration-300"
               />
             </div>
 

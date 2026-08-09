@@ -155,7 +155,10 @@ export const RoutineFinder: React.FC<RoutineFinderProps> = ({
               <img 
                 src={recommendedProduct.image} 
                 alt={recommendedProduct.name} 
-                className="h-44 object-contain bg-amber-50 p-3 rounded-2xl border border-sun-dark/20"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                }}
+                className="w-36 h-36 object-cover rounded-2xl border border-sun-dark/20 flex-shrink-0"
               />
               <div className="space-y-2">
                 <span className="badge-sticker text-[10px] uppercase">MATCH SCORE: 99%</span>

@@ -334,7 +334,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <img 
                         src={item.product.image} 
                         alt={item.product.name} 
-                        className="w-16 h-16 object-contain bg-amber-50 rounded-xl p-1 border border-sun-dark/20"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                        }}
+                        className="w-16 h-16 object-cover rounded-xl border border-sun-dark flex-shrink-0"
                       />
                       <div className="flex-1 space-y-1">
                         <h4 className="font-display font-black text-sm text-sun-dark leading-tight">

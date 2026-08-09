@@ -30,7 +30,7 @@ export const BLOG_POSTS: BlogPost[] = [
     readTime: '4 min read',
     date: 'August 5, 2026',
     author: 'Pure Herbex Botanical Research Team',
-    image: '/images/glow-elixir.png',
+    image: 'https://images.unsplash.com/photo-1563178406-4cdc2923acbc?q=80&w=1000&auto=format&fit=crop',
     excerpt: 'Discover why 100% pure steam-distilled Rosa Damascena rose water hydrosol is essential for restoring your natural skin pH, soothing sun heat, and achieving an instant healthy glow.',
     keywords: ['steam distilled rose water', 'rose water benefits', 'pure rose hydrosol', 'organic skincare Pakistan', 'natural toner for glowing skin'],
     content: {
@@ -74,7 +74,7 @@ export const BLOG_POSTS: BlogPost[] = [
     readTime: '5 min read',
     date: 'August 2, 2026',
     author: 'Pure Herbex Botanical Research Team',
-    image: '/images/glow-serum.png',
+    image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?q=80&w=1000&auto=format&fit=crop',
     excerpt: 'Sheet masks offer temporary wetness, but freshly activated herbal powder masks deliver potent active botanicals with zero preservatives or synthetic microplastics.',
     keywords: ['herbal face pack powder', 'artisanal skincare', 'natural exfoliating mask', 'moringa face pack', 'multani mitti glow mask'],
     content: {
@@ -110,7 +110,7 @@ export const BLOG_POSTS: BlogPost[] = [
     readTime: '4 min read',
     date: 'July 28, 2026',
     author: 'Koveria Glow Beauty Specialists',
-    image: '/images/glow-kit.png',
+    image: 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop',
     excerpt: 'Transform your skin with a simple 15-minute 3-step ritual engineered to repair UV exposure, fade dark spots, and lock in deep botanical hydration.',
     keywords: ['3 step skincare routine', 'sun radiance ritual', 'Koveria Glow kit', 'natural skincare routine', 'glowing skin routine'],
     content: {

@@ -24,11 +24,14 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, onClose
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           
-          <div className="bg-gradient-to-b from-amber-50 to-sun-sand p-6 rounded-2xl border-2 border-sun-dark flex items-center justify-center">
+          <div className="bg-gradient-to-b from-amber-50 to-sun-sand p-2 rounded-2xl border-2 border-sun-dark flex items-center justify-center aspect-square h-64 sm:h-72 w-full overflow-hidden">
             <img 
               src={product.image} 
               alt={product.name} 
-              className="h-72 object-contain filter drop-shadow-lg"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+              }}
+              className="h-full w-full object-cover rounded-xl filter drop-shadow-lg"
             />
           </div>
 

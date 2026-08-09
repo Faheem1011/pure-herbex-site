@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, ShieldCheck, Heart, Mail, Instagram, Facebook, Youtube, Lock } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface FooterProps {
   onNavigate: (route: string) => void;
@@ -53,11 +54,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
           
           {/* Brand Info */}
           <div className="space-y-4 md:col-span-1">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('home')}>
-              <img src="/images/brand_logo.png" alt="Pure Herbex Logo" width="160" height="40" decoding="async" className="h-10 w-auto" />
-              <span className="font-display font-black text-xl text-sun-yellow">
-                KOVERIA<span className="text-sun-cream">GLOW</span>
-              </span>
+            <div className="flex items-center gap-2 cursor-pointer bg-sun-cream/10 p-2.5 rounded-2xl border border-sun-cream/20 inline-flex" onClick={() => onNavigate('home')}>
+              <BrandLogo />
             </div>
             <p className="text-xs text-gray-300 leading-relaxed font-medium">
               Pure Herbex creates clean, clinical-grade botanical skincare and sun protection products crafted for radiant, healthy skin under the sun.

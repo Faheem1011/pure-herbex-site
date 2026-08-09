@@ -32,7 +32,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
       {/* Product Image Container */}
       <div 
         onClick={() => onQuickView(product)}
-        className="cursor-pointer bg-gradient-to-b from-amber-50 to-sun-sand rounded-2xl p-4 mb-4 border-2 border-sun-dark/10 flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100 transition-colors aspect-square h-56 sm:h-64 w-full"
+        className="cursor-pointer bg-gradient-to-b from-amber-50 to-sun-sand rounded-2xl p-2 mb-4 border-2 border-sun-dark/10 flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100/80 transition-colors aspect-square h-56 sm:h-64 w-full"
       >
         <img 
           src={product.image} 
@@ -42,7 +42,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
           width="300"
           height="300"
           decoding="async"
-          className="h-full w-full object-contain filter drop-shadow-md transform group-hover:scale-105 transition-transform duration-300"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+          }}
+          className="h-full w-full object-cover rounded-xl filter drop-shadow-md transform group-hover:scale-105 transition-transform duration-500"
         />
 
         <button 
