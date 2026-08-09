@@ -45,7 +45,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
           onError={(e) => {
             (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
           }}
-          className="h-full w-full object-cover rounded-xl filter drop-shadow-md transform group-hover:scale-105 transition-transform duration-500"
+          className="h-full w-full object-contain p-2 filter drop-shadow-md transform group-hover:scale-105 transition-transform duration-500"
         />
 
         <button 

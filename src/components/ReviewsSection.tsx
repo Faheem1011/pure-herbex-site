@@ -83,15 +83,12 @@ export const ReviewsSection: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
             <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden relative group">
               <img 
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop" 
+                src="/images/pakistani_model_female_1.png" 
                 alt="Koveria Glow Complete Kit Customer Review by Ayesha" 
                 width="300" 
                 height="300" 
                 loading="lazy" 
                 decoding="async" 
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
-                }}
                 className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" 
               />
               <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs text-sun-cream">
@@ -100,15 +97,26 @@ export const ReviewsSection: React.FC = () => {
             </div>
             <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden relative group">
               <img 
-                src="https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop" 
-                alt="Pure Steam Distilled Rose Water Customer Review by Zainab" 
+                src="/images/pakistani_model_male_1.png" 
+                alt="Pure Steam Distilled Rose Water Customer Review by Hamza" 
                 width="300" 
                 height="300" 
                 loading="lazy" 
                 decoding="async" 
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1563178406-4cdc2923acbc?q=80&w=1000&auto=format&fit=crop';
-                }}
+                className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" 
+              />
+              <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs text-sun-cream">
+                @hamza_r
+              </div>
+            </div>
+            <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden relative group">
+              <img 
+                src="/images/pakistani_model_female_2.png" 
+                alt="Koveria Glow Hydrating Toner Customer Review by Zainab" 
+                width="300" 
+                height="300" 
+                loading="lazy" 
+                decoding="async" 
                 className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" 
               />
               <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs text-sun-cream">
@@ -117,36 +125,16 @@ export const ReviewsSection: React.FC = () => {
             </div>
             <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden relative group">
               <img 
-                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop" 
-                alt="Koveria Glow Hydrating Toner Customer Review by Bilal" 
+                src="/images/pakistani_model_male_2.png" 
+                alt="Koveria Glow 3 Piece Bundle Customer Review by Bilal" 
                 width="300" 
                 height="300" 
                 loading="lazy" 
                 decoding="async" 
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=1000&auto=format&fit=crop';
-                }}
                 className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" 
               />
               <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs text-sun-cream">
-                @bilal_r
-              </div>
-            </div>
-            <div className="aspect-square bg-sun-brown/40 rounded-2xl border-2 border-sun-cream/20 overflow-hidden relative group">
-              <img 
-                src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=600&auto=format&fit=crop" 
-                alt="Koveria Glow 3 Piece Bundle Customer Review by Fatima" 
-                width="300" 
-                height="300" 
-                loading="lazy" 
-                decoding="async" 
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
-                }}
-                className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" 
-              />
-              <div className="absolute inset-0 bg-sun-dark/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold text-xs text-sun-cream">
-                @fatima_h
+                @bilal_h
               </div>
             </div>
           </div>

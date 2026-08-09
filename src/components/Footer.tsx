@@ -55,7 +55,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
           {/* Brand Info */}
           <div className="space-y-4 md:col-span-1">
             <div className="flex items-center gap-2 cursor-pointer bg-sun-cream/10 p-2.5 rounded-2xl border border-sun-cream/20 inline-flex" onClick={() => onNavigate('home')}>
-              <BrandLogo />
+              <BrandLogo light={true} />
             </div>
             <p className="text-xs text-gray-300 leading-relaxed font-medium">
               Pure Herbex creates clean, clinical-grade botanical skincare and sun protection products crafted for radiant, healthy skin under the sun.

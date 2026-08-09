@@ -31,7 +31,7 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ product, onClose
               onError={(e) => {
                 (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
               }}
-              className="h-full w-full object-cover rounded-xl filter drop-shadow-lg"
+              className="h-full w-full object-contain p-3 filter drop-shadow-lg"
             />
           </div>
 
