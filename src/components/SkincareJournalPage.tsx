@@ -122,7 +122,7 @@ export const SkincareJournalPage: React.FC<SkincareJournalPageProps> = ({
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
                         }}
-                        className="h-32 w-full object-cover rounded-xl mb-2" 
+                        className="h-32 w-full object-contain p-2 rounded-xl mb-2" 
                       />
                       <h4 className="font-display font-black text-sm text-sun-dark line-clamp-1">{prod!.name}</h4>
                       <p className="text-xs font-bold text-sun-brown mt-0.5">Rs. {prod!.price.toLocaleString()}</p>

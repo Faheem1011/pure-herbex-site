@@ -89,7 +89,7 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
                   </div>
                 )}
 
-                <div className="bg-sun-sand rounded-xl p-2 mb-4 border border-sun-dark/20 flex justify-center aspect-square h-48 w-full overflow-hidden">
+                <div className="bg-sun-sand rounded-xl p-3 mb-4 border border-sun-dark/20 flex items-center justify-center aspect-square h-48 sm:h-52 w-full overflow-hidden">
                   <img 
                     src={product.image} 
                     alt={product.name} 
@@ -100,7 +100,7 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
                     }}
-                    className="h-full w-full object-cover rounded-lg"
+                    className="max-h-full max-w-full h-auto w-auto object-contain"
                   />
                 </div>
 
