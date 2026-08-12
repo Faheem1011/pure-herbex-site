@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "server": "tsx server.ts",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "index:google": "node scripts/submit_google_indexing.js"
   },
