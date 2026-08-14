@@ -73,12 +73,12 @@ const STORAGE_KEY_SHIPMENTS = 'pureherbex_courier_shipments';
 const STORAGE_KEY_LOGS = 'pureherbex_courier_api_logs';
 
 export const DEFAULT_COURIER_CONFIG: RunCourierConfig = {
-  clientCode: 'RUN-PH-9921',
-  authKey: 'auth_run_prod_live_8391849204128',
-  profileId: 'PROF-LEO-01',
+  clientCode: '6943',
+  authKey: '23d4734f-0c1c-4586-90f6-210c4ec8d2f9',
+  profileId: '6943',
   apiBaseUrl: 'https://portal.runcourier.com/API',
   defaultService: 'Overnight',
-  defaultGateway: '28|1', // Leopard Courier
+  defaultGateway: '28|1', // Leopard Courier Gateway (api_vendor = "28|1")
   originCity: 'Lahore',
   autoCreateShipment: true,
   autoSyncTracking: true
