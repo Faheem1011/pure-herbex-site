@@ -20,10 +20,10 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 }) => {
   const categories = [
     { id: 'all', label: 'All Products' },
-    { id: 'serums', label: 'Facial Serums' },
-    { id: 'oils', label: 'Radiance Oils' },
-    { id: 'mists', label: 'Hydrating Mists' },
-    { id: 'bundles', label: 'Bundles & Kits' }
+    { id: 'kits', label: 'Complete Kit' },
+    { id: 'facepack', label: 'Face Pack' },
+    { id: 'toner', label: 'Night Toner' },
+    { id: 'rosewater', label: 'Rose Water' }
   ];
 
   const filteredProducts = selectedCategory === 'all' 

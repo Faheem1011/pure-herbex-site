@@ -19,7 +19,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Rosa Damascena Flower Powder',
     category: 'Botanical Brightener & Anti-Aging',
     origin: 'Hand-picked organic Damask Roses from ancient rose valleys',
-    image: '/images/glow-elixir.png',
+    image: '/images/glow-rose-water.png',
     summary: 'Cold-milled dried petals rich in Natural Vitamin C, polyphenol antioxidants, and soothing essential tannins. Gently fades dark spots while restoring youthful skin elasticity.',
     keyBenefits: [
       'Natural Vitamin C brightens dull & uneven skin complexion',
@@ -29,7 +29,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     ],
     skinTypeSuitability: ['All Skin Types', 'Sensitive Skin', 'Mature Skin', 'Sun-Stressed Skin'],
     scientificMechanism: 'Rich in L-ascorbic acid precursors and quercetin bioflavonoids, rose petal powder inhibits tyrosinase enzymes to reduce melanin production while stimulating natural collagen synthesis.',
-    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-face-pack', 'koveria-lip-glow-elixir']
+    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-face-pack']
   },
   {
     id: 'moringa-leaf-extract',
@@ -37,7 +37,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Moringa Oleifera Leaf Powder',
     category: 'Superfood Detox & Anti-Pollution',
     origin: 'Organically cultivated Miracle Tree leaves',
-    image: '/images/glow-serum.png',
+    image: '/images/glow-facepack.png',
     summary: 'Known as the "Miracle Tree," Moringa contains 46 antioxidants and 90+ nutrients. Protects skin against urban smog, environmental pollutants, and premature cell aging.',
     keyBenefits: [
       'Protects against urban pollution & micro-particulate damage',
@@ -47,7 +47,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     ],
     skinTypeSuitability: ['Oily & Acne-Prone', 'Combination Skin', 'Pollution-Exposed Skin'],
     scientificMechanism: 'Moringa contains zeatin, a plant hormone that accelerates cell division and tissue growth, along with high concentrations of chlorophyll that detoxify cellular debris.',
-    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-face-pack', 'koveria-detox-neem-scrub']
+    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-face-pack']
   },
   {
     id: 'organic-arabica-coffee',
@@ -55,7 +55,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Coffea Arabica Seed Powder',
     category: 'Exfoliant & Micro-Circulation Booster',
     origin: 'Single-origin shade-grown organic Arabica beans',
-    image: '/images/glow-serum.png',
+    image: '/images/glow-facepack.png',
     summary: 'Finely ground organic coffee beans deliver gentle mechanical exfoliation while active caffeine stimulates micro-circulation to reduce puffiness and dullness.',
     keyBenefits: [
       'Gently buffs away dead skin cells for silky smoothness',
@@ -83,7 +83,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     ],
     skinTypeSuitability: ['Oily Skin', 'Acne-Prone Skin', 'Large Pores'],
     scientificMechanism: 'Montmorillonite silicate minerals exhibit high cation exchange capacity, physically drawing positively charged toxin particles and lipids out of hair follicles.',
-    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-face-pack', 'koveria-detox-neem-scrub']
+    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-face-pack']
   },
   {
     id: 'steam-distilled-rose-water',
@@ -91,7 +91,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Rosa Damascena Flower Water',
     category: 'Pure Hydrosol & pH Balancer',
     origin: 'Traditional copper pot steam distillation',
-    image: '/images/glow-elixir.png',
+    image: '/images/glow-rose-water.png',
     summary: 'Pure aromatic hydrosol captured during essential oil steam distillation. Restores natural skin pH (5.5), delivers oil-free hydration, and locks in moisture after face pack rituals.',
     keyBenefits: [
       'Instantly restores ideal skin pH balance after cleansing',
@@ -109,7 +109,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Aloe Barbadensis Leaf Juice',
     category: 'Deep Hydration & Barrier Repair',
     origin: 'Cold-pressed organic Aloe Barbadensis leaves',
-    image: '/images/glow-mist.png',
+    image: '/images/glow-tonner.png',
     summary: 'Concentrated inner-leaf polysaccharide gel that delivers 99% pure bio-active moisture. Accelerates skin cell healing, calms sun exposure, and binds water deep within the epidermis.',
     keyBenefits: [
       'Cools and relieves UV sun heat & environmental redness',
@@ -119,6 +119,6 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     ],
     skinTypeSuitability: ['Sun-Exposed Skin', 'Dehydrated Skin', 'Sensitive & Reactive Skin'],
     scientificMechanism: 'Acemannan long-chain carbohydrates bind with epidermal growth factor receptors, triggering macrophage activity and collagen synthesis.',
-    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-toner', 'koveria-body-butter-balm']
+    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-toner']
   }
 ];

@@ -38,13 +38,15 @@ export function App() {
 
   // Dynamic Products List loaded from Database / Cache
   const [productsList, setProductsList] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('pureherbex_products_db');
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem('pureherbex_products_db');
+      if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
+        if (Array.isArray(parsed) && parsed.length === DEFAULT_PRODUCTS.length && parsed.every((p: any) => DEFAULT_PRODUCTS.some(dp => dp.id === p.id))) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
     return DEFAULT_PRODUCTS;
   });
   const [loadingProducts, setLoadingProducts] = useState(false);

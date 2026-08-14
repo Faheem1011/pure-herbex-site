@@ -3,8 +3,8 @@ import { Product } from '../types';
 export const PRODUCTS: Product[] = [
   {
     id: 'koveria-glow-complete-kit',
-    name: 'Complete Koveria Glow 3-Piece Kit',
-    subtitle: 'Face Pack + Toner + Pure Rose Water Set',
+    name: 'Koveria Glow Face Pack Kit',
+    subtitle: 'Complete 3-Piece Ritual (Face Pack + Night Toner + Rose Water)',
     tagline: 'Artisanal Handmade Radiance Ritual',
     price: 1500,
     originalPrice: 1800,
@@ -12,8 +12,8 @@ export const PRODUCTS: Product[] = [
     reviewCount: 488,
     category: 'kits',
     image: '/images/glow-kit.png',
-    badge: '🎁 BEST VALUE - SAVE RS. 300',
-    description: 'The ultimate 3-step artisanal herbal skincare routine. Handcrafted in small batches with pure natural ingredients and proprietary secret botanical elixirs for complete skin transformation.',
+    badge: '🎁 SAVE RS. 300 - COMPLETE KIT',
+    description: 'The ultimate 3-step artisanal herbal skincare routine combining Koveria Glow Face Pack, Koveria Glow Night Toner, and Koveria Glow Rose Water. Handcrafted in small batches with pure natural ingredients and proprietary botanical elixirs for complete skin transformation.',
     benefits: [
       '✴️ Brightens & even tones skin complexion',
       '✴️ Prevents Acne & clarifies clogged pores',
@@ -31,22 +31,22 @@ export const PRODUCTS: Product[] = [
       '100% Steam-Distilled Rose Water', 
       'Secret Botanical Elixirs'
     ],
-    usage: 'Mix 1 tbsp Face Pack with Rose Water or Toner. Apply for 15 mins. Rinse and spray Toner to lock in moisture.',
+    usage: 'Step 1: Mix 1 tbsp Face Pack with Rose Water. Apply for 15 mins. Step 2: Rinse and mist Night Toner to lock in deep botanical hydration.',
     size: 'Complete 3-Piece Full Ritual Set',
     inStock: true,
     isBestseller: true
   },
   {
     id: 'koveria-glow-face-pack',
-    name: 'Koveria Glow Face Pack (Powder)',
-    subtitle: 'Artisanal Herbal Exfoliating Mask',
+    name: 'Koveria Glow Face Pack',
+    subtitle: 'Artisanal Herbal Exfoliating Mask Powder',
     tagline: 'Pure Botanical Radiance Secret',
     price: 1399,
     originalPrice: 1600,
     rating: 4.9,
     reviewCount: 312,
     category: 'facepack',
-    image: '/images/glow-serum.png',
+    image: '/images/glow-facepack.png',
     badge: '🏆 #1 BESTSELLER',
     description: 'Freshly handmade herbal powder mask formulated with pure rose petals, moringa, premium coffee, and Multani mitti enhanced with secret botanical elixirs.',
     benefits: [
@@ -58,24 +58,24 @@ export const PRODUCTS: Product[] = [
       '✴️ Instant Glow and baby soft skin'
     ],
     ingredients: ['Rose Petals Powder', 'Moringa Powder', 'Pure Coffee', 'Multani Mitti', 'Secret Herbal Elixir'],
-    usage: 'Mix 1-2 spoonfuls with Rose Water or yogurt. Apply to face for 15 minutes, gently scrub and wash off.',
+    usage: 'Mix 1-2 spoonfuls with Koveria Glow Rose Water or Night Toner. Apply to face for 15 minutes, gently scrub and wash off.',
     size: '100g / 3.5 oz Herbal Powder',
     inStock: true,
     isBestseller: true
   },
   {
     id: 'koveria-glow-toner',
-    name: 'Koveria Glow Hydrating Toner',
+    name: 'Koveria Glow Night Toner',
     subtitle: 'Pure Aloe Vera & Botanical Hydrosol',
-    tagline: 'Deep Hydration & Pore Tightening',
+    tagline: 'Deep Overnight Hydration & Pore Tightening',
     price: 399,
     originalPrice: 500,
     rating: 4.8,
     reviewCount: 194,
     category: 'toner',
-    image: '/images/glow-mist.png',
+    image: '/images/glow-tonner.png',
     badge: '🌿 ALOE HYDRATION',
-    description: 'Refreshing herbal hydration toner formulated with organic Aloe Vera gel and secret botanical extracts to soothe, hydrate, and tighten pores.',
+    description: 'Refreshing herbal night hydration toner formulated with organic Aloe Vera gel and secret botanical extracts to soothe, hydrate, and tighten pores overnight.',
     benefits: [
       '✴️ Instantly calms redness and irritation',
       '✴️ Tightens pores & balances skin pH',
@@ -83,13 +83,13 @@ export const PRODUCTS: Product[] = [
       '✴️ Boosts natural skin radiance'
     ],
     ingredients: ['Pure Aloe Vera Gel', 'Organic Hydrosol', 'Secret Hydration Formula'],
-    usage: 'Spray directly on face after cleansing or mist throughout the day whenever skin feels dry.',
+    usage: 'Spray directly on face after cleansing or mist before bedtime to lock in moisture.',
     size: '120ml / 4.0 fl. oz.',
     inStock: true
   },
   {
     id: 'pure-rose-water',
-    name: 'Pure Steam-Distilled Rose Water',
+    name: 'Koveria Glow Rose Water',
     subtitle: '100% Organic Rosa Damascena Hydrosol',
     tagline: 'Nature’s Purest Skin Elixir',
     price: 170,
@@ -97,7 +97,7 @@ export const PRODUCTS: Product[] = [
     rating: 4.9,
     reviewCount: 260,
     category: 'rosewater',
-    image: '/images/glow-elixir.png',
+    image: '/images/glow-rose-water.png',
     badge: '🌸 100% PURE',
     description: 'Traditional steam-distilled pure rose water with zero artificial fragrances or preservatives. Ideal for mixing face packs or daily skin refreshing.',
     benefits: [
@@ -107,105 +107,8 @@ export const PRODUCTS: Product[] = [
       '✴️ Delivers an instant cooling sensation'
     ],
     ingredients: ['100% Pure Steam-Distilled Rose Water'],
-    usage: 'Spritz generously onto face or use to blend the Koveria Glow Face Pack into a paste.',
+    usage: 'Spritz generously onto face or use to blend the Koveria Glow Face Pack into a velvety paste.',
     size: '150ml / 5.0 fl. oz.',
     inStock: true
-  },
-  {
-    id: 'koveria-lip-glow-elixir',
-    name: 'Koveria Lip Glow Rose Oil Elixir',
-    subtitle: 'Rose Petal & Moringa Lip Treatment',
-    tagline: 'Plump & Hydrated Botanical Lips',
-    price: 499,
-    originalPrice: 650,
-    rating: 4.9,
-    reviewCount: 142,
-    category: 'lipcare',
-    image: '/images/glow-elixir.png',
-    badge: '💋 NEW LAUNCH',
-    description: 'Nourishing botanical lip treatment oil infused with real rose petal infusion, cold-pressed moringa oil, and pure Vitamin E to soften chapped lips and add natural pink sheen.',
-    benefits: [
-      '✴️ Deeply nourishes dry, chapped lips',
-      '✴️ Natural rose sheen without stickiness',
-      '✴️ Rich in anti-aging Vitamin E & antioxidants',
-      '✴️ Protects lips from sun & wind damage'
-    ],
-    ingredients: ['Rose Petal Infusion Oil', 'Cold-Pressed Moringa Oil', 'Vitamin E', 'Organic Sweet Almond Oil'],
-    usage: 'Apply directly onto lips using applicator whenever extra moisture or natural shine is needed.',
-    size: '10ml / 0.34 fl. oz.',
-    inStock: true
-  },
-  {
-    id: 'koveria-body-butter-balm',
-    name: 'Sun Radiance Herbal Body Butter',
-    subtitle: 'Whipped Aloe & Shea Botanical Balm',
-    tagline: 'Velvet Soft Body Nourishment',
-    price: 899,
-    originalPrice: 1100,
-    rating: 4.8,
-    reviewCount: 98,
-    category: 'bodycare',
-    image: '/images/glow-kit.png',
-    badge: '✨ INTENSE MOISTURE',
-    description: 'Ultra-luxurious whipped body butter enriched with organic Aloe Vera, Shea Butter, and secret sun-radiance botanical extracts for silky smooth, deeply hydrated skin.',
-    benefits: [
-      '✴️ 24-hour intense moisture retention',
-      '✴️ Fades dry skin patches & rough elbows/knees',
-      '✴️ Non-greasy quick absorption',
-      '✴️ Smells like pure botanical radiance'
-    ],
-    ingredients: ['Raw Shea Butter', 'Organic Aloe Vera Gel', 'Moringa Oil', 'Rose Hydrosol', 'Botanical Elixir'],
-    usage: 'Massage generously all over body after bathing or whenever skin needs intense hydrating comfort.',
-    size: '200g / 7.0 oz',
-    inStock: true
-  },
-  {
-    id: 'koveria-detox-neem-scrub',
-    name: 'Neem & Haldi Clarifying Herbal Scrub',
-    subtitle: 'Acne Defense & Deep Pore Exfoliant',
-    tagline: 'Pure Herbal Detox Mask',
-    price: 699,
-    originalPrice: 850,
-    rating: 4.9,
-    reviewCount: 165,
-    category: 'scrub',
-    image: '/images/glow-serum.png',
-    badge: '🌿 ACNE CLEAR',
-    description: 'Targeted deep-pore purifying scrub formulated with organic Neem powder, Wild Haldi (Turmeric), and fine Multani mitti to clear breakouts and diminish acne scars.',
-    benefits: [
-      '✴️ Fights acne-causing bacteria naturally',
-      '✴️ Draws out stubborn blackheads & whiteheads',
-      '✴️ Wild Haldi brightens post-acne dark marks',
-      '✴️ Soothes active skin breakouts'
-    ],
-    ingredients: ['Organic Neem Leaf Powder', 'Wild Haldi (Turmeric)', 'Multani Mitti', 'Walnut Shell Powder'],
-    usage: 'Gently massage onto damp face in circular motions for 2 minutes, leave as mask for 5 minutes, then rinse off.',
-    size: '150g / 5.3 oz',
-    inStock: true
-  },
-  {
-    id: 'koveria-night-glow-oil',
-    name: 'Night Repair Secret Botanical Elixir',
-    subtitle: 'Concentrated Facial Glow Oil',
-    tagline: 'Overnight Skin Transformation',
-    price: 1299,
-    originalPrice: 1600,
-    rating: 5.0,
-    reviewCount: 215,
-    category: 'serum',
-    image: '/images/glow-mist.png',
-    badge: '🌙 NIGHT REPAIR',
-    description: 'Potent overnight botanical serum elixir infused with 7 cold-pressed seed oils, rosehip extract, and secret plant actives that work overnight to repair skin cells and restore morning radiance.',
-    benefits: [
-      '✴️ Repairs cell damage & boosts collagen while sleeping',
-      '✴️ Fades hyperpigmentation & dark spots',
-      '✴️ Wakes you up to luminous, dewy skin',
-      '✴️ Lightweight & non-comedogenic formula'
-    ],
-    ingredients: ['Rosehip Seed Oil', 'Moringa Oil', 'Jojoba Oil', 'Pomegranate Seed Oil', 'Secret Plant Elixir'],
-    usage: 'Warm 3-4 drops between fingertips at night and gently press into clean face and neck.',
-    size: '30ml / 1.0 fl. oz.',
-    inStock: true,
-    isBestseller: true
   }
 ];

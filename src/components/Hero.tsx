@@ -98,8 +98,8 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
             <div className="bg-sun-cream border-2 border-sun-dark p-3.5 rounded-2xl shadow-retro-sm text-left max-w-lg mx-auto lg:mx-0 flex items-center justify-between gap-4">
               <div>
                 <div className="text-[10px] font-black text-amber-950 uppercase tracking-widest">🎁 LIMITED TIME OFFER</div>
-                <div className="font-display font-black text-base text-sun-dark uppercase">Koveria Complete 3-Piece Kit</div>
-                <p className="text-xs text-amber-950 font-bold">Face Pack + Toner + Pure Rose Water</p>
+                <div className="font-display font-black text-base text-sun-dark uppercase">Koveria Glow Face Pack Kit</div>
+                <p className="text-xs text-amber-950 font-bold">Face Pack + Night Toner + Rose Water</p>
               </div>
               <div className="text-right">
                 <span className="text-amber-950/75 line-through text-xs font-extrabold mr-1.5">Rs. 1,800</span>
@@ -150,7 +150,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
               >
                 
                 <div className="absolute -top-4 -right-4 bg-rose-900 text-white font-black text-xs px-4 py-2 rounded-full border-2 border-sun-dark shadow-retro-sm transform rotate-6 z-10">
-                  20% OFF COMPLETE KIT
+                  SAVE RS. 300 (COMPLETE KIT)
                 </div>
 
                 <div className="bg-gradient-to-b from-amber-100 to-amber-50 rounded-2xl p-2 border-2 border-sun-dark flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100/80 transition-colors h-80 sm:h-96 w-full aspect-square">
@@ -182,10 +182,10 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                     <span className="text-xs font-bold text-sun-dark ml-1">({flagshipProduct.rating || '5.0'})</span>
                   </div>
                   <h2 className="font-display font-black text-xl text-sun-dark uppercase group-hover:text-amber-800 transition-colors">
-                    {flagshipProduct.name || 'COMPLETE KOVERIA GLOW KIT'}
+                    {flagshipProduct.name || 'KOVERIA GLOW FACE PACK KIT'}
                   </h2>
                   <p className="text-xs font-bold text-amber-950">
-                    {flagshipProduct.subtitle || 'Face Pack + Toner + Rose Water + Free Bag'}
+                    {flagshipProduct.subtitle || 'Face Pack + Night Toner + Rose Water'}
                   </p>
 
                   {/* Price Tag & Direct Quick Action Buttons */}

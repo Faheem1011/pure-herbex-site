@@ -6,22 +6,22 @@ export const REVIEWS: Review[] = [
     author: 'Ayesha K.',
     rating: 5,
     date: 'July 28, 2026',
-    title: 'Obsessed! Smells heavenly & gives the dreamiest glow!',
-    comment: 'I swapped my expensive Sephora serum for Koveria Glow Flagship and I am never looking back. It absorbs so quickly and gives that healthy, lit-from-within summer sheen without feeling oily at all. 10/10!',
+    title: 'Obsessed! Face Pack gives the dreamiest instant glow!',
+    comment: 'I love the Koveria Glow Face Pack! It mixes so smoothly with the Rose Water and gives that healthy, lit-from-within glow without feeling dry or harsh at all. 10/10!',
     verified: true,
     location: 'Lahore, Punjab',
-    productName: 'Koveria Glow Flagship Serum'
+    productName: 'Koveria Glow Face Pack'
   },
   {
     id: 'rev-2',
     author: 'Zainab M.',
     rating: 5,
     date: 'July 20, 2026',
-    title: 'B.Y.O.G. Bundle is worth every single rupee',
-    comment: 'Built my own bundle with the serum, mist, and oil. The mist is in my handbag everywhere I go now! Super fast delivery via Run Couriers, arrived in 2 days.',
+    title: 'The complete kit is worth every single rupee',
+    comment: 'Got the complete 3-piece kit for Rs. 1500 with the Face Pack, Night Toner, and Rose Water. Super fast delivery via Leopards Courier COD, arrived in 3 days in perfect condition!',
     verified: true,
     location: 'Karachi, Sindh',
-    productName: 'Koveria Ultimate Botanical Glow Kit'
+    productName: 'Koveria Glow Face Pack Kit'
   },
   {
     id: 'rev-3',
@@ -29,20 +29,20 @@ export const REVIEWS: Review[] = [
     rating: 5,
     date: 'July 14, 2026',
     title: 'Pure natural ingredients that actually work',
-    comment: 'I have sensitive skin that breaks out easily with oil products, but the Botanical Radiance Oil is super light. My skin texture feels noticeably smoother after 2 weeks.',
+    comment: 'I have sensitive skin that breaks out easily, but the Koveria Glow Night Toner is super soothing. My skin texture feels noticeably smoother and pores look tighter.',
     verified: true,
     location: 'Islamabad, ICT',
-    productName: 'Koveria Botanical Radiance Oil'
+    productName: 'Koveria Glow Night Toner'
   },
   {
     id: 'rev-4',
     author: 'Fatima H.',
     rating: 5,
     date: 'June 30, 2026',
-    title: 'The Dewy Mist is pure magic in hot weather',
-    comment: 'Living in Karachi heat, this mist keeps my face refreshed all day. The rosewater scent is subtle and natural.',
+    title: 'Pure Rose Water is pure magic in hot weather',
+    comment: 'Living in Karachi heat, this steam-distilled rose water keeps my face refreshed all day. Natural aroma with zero artificial chemicals.',
     verified: true,
     location: 'Karachi, Sindh',
-    productName: 'Koveria Sun-Kissed Dewy Mist'
+    productName: 'Koveria Glow Rose Water'
   }
 ];

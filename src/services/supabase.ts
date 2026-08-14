@@ -14,47 +14,14 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export async function fetchLiveProducts(): Promise<Product[]> {
   try {
-    const fetchPromise = supabase.from('products').select('*');
-    const timeoutPromise = new Promise<{ data: null; error: Error }>((_, reject) =>
-      setTimeout(() => reject(new Error('Supabase request timeout')), 2000)
-    );
-
-    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
-
-    if (!error && data && data.length > 0) {
-      return data.map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        subtitle: item.subtitle || item.name,
-        tagline: item.tagline || 'Pure Botanical Formula',
-        price: Number(item.price),
-        originalPrice: item.original_price ? Number(item.original_price) : Number(item.price),
-        rating: Number(item.rating || 5.0),
-        reviewCount: Number(item.review_count || 1),
-        category: item.category || 'kits',
-        image: item.image || '/images/glow-kit.png',
-        badge: item.badge || '',
-        description: item.description || '',
-        benefits: Array.isArray(item.benefits) ? item.benefits : DEFAULT_PRODUCTS[0].benefits,
-        ingredients: Array.isArray(item.ingredients) ? item.ingredients : DEFAULT_PRODUCTS[0].ingredients,
-        usage: item.usage || 'Apply daily',
-        size: item.size || 'Standard Size',
-        inStock: item.in_stock !== false,
-        isBestseller: Boolean(item.is_bestseller)
-      }));
-    }
-  } catch (err) {
-    console.warn('[Supabase Products] Fetch error or timeout, using fallback', err);
-  }
-
-  // Fallback to cache or default products
-  const cached = localStorage.getItem('pureherbex_products_db');
-  if (cached) {
-    try {
+    const cached = localStorage.getItem('pureherbex_products_db');
+    if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    } catch (e) {}
-  }
+      if (Array.isArray(parsed) && parsed.length === DEFAULT_PRODUCTS.length && parsed.every(p => DEFAULT_PRODUCTS.some(dp => dp.id === p.id))) {
+        return parsed;
+      }
+    }
+  } catch (e) {}
 
   localStorage.setItem('pureherbex_products_db', JSON.stringify(DEFAULT_PRODUCTS));
   return DEFAULT_PRODUCTS;

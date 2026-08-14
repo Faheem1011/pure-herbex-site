@@ -30,7 +30,7 @@ export const BLOG_POSTS: BlogPost[] = [
     readTime: '4 min read',
     date: 'August 5, 2026',
     author: 'Pure Herbex Botanical Research Team',
-    image: '/images/glow-elixir.png',
+    image: '/images/glow-rose-water.png',
     excerpt: 'Discover why 100% pure steam-distilled Rosa Damascena rose water hydrosol is essential for restoring your natural skin pH, soothing sun heat, and achieving an instant healthy glow.',
     keywords: ['steam distilled rose water', 'rose water benefits', 'pure rose hydrosol', 'organic skincare Pakistan', 'natural toner for glowing skin'],
     content: {
@@ -74,7 +74,7 @@ export const BLOG_POSTS: BlogPost[] = [
     readTime: '5 min read',
     date: 'August 2, 2026',
     author: 'Pure Herbex Botanical Research Team',
-    image: '/images/glow-serum.png',
+    image: '/images/glow-facepack.png',
     excerpt: 'Sheet masks offer temporary wetness, but freshly activated herbal powder masks deliver potent active botanicals with zero preservatives or synthetic microplastics.',
     keywords: ['herbal face pack powder', 'artisanal skincare', 'natural exfoliating mask', 'moringa face pack', 'multani mitti glow mask'],
     content: {
@@ -94,13 +94,13 @@ export const BLOG_POSTS: BlogPost[] = [
           bulletPoints: [
             'Mix with Rose Water for instant brightening & pore tightening',
             'Mix with Organic Yogurt or Honey for intense dry skin nourishment',
-            'Mix with Aloe Toner for soothing oil-control and cooling'
+            'Mix with Night Toner for soothing oil-control and cooling'
           ]
         }
       ],
       conclusion: 'Freshly mixed artisanal herbal masks are purer, more sustainable, and far more effective at delivering lasting skin health compared to synthetic single-use sheet masks.'
     },
-    relatedProductIds: ['koveria-glow-face-pack', 'koveria-glow-complete-kit', 'koveria-detox-neem-scrub']
+    relatedProductIds: ['koveria-glow-face-pack', 'koveria-glow-complete-kit', 'pure-rose-water']
   },
   {
     id: 'ultimate-3-step-skincare-ritual-for-sun-stressed-skin',
@@ -121,16 +121,16 @@ export const BLOG_POSTS: BlogPost[] = [
           body: 'Blend 1 tablespoon of Koveria Glow Face Pack powder with fresh Rose Water. Apply evenly across face and neck. Allow the botanical elixirs, moringa, and rose powder to draw out impurities and gently exfoliate for 15 minutes before rinsing with cool water.'
         },
         {
-          heading: 'Step 2: Hydrate & Balance with Botanical Aloe Toner',
-          body: 'Spitz Koveria Glow Hydrating Aloe Toner generously over damp skin. Press lightly with fingertips to tighten pores and soothe sun redness.'
+          heading: 'Step 2: Hydrate & Balance with Botanical Night Toner',
+          body: 'Mist Koveria Glow Night Toner generously over damp skin. Press lightly with fingertips to tighten pores and soothe sun redness.'
         },
         {
-          heading: 'Step 3: Lock in Moisture & Radiant Lip Protection',
-          body: 'Finish with a spritz of 100% Steam-Distilled Rose Water and apply Koveria Lip Glow Elixir for plump, sun-protected lips that stay hydrated all day long.'
+          heading: 'Step 3: Lock in Moisture with Pure Rose Water',
+          body: 'Finish with a spritz of 100% Steam-Distilled Rose Water for instant freshness and lasting natural radiance.'
         }
       ],
       conclusion: 'Consistency is key to glowing skin. Practicing this 3-step ritual 3 times a week yields remarkable skin clarity and radiance.'
     },
-    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-toner', 'koveria-lip-glow-elixir']
+    relatedProductIds: ['koveria-glow-complete-kit', 'koveria-glow-face-pack', 'koveria-glow-toner']
   }
 ];

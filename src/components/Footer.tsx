@@ -71,11 +71,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
           <div>
             <h4 className="font-display font-black text-sm uppercase text-sun-yellow tracking-wider mb-3">Discover Koveria</h4>
             <ul className="space-y-2 text-xs font-bold text-gray-300">
-              <li><button onClick={() => handleCategoryNav('all')} className="hover:text-sun-yellow">All 8 Products</button></li>
+              <li><button onClick={() => handleCategoryNav('all')} className="hover:text-sun-yellow">All Botanical Products</button></li>
               <li><button onClick={() => onNavigate('ingredients')} className="hover:text-sun-yellow text-emerald-400">Botanical Actives Glossary</button></li>
               <li><button onClick={() => onNavigate('journal')} className="hover:text-sun-yellow text-amber-300">Skincare Radiance Journal</button></li>
               <li><button onClick={() => onNavigate('story')} className="hover:text-sun-yellow">Trust The Glow Story</button></li>
-              <li><button onClick={() => handleCategoryNav('kits')} className="hover:text-sun-yellow">Flagship 3-Piece Kit</button></li>
+              <li><button onClick={() => handleCategoryNav('kits')} className="hover:text-sun-yellow">Koveria Glow Face Pack Kit</button></li>
             </ul>
           </div>
 

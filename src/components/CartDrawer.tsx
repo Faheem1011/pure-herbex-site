@@ -302,7 +302,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <span className="text-xs font-black uppercase tracking-wider text-sun-dark">💡 EXCLUSIVE KIT UPGRADE</span>
                   </div>
                   <p className="text-xs text-sun-brown font-semibold leading-relaxed">
-                    Upgrade to the **Complete Koveria Glow 3-Piece Kit** (includes Face Pack + Toner + Rose Water) for just **Rs. 1,500** and save Rs. 300!
+                    Upgrade to the <strong>Koveria Glow Face Pack Kit</strong> (includes Face Pack + Night Toner + Rose Water) for just <strong>Rs. 1,500</strong> (Discounted from Rs. 1,800)!
                   </p>
                   <button 
                     onClick={handleUpgradeToKit}

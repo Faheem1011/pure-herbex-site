@@ -22,8 +22,8 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
 
   const rawTotal = selectedProducts.reduce((sum, item) => sum + item.price, 0);
   const isComplete = selectedProducts.length === 3;
-  const discountedTotal = isComplete ? Math.round(rawTotal * 0.8) : rawTotal;
-  const savings = rawTotal - discountedTotal;
+  const discountedTotal = isComplete ? 1500 : rawTotal;
+  const savings = rawTotal > 1500 ? rawTotal - 1500 : 300;
 
   const handleAddBundle = () => {
     if (isComplete) {
@@ -38,13 +38,13 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-12">
           <span className="badge-sticker text-sm uppercase tracking-wide">
-            🎁 CUSTOM BUNDLE BUILDER
+            🎁 COMPLETE KIT BUNDLER
           </span>
           <h2 className="text-4xl sm:text-5xl font-black uppercase text-sun-dark tracking-tight">
-            B.Y.O.G. — BUILD YOUR OWN <span className="text-amber-600">GLOW</span> KIT
+            BUILD YOUR <span className="text-amber-600">GLOW</span> KIT
           </h2>
           <p className="text-lg text-sun-brown font-medium">
-            Pick any 3 products below to unlock <strong className="text-sun-dark">20% OFF</strong> your custom kit + get a <strong className="text-emerald-700">FREE Pure Herbex Canvas Beach Tote</strong>!
+            Select all 3 botanical essentials (Face Pack + Night Toner + Rose Water) to unlock the complete kit for only <strong className="text-emerald-800 font-black">Rs. 1,500</strong> (Discounted from Rs. 1,800)!
           </p>
 
           {/* Progress Tracker */}
@@ -52,8 +52,8 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
             <div className="flex justify-between items-center text-sm font-extrabold text-sun-dark mb-2">
               <span>PROGRESS: {selectedProducts.length}/3 ITEMS SELECTED</span>
               {isComplete ? (
-                <span className="text-emerald-600 flex items-center gap-1">
-                  <Check className="w-4 h-4" /> 20% DISCOUNT UNLOCKED!
+                <span className="text-emerald-600 flex items-center gap-1 font-black">
+                  <Check className="w-4 h-4" /> COMPLETE KIT DISCOUNT UNLOCKED (RS. 1,500)!
                 </span>
               ) : (
                 <span className="text-amber-600">
@@ -135,8 +135,8 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
         <div className="bg-sun-cream border-4 border-sun-dark p-6 rounded-3xl shadow-retro-lg max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center md:text-left">
             <div className="flex items-center gap-2 text-xs font-bold text-sun-brown uppercase">
-              <Gift className="w-4 h-4 text-amber-600" />
-              <span>Includes Free Canvas Beach Bag (Rs. 1,200 Value)</span>
+              <Sparkles className="w-4 h-4 text-amber-600" />
+              <span>Complete 3-Piece Ritual • Flat Rs. 150 Delivery</span>
             </div>
             
             <div className="flex items-baseline justify-center md:justify-start gap-3">
@@ -146,10 +146,10 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
               {isComplete && (
                 <>
                   <span className="text-lg text-amber-950/75 line-through font-extrabold">
-                    Rs. {rawTotal.toLocaleString()}
+                    Rs. 1,800
                   </span>
                   <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-2.5 py-1 rounded-full border border-emerald-500">
-                    SAVE RS. {savings.toLocaleString()} (20% OFF)
+                    SAVE RS. 300 (KIT DISCOUNT)
                   </span>
                 </>
               )}
