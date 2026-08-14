@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Star, ShoppingBag, Info, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, ShoppingBag, Info, Check, Heart } from 'lucide-react';
 import { Product } from '../types';
+import { toggleWishlistProduct, getCustomerWishlist } from '../services/customerAuth';
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +11,18 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onQuickView }) => {
   const [added, setAdded] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+
+  useEffect(() => {
+    const list = getCustomerWishlist();
+    setIsWishlisted(list.includes(product.id));
+  }, [product.id]);
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = toggleWishlistProduct(product.id);
+    setIsWishlisted(updated.includes(product.id));
+  };
 
   const handleAdd = () => {
     onAddToCart(product);
@@ -28,6 +41,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
           </span>
         </div>
       )}
+
+      {/* Wishlist button top right */}
+      <button 
+        onClick={handleToggleWishlist}
+        className={`absolute top-4 right-4 z-10 p-2 rounded-full border-2 border-sun-dark shadow-retro-sm transition-all transform active:scale-90 ${
+          isWishlisted ? 'bg-rose-500 text-white fill-rose-500' : 'bg-sun-cream text-sun-dark hover:bg-rose-100'
+        }`}
+        title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+        aria-label="Toggle Wishlist"
+      >
+        <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
+      </button>
 
       {/* Product Image Container */}
       <div 

@@ -8,6 +8,7 @@ import { RoutineFinder } from './components/RoutineFinder';
 import { ReviewsSection } from './components/ReviewsSection';
 import { CartDrawer } from './components/CartDrawer';
 import { TrackOrderModal } from './components/TrackOrderModal';
+import { CustomerAccountModal } from './components/CustomerAccountModal';
 import { QuickViewModal } from './components/QuickViewModal';
 import { AdminPortal } from './components/AdminPortal';
 import { ProductDetail } from './components/ProductDetail';
@@ -57,6 +58,8 @@ export function App() {
   
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
+  const [trackInitialCode, setTrackInitialCode] = useState('');
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
@@ -134,43 +137,47 @@ export function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Cart Handlers
-  const handleAddToCart = (product: Product) => {
+  // Cart operations
+  const handleAddToCart = (product: Product, quantity = 1) => {
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
-        return prev.map(item => 
-          item.product.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 }
+        return prev.map(item =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity }];
     });
     setIsCartOpen(true);
   };
 
-  const handleAddCustomBundleToCart = (items: Product[], customPrice: number) => {
+  const handleAddCustomBundleToCart = (bundleItems: Product[], totalPrice: number) => {
     const customBundleProduct: Product = {
-      id: 'custom-byog-bundle-' + Date.now(),
-      name: 'Custom B.Y.O.G. Glow Kit (3 Items)',
-      subtitle: items.map(i => i.name).join(', '),
-      tagline: 'Custom 3-Piece Kit + Free Canvas Bag',
-      price: customPrice,
+      id: `custom-bundle-${Date.now()}`,
+      name: 'Custom B.Y.O.G. Radiance Kit (3 Pieces)',
+      subtitle: bundleItems.map(i => i.name).join(' + '),
+      tagline: 'Personalized Botanical Bundle',
+      price: totalPrice,
+      originalPrice: 1800,
       rating: 5.0,
       reviewCount: 1,
       category: 'kits',
       image: '/images/glow-kit.png',
-      description: 'Your custom 3-piece Koveria Glow routine with 20% discount applied.',
-      benefits: ['Custom tailored skincare routine', 'Free Canvas Beach Tote Included'],
-      ingredients: ['Custom selections'],
-      usage: 'Use daily',
-      size: '3 Full-size items',
+      badge: '🎁 CUSTOM KIT • SAVE RS. 300',
+      description: `Complete customized 3-step ritual featuring ${bundleItems.map(i => i.name).join(', ')}. Includes Free Pure Herbex Canvas Bag.`,
+      benefits: [
+        'Custom formulated 3-step ritual',
+        '20% Custom Kit bundle discount applied',
+        'Free Pure Herbex Canvas Beach Tote'
+      ],
+      ingredients: bundleItems.flatMap(i => i.ingredients),
+      usage: 'Use daily as directed on individual products.',
+      size: 'Custom 3-Piece Kit',
       inStock: true
     };
-
-    setCartItems(prev => [...prev, { product: customBundleProduct, quantity: 1 }]);
-    setIsCartOpen(true);
+    handleAddToCart(customBundleProduct, 1);
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
@@ -195,7 +202,7 @@ export function App() {
   const flagshipProduct = productsList[0] || DEFAULT_PRODUCTS[0];
   const activeProduct = productsList.find(p => p.id === selectedProductId) || flagshipProduct;
 
-  // ROUTE 1: Dedicated Admin Portal Route (/admin)
+  // ROUTE 1: Dedicated Admin Portal Route (/admin - accessed directly via URL)
   if (currentRoute === 'admin') {
     return (
       <>
@@ -205,148 +212,56 @@ export function App() {
     );
   }
 
-  // ROUTE 2: Dedicated Product Detail Route (/product/:id)
-  if (currentRoute === 'product' && activeProduct) {
-    return (
-      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
-        <SEOHead 
-          title={activeProduct.name}
-          description={activeProduct.description}
-          image={activeProduct.image}
-          path={`/product/${activeProduct.id}`}
-          type="product"
-          product={activeProduct}
-          breadcrumbs={[
-            { name: 'Home', url: '/' },
-            { name: 'Shop', url: '/shop' },
-            { name: activeProduct.name, url: `/product/${activeProduct.id}` }
-          ]}
-        />
-        <Header 
-          cartCount={cartCount}
-          onNavigate={navigateTo}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <main className="flex-grow">
-          <ProductDetail 
-            product={activeProduct} 
-            onAddToCart={handleAddToCart}
-            onBack={() => navigateTo('shop')}
-          />
-        </main>
-        <Footer 
-          onNavigate={navigateTo}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <CartDrawer 
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          cartItems={cartItems}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onClearCart={handleClearCart}
+  // Helper for opening track modal with code
+  const openTrackWithCode = (code?: string) => {
+    if (code) setTrackInitialCode(code);
+    setIsTrackOrderOpen(true);
+  };
+
+  // Shared Header Props
+  const headerProps = {
+    cartCount,
+    onNavigate: navigateTo,
+    onOpenCart: () => setIsCartOpen(true),
+    onOpenTrackOrder: () => openTrackWithCode(),
+    onOpenAuthModal: () => setIsAuthOpen(true),
+    onOpenQuiz: () => setIsQuizOpen(true),
+    onSelectCategory: (cat: string) => { setSelectedCategory(cat); navigateTo('shop'); }
+  };
+
+  // Shared Footer Props
+  const footerProps = {
+    onNavigate: navigateTo,
+    onOpenTrackOrder: () => openTrackWithCode(),
+    onOpenQuiz: () => setIsQuizOpen(true),
+    onSelectCategory: (cat: string) => { setSelectedCategory(cat); navigateTo('shop'); }
+  };
+
+  // Render Subpage content based on route
+  const renderPageContent = () => {
+    if (currentRoute === 'product' && activeProduct) {
+      return (
+        <ProductDetail 
+          product={activeProduct} 
           onAddToCart={handleAddToCart}
+          onBack={() => navigateTo('shop')}
         />
-      </div>
-    );
-  }
-
-  // ROUTE 3: Dedicated Policies Page (/policies)
-  if (currentRoute === 'policies') {
-    return (
-      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
-        <SEOHead 
-          title="Customer Policies & Nationwide COD Shipping"
-          description="Pure Herbex store policies on shipping, cash on delivery (COD), easy returns, and customer privacy."
-          path="/policies"
-          breadcrumbs={[
-            { name: 'Home', url: '/' },
-            { name: 'Policies', url: '/policies' }
-          ]}
-        />
-        <Header 
-          cartCount={cartCount}
-          onNavigate={navigateTo}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <main className="flex-grow">
-          <PoliciesPage onBack={() => navigateTo('home')} />
-        </main>
-        <Footer 
-          onNavigate={navigateTo}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-      </div>
-    );
-  }
-
-  // ROUTE 4: Dedicated Brand Story Page (/story)
-  if (currentRoute === 'story') {
-    return (
-      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
-        <SEOHead 
-          title="Our Artisanal Story & Efficacy"
-          description="Discover the story behind Pure Herbex and Koveria Glow. Handcrafted botanical skincare rituals with 100% natural rose petals, moringa, and steam-distilled hydrosols."
-          path="/story"
-          breadcrumbs={[
-            { name: 'Home', url: '/' },
-            { name: 'Brand Story', url: '/story' }
-          ]}
-        />
-        <Header 
-          cartCount={cartCount}
-          onNavigate={navigateTo}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <main className="flex-grow py-8">
+      );
+    }
+    if (currentRoute === 'policies') {
+      return <PoliciesPage onBack={() => navigateTo('home')} />;
+    }
+    if (currentRoute === 'story') {
+      return (
+        <div className="py-8">
           <BrandStory />
           <ReviewsSection />
-        </main>
-        <Footer 
-          onNavigate={navigateTo}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-      </div>
-    );
-  }
-
-  // ROUTE 5: Dedicated Shop Catalog Page (/shop)
-  if (currentRoute === 'shop') {
-    return (
-      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
-        <SEOHead 
-          title="Shop Koveria Glow Botanical Skincare"
-          description="Browse Koveria Glow face packs, aloe hydration toners, steam-distilled rose water, and custom glow kits by Pure Herbex."
-          path="/shop"
-          breadcrumbs={[
-            { name: 'Home', url: '/' },
-            { name: 'Shop Catalog', url: '/shop' }
-          ]}
-        />
-        <Header 
-          cartCount={cartCount}
-          onNavigate={navigateTo}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={setSelectedCategory}
-        />
-        <main className="flex-grow py-8">
+        </div>
+      );
+    }
+    if (currentRoute === 'shop') {
+      return (
+        <div className="py-8">
           <ProductGrid 
             products={productsList}
             selectedCategory={selectedCategory}
@@ -358,201 +273,36 @@ export function App() {
             products={productsList}
             onAddCustomBundleToCart={handleAddCustomBundleToCart}
           />
-        </main>
-        <Footer 
+        </div>
+      );
+    }
+    if (currentRoute === 'ingredients') {
+      return <BotanicalGlossaryPage onNavigate={navigateTo} />;
+    }
+    if (currentRoute === 'journal') {
+      return (
+        <SkincareJournalPage 
+          selectedArticleId={selectedProductId}
           onNavigate={navigateTo}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <CartDrawer 
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          cartItems={cartItems}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onClearCart={handleClearCart}
           onAddToCart={handleAddToCart}
         />
-      </div>
-    );
-  }
+      );
+    }
+    if (currentRoute === 'faq') {
+      return (
+        <FAQPage 
+          onNavigate={navigateTo}
+          onOpenTrackOrder={() => openTrackWithCode()}
+        />
+      );
+    }
+    if (currentRoute === 'contact') {
+      return <ContactPage />;
+    }
 
-  // ROUTE 6: Botanical Ingredients Encyclopedia (/ingredients)
-  if (currentRoute === 'ingredients') {
+    // Default: Home Page
     return (
-      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
-        <SEOHead 
-          title="Botanical Ingredients Encyclopedia & Science"
-          description="Learn about the clinical efficacy, origins, and natural benefits of Damask Rose, Moringa, Multani Mitti, and Organic Coffee in Pure Herbex skincare."
-          path="/ingredients"
-          breadcrumbs={[
-            { name: 'Home', url: '/' },
-            { name: 'Botanical Glossary', url: '/ingredients' }
-          ]}
-        />
-        <Header 
-          cartCount={cartCount}
-          onNavigate={navigateTo}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <main className="flex-grow">
-          <BotanicalGlossaryPage onNavigate={navigateTo} />
-        </main>
-        <Footer 
-          onNavigate={navigateTo}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-      </div>
-    );
-  }
-
-  // ROUTE 7: Skincare Radiance Journal (/journal)
-  if (currentRoute === 'journal') {
-    return (
-      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
-        <SEOHead 
-          title="Pure Radiance Skincare Journal & Beauty Guides"
-          description="Read expert botanical skincare guides, natural beauty tips, and morning radiance rituals curated by Pure Herbex."
-          path={selectedProductId ? `/journal/${selectedProductId}` : '/journal'}
-          type="article"
-          breadcrumbs={[
-            { name: 'Home', url: '/' },
-            { name: 'Skincare Journal', url: '/journal' }
-          ]}
-        />
-        <Header 
-          cartCount={cartCount}
-          onNavigate={navigateTo}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <main className="flex-grow">
-          <SkincareJournalPage 
-            selectedArticleId={selectedProductId}
-            onNavigate={navigateTo}
-            onAddToCart={handleAddToCart}
-          />
-        </main>
-        <Footer 
-          onNavigate={navigateTo}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <CartDrawer 
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          cartItems={cartItems}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onClearCart={handleClearCart}
-          onAddToCart={handleAddToCart}
-        />
-      </div>
-    );
-  }
-
-  // ROUTE 8: Knowledge Base & FAQ (/faq)
-  if (currentRoute === 'faq') {
-    return (
-      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
-        <SEOHead 
-          title="Frequently Asked Questions & Help Portal"
-          description="Find answers to common questions about Pure Herbex artisanal products, ingredients, shipping times across Pakistan, and COD."
-          path="/faq"
-          breadcrumbs={[
-            { name: 'Home', url: '/' },
-            { name: 'FAQ & Help', url: '/faq' }
-          ]}
-        />
-        <Header 
-          cartCount={cartCount}
-          onNavigate={navigateTo}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <main className="flex-grow">
-          <FAQPage 
-            onNavigate={navigateTo}
-            onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          />
-        </main>
-        <Footer 
-          onNavigate={navigateTo}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-      </div>
-    );
-  }
-
-  // ROUTE 9: Customer Support & Contact Us (/contact)
-  if (currentRoute === 'contact') {
-    return (
-      <div className="min-h-screen bg-sun-sand flex flex-col font-sans">
-        <SEOHead 
-          title="Contact Pure Herbex Customer Support"
-          description="Get in touch with Pure Herbex customer support for order tracking, custom skincare consultations, and delivery queries."
-          path="/contact"
-          breadcrumbs={[
-            { name: 'Home', url: '/' },
-            { name: 'Contact Us', url: '/contact' }
-          ]}
-        />
-        <Header 
-          cartCount={cartCount}
-          onNavigate={navigateTo}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-        <main className="flex-grow">
-          <ContactPage />
-        </main>
-        <Footer 
-          onNavigate={navigateTo}
-          onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-          onOpenQuiz={() => setIsQuizOpen(true)}
-          onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-        />
-      </div>
-    );
-  }
-
-  // ROUTE 6: Main Homepage (/)
-  return (
-    <div className="min-h-screen bg-sun-sand flex flex-col font-sans selection:bg-sun-yellow selection:text-sun-dark">
-      <SEOHead 
-        isHome={true}
-        path="/"
-        breadcrumbs={[
-          { name: 'Home', url: '/' }
-        ]}
-      />
-      {/* Navigation Header */}
-      <Header 
-        cartCount={cartCount}
-        onNavigate={navigateTo}
-        onOpenCart={() => setIsCartOpen(true)}
-        onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-        onOpenQuiz={() => setIsQuizOpen(true)}
-        onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-      />
-
-      {/* Main Content */}
-      <main className="flex-grow">
+      <>
         {/* Sun-Drenched Hero Section */}
         <Hero 
           flagshipProduct={flagshipProduct}
@@ -581,17 +331,33 @@ export function App() {
 
         {/* Customer Reviews & Instagram Gallery */}
         <ReviewsSection />
+      </>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-sun-sand flex flex-col font-sans selection:bg-sun-yellow selection:text-sun-dark">
+      <SEOHead 
+        isHome={currentRoute === 'home'}
+        title={currentRoute === 'home' ? undefined : undefined}
+        path={window.location.pathname}
+        breadcrumbs={[
+          { name: 'Home', url: '/' }
+        ]}
+      />
+
+      {/* Navigation Header */}
+      <Header {...headerProps} />
+
+      {/* Main Content Area */}
+      <main className="flex-grow">
+        {renderPageContent()}
       </main>
 
       {/* Footer */}
-      <Footer 
-        onNavigate={navigateTo}
-        onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
-        onOpenQuiz={() => setIsQuizOpen(true)}
-        onSelectCategory={(cat) => { setSelectedCategory(cat); navigateTo('shop'); }}
-      />
+      <Footer {...footerProps} />
 
-      {/* Slide-Over Cart Drawer with Upsell */}
+      {/* Slide-Over Cart Drawer */}
       <CartDrawer 
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -605,7 +371,19 @@ export function App() {
       {/* Track Order Status Dialog */}
       <TrackOrderModal 
         isOpen={isTrackOrderOpen}
-        onClose={() => setIsTrackOrderOpen(false)}
+        onClose={() => {
+          setIsTrackOrderOpen(false);
+          setTrackInitialCode('');
+        }}
+        initialTrackingCode={trackInitialCode}
+      />
+
+      {/* Customer Account & Wishlist Modal */}
+      <CustomerAccountModal 
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onAddToCart={handleAddToCart}
+        onOpenTrackOrder={(code) => openTrackWithCode(code)}
       />
 
       {/* Routine Finder 3-Step Quiz */}

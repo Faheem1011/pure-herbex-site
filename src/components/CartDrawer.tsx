@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { X, Plus, Minus, Trash2, ShoppingBag, Truck, ShieldCheck, CheckCircle, ArrowRight, Gift, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Minus, Trash2, ShoppingBag, Truck, ShieldCheck, CheckCircle, ArrowRight, Gift, Sparkles, User } from 'lucide-react';
 import { CartItem, Product } from '../types';
 import { PRODUCTS } from '../data/products';
 import { submitCustomerOrder } from '../services/supabase';
+import { createCourierShipment } from '../services/courier/runCourierService';
+import { getCurrentCustomer } from '../services/customerAuth';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -26,6 +28,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [isCheckoutStep, setIsCheckoutStep] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderTrackingCode, setOrderTrackingCode] = useState('');
+  const [leopardTrackingCode, setLeopardTrackingCode] = useState('');
   const [lastWaMessage, setLastWaMessage] = useState('');
   
   const [formData, setFormData] = useState({
@@ -35,6 +38,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     address: '',
     notes: ''
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      const user = getCurrentCustomer();
+      if (user) {
+        setFormData(prev => ({
+          ...prev,
+          fullName: user.fullName || prev.fullName,
+          phone: user.phone || prev.phone,
+          city: user.city || prev.city,
+          address: user.address || prev.address
+        }));
+      }
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -63,14 +81,38 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const buildWaMessage = (trackingCode: string) => {
     const itemsSummary = cartItems.map(i => `• ${i.quantity}x ${i.product.name} (Rs. ${(i.product.price * i.quantity).toLocaleString()})`).join('\n');
-    return `🛍️ *NEW ORDER PLACED ON PURE HERBEX!*\n-----------------------------------\n👤 *Customer Name:* ${formData.fullName}\n📞 *Phone:* ${formData.phone}\n📍 *City:* ${formData.city}\n🏠 *Address:* ${formData.address}\n-----------------------------------\n📦 *Order Items:*\n${itemsSummary}\n-----------------------------------\n💵 *Subtotal:* Rs. ${subtotal.toLocaleString()}\n🚚 *Delivery:* Rs. ${shippingCost} (Leopards COD)\n💰 *TOTAL AMOUNT:* Rs. ${totalAmount.toLocaleString()}\n🆔 *Tracking Code:* ${trackingCode}`;
+    return `🛍️ *NEW ORDER PLACED ON PURE HERBEX!*\n-----------------------------------\n👤 *Customer Name:* ${formData.fullName}\n📞 *Phone:* ${formData.phone}\n📍 *City:* ${formData.city}\n🏠 *Address:* ${formData.address}\n-----------------------------------\n📦 *Order Items:*\n${itemsSummary}\n-----------------------------------\n💵 *Subtotal:* Rs. ${subtotal.toLocaleString()}\n🚚 *Delivery:* Rs. ${shippingCost} (Leopards COD via RUN)\n💰 *TOTAL AMOUNT:* Rs. ${totalAmount.toLocaleString()}\n🆔 *Leopards Tracking:* ${trackingCode}`;
   };
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    let trackingCode = 'LEOP-' + Math.floor(100000 + Math.random() * 900000);
+    const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+    let trackingCode = 'LEO-' + Math.floor(100000000 + Math.random() * 900000000);
+
     try {
-      const createdOrder = await submitCustomerOrder({
+      // 1. Book shipment with RUN Courier (Forcing Leopard Gateway 28|1)
+      const shipment = await createCourierShipment({
+        orderId,
+        receiverName: formData.fullName,
+        receiverPhone: formData.phone,
+        destinationCity: formData.city,
+        receiverAddress: formData.address,
+        pieces: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+        weight: 1,
+        collectionAmount: totalAmount,
+        productDescription: cartItems.map(i => `${i.quantity}x ${i.product.name}`).join(', ')
+      });
+
+      if (shipment.thirdPartyTrackingNo) {
+        trackingCode = shipment.thirdPartyTrackingNo;
+      } else if (shipment.runTrackingNo) {
+        trackingCode = shipment.runTrackingNo;
+      }
+
+      setLeopardTrackingCode(shipment.thirdPartyTrackingNo || trackingCode);
+
+      // 2. Save Order to Database
+      await submitCustomerOrder({
         fullName: formData.fullName,
         phone: formData.phone,
         city: formData.city,
@@ -80,11 +122,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         shippingFee: shippingCost,
         totalAmount
       });
-      if (createdOrder?.trackingNumber) {
-        trackingCode = createdOrder.trackingNumber;
-      }
     } catch (err) {
-      console.warn('Checkout error:', err);
+      console.warn('Checkout/Shipment error:', err);
     } finally {
       setOrderTrackingCode(trackingCode);
       const msg = buildWaMessage(trackingCode);

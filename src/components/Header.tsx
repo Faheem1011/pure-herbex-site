@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { ShoppingBag, Sparkles, Truck, ShieldCheck, MapPin, Lock, Menu, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShoppingBag, Sparkles, Truck, ShieldCheck, MapPin, User, Menu, X, Heart } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
+import { getCurrentCustomer, CustomerUser } from '../services/customerAuth';
 
 interface HeaderProps {
   cartCount: number;
@@ -9,6 +10,7 @@ interface HeaderProps {
   onOpenTrackOrder: () => void;
   onOpenQuiz: () => void;
   onSelectCategory: (category: string) => void;
+  onOpenAuthModal: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,9 +19,15 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCart,
   onOpenTrackOrder,
   onOpenQuiz,
-  onSelectCategory
+  onSelectCategory,
+  onOpenAuthModal
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [customer, setCustomer] = useState<CustomerUser | null>(null);
+
+  useEffect(() => {
+    setCustomer(getCurrentCustomer());
+  }, []);
 
   const handleShopNav = (category: string) => {
     onSelectCategory(category);
@@ -108,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <button 
               onClick={onOpenTrackOrder}
               className="hidden sm:flex items-center gap-1.5 text-xs font-bold bg-sun-sand border-2 border-sun-dark px-3 py-1.5 rounded-full hover:bg-sun-yellow transition-colors shadow-retro-sm"
@@ -118,27 +126,32 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Track</span>
             </button>
 
+            {/* Customer Account Button */}
             <button 
-              onClick={() => onNavigate('admin')}
-              className="hidden sm:flex items-center gap-1 text-xs font-black bg-amber-100 text-amber-900 border-2 border-sun-dark px-3 py-1.5 rounded-full hover:bg-sun-yellow transition-colors shadow-retro-sm"
-              title="Admin Section"
+              onClick={onOpenAuthModal}
+              className="flex items-center gap-1.5 text-xs font-black bg-sun-sand text-sun-dark border-2 border-sun-dark px-3 py-1.5 rounded-full hover:bg-sun-yellow transition-colors shadow-retro-sm"
+              title="Customer Account & Wishlist"
             >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Admin</span>
+              <User className="w-3.5 h-3.5 text-amber-800" />
+              <span className="hidden md:inline">
+                {customer ? customer.fullName.split(' ')[0] : 'Account'}
+              </span>
             </button>
 
+            {/* Shopping Cart Button */}
             <button 
               onClick={onOpenCart}
-              className="relative bg-sun-yellow text-sun-dark font-black border-2 border-sun-dark px-4 py-2 rounded-full hover:bg-amber-400 transition-all transform active:scale-95 shadow-retro flex items-center gap-2 text-sm"
+              className="relative bg-sun-yellow text-sun-dark font-black border-2 border-sun-dark px-3.5 sm:px-4 py-2 rounded-full hover:bg-amber-400 transition-all transform active:scale-95 shadow-retro flex items-center gap-2 text-xs sm:text-sm"
               aria-label="View Shopping Cart"
             >
-              <ShoppingBag className="w-5 h-5" />
+              <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden sm:inline">CART</span>
               <span className="bg-sun-dark text-sun-yellow text-xs px-2 py-0.5 rounded-full font-black">
                 {cartCount}
               </span>
             </button>
 
+            {/* Mobile Menu Toggle */}
             <button 
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="lg:hidden p-2 bg-sun-sand border-2 border-sun-dark rounded-xl"
@@ -153,19 +166,18 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer Navigation */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-sun-cream border-t-2 border-sun-dark p-4 space-y-3 font-black text-sm uppercase">
+        <div className="lg:hidden bg-sun-cream border-t-2 border-sun-dark p-4 space-y-3 font-black text-sm uppercase animate-fade-in">
           <button onClick={() => handleShopNav('all')} className="block w-full text-left py-2 hover:text-amber-600">Shop All Products</button>
           <button onClick={() => handleShopNav('kits')} className="block w-full text-left py-2 text-amber-700">Complete Kit (Rs. 1,500)</button>
           <button onClick={() => { onNavigate('story'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2">Trust The Glow (Brand Story)</button>
           <button onClick={() => { onNavigate('routine-finder'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-emerald-700">Routine Finder Quiz</button>
           <button onClick={() => { onNavigate('policies'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2">Policies & Customer Care</button>
           <button onClick={() => { onOpenTrackOrder(); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-amber-800">Track Order (Leopards COD)</button>
-          <button onClick={() => { onNavigate('admin'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-red-800 flex items-center gap-2">
-            <Lock className="w-4 h-4" /> Admin Portal Section
+          <button onClick={() => { onOpenAuthModal(); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-emerald-800 flex items-center gap-2">
+            <User className="w-4 h-4" /> My Account & Wishlist
           </button>
         </div>
       )}
     </header>
   );
 };
-

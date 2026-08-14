@@ -91,23 +91,15 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
             </ul>
           </div>
 
-          {/* Guarantees & Internal Link */}
+          {/* Guarantees */}
           <div className="space-y-3">
             <h4 className="font-display font-black text-sm uppercase text-sun-yellow tracking-wider">Our Promise</h4>
-            <div className="bg-sun-brown p-3 rounded-2xl border border-sun-cream/20 text-xs text-gray-300 space-y-1 font-medium">
-              <div className="font-black text-sun-cream flex items-center gap-1">
+            <div className="bg-sun-brown p-3.5 rounded-2xl border border-sun-cream/20 text-xs text-gray-300 space-y-1.5 font-medium">
+              <div className="font-black text-sun-cream flex items-center gap-1.5 text-sm">
                 <ShieldCheck className="w-4 h-4 text-sun-yellow" /> Cash On Delivery
               </div>
-              <p>Express 2-day delivery across all cities in Pakistan via Run Couriers.</p>
+              <p>Express 3 to 4 days nationwide delivery across all cities in Pakistan via Leopards Courier COD.</p>
             </div>
-
-            <button 
-              onClick={() => onNavigate('admin')} 
-              className="w-full mt-2 bg-amber-900/50 hover:bg-sun-yellow hover:text-sun-dark text-sun-cream text-xs font-bold py-2 px-3 rounded-xl border border-sun-cream/30 flex items-center justify-center gap-2 transition-colors"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Admin Portal Login</span>
-            </button>
           </div>
 
         </div>
