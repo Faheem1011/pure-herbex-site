@@ -67,13 +67,13 @@ export const MascotWidget: React.FC = () => {
         aria-label="Chat with Kovera Mascot"
       >
         <img 
-          src="https://images.unsplash.com/photo-1540573133985-780688d172c7?q=80&w=400&auto=format&fit=crop" 
+          src="/images/mascot_glow_koala.png" 
           alt="Kovera Mascot" 
           width="56"
           height="56"
           decoding="async"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = '/images/mascot_glow_koala.png';
+            (e.target as HTMLImageElement).src = '/images/brand_logo.png';
           }}
           className="w-14 h-14 rounded-full border-2 border-sun-dark object-cover filter drop-shadow-md"
         />

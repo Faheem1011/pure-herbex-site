@@ -41,13 +41,13 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
               <div className="relative flex-shrink-0 group">
                 <img 
-                  src="https://images.unsplash.com/photo-1540573133985-780688d172c7?q=80&w=400&auto=format&fit=crop" 
+                  src="/images/mascot_glow_koala.png" 
                   alt="Kovera Mascot" 
                   width="64"
                   height="64"
                   decoding="async"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/images/mascot_glow_koala.png';
+                    (e.target as HTMLImageElement).src = '/images/brand_logo.png';
                   }}
                   className="w-16 h-16 rounded-full border-3 border-sun-dark object-cover shadow-retro transform group-hover:rotate-6 transition-transform"
                 />
