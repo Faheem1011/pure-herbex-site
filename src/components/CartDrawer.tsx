@@ -335,7 +335,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         src={item.product.image} 
                         alt={item.product.name} 
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                          (e.target as HTMLImageElement).src = '/images/glow-kit.png';
                         }}
                         className="w-16 h-16 object-cover rounded-xl border border-sun-dark flex-shrink-0"
                       />

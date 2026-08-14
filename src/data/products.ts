@@ -11,7 +11,7 @@ export const PRODUCTS: Product[] = [
     rating: 5.0,
     reviewCount: 488,
     category: 'kits',
-    image: 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-kit.png',
     badge: '🎁 BEST VALUE - SAVE RS. 300',
     description: 'The ultimate 3-step artisanal herbal skincare routine. Handcrafted in small batches with pure natural ingredients and proprietary secret botanical elixirs for complete skin transformation.',
     benefits: [
@@ -46,7 +46,7 @@ export const PRODUCTS: Product[] = [
     rating: 4.9,
     reviewCount: 312,
     category: 'facepack',
-    image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-serum.png',
     badge: '🏆 #1 BESTSELLER',
     description: 'Freshly handmade herbal powder mask formulated with pure rose petals, moringa, premium coffee, and Multani mitti enhanced with secret botanical elixirs.',
     benefits: [
@@ -73,7 +73,7 @@ export const PRODUCTS: Product[] = [
     rating: 4.8,
     reviewCount: 194,
     category: 'toner',
-    image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-mist.png',
     badge: '🌿 ALOE HYDRATION',
     description: 'Refreshing herbal hydration toner formulated with organic Aloe Vera gel and secret botanical extracts to soothe, hydrate, and tighten pores.',
     benefits: [
@@ -97,7 +97,7 @@ export const PRODUCTS: Product[] = [
     rating: 4.9,
     reviewCount: 260,
     category: 'rosewater',
-    image: 'https://images.unsplash.com/photo-1563178406-4cdc2923acbc?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-elixir.png',
     badge: '🌸 100% PURE',
     description: 'Traditional steam-distilled pure rose water with zero artificial fragrances or preservatives. Ideal for mixing face packs or daily skin refreshing.',
     benefits: [
@@ -121,7 +121,7 @@ export const PRODUCTS: Product[] = [
     rating: 4.9,
     reviewCount: 142,
     category: 'lipcare',
-    image: 'https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-elixir.png',
     badge: '💋 NEW LAUNCH',
     description: 'Nourishing botanical lip treatment oil infused with real rose petal infusion, cold-pressed moringa oil, and pure Vitamin E to soften chapped lips and add natural pink sheen.',
     benefits: [
@@ -145,7 +145,7 @@ export const PRODUCTS: Product[] = [
     rating: 4.8,
     reviewCount: 98,
     category: 'bodycare',
-    image: 'https://images.unsplash.com/photo-1608248597249-43c3d517c5b6?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-kit.png',
     badge: '✨ INTENSE MOISTURE',
     description: 'Ultra-luxurious whipped body butter enriched with organic Aloe Vera, Shea Butter, and secret sun-radiance botanical extracts for silky smooth, deeply hydrated skin.',
     benefits: [
@@ -169,7 +169,7 @@ export const PRODUCTS: Product[] = [
     rating: 4.9,
     reviewCount: 165,
     category: 'scrub',
-    image: 'https://images.unsplash.com/photo-1567928269937-ae146e45b428?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-serum.png',
     badge: '🌿 ACNE CLEAR',
     description: 'Targeted deep-pore purifying scrub formulated with organic Neem powder, Wild Haldi (Turmeric), and fine Multani mitti to clear breakouts and diminish acne scars.',
     benefits: [
@@ -193,7 +193,7 @@ export const PRODUCTS: Product[] = [
     rating: 5.0,
     reviewCount: 215,
     category: 'serum',
-    image: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-mist.png',
     badge: '🌙 NIGHT REPAIR',
     description: 'Potent overnight botanical serum elixir infused with 7 cold-pressed seed oils, rosehip extract, and secret plant actives that work overnight to repair skin cells and restore morning radiance.',
     benefits: [

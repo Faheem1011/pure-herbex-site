@@ -19,7 +19,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Rosa Damascena Flower Powder',
     category: 'Botanical Brightener & Anti-Aging',
     origin: 'Hand-picked organic Damask Roses from ancient rose valleys',
-    image: 'https://images.unsplash.com/photo-1563178406-4cdc2923acbc?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-elixir.png',
     summary: 'Cold-milled dried petals rich in Natural Vitamin C, polyphenol antioxidants, and soothing essential tannins. Gently fades dark spots while restoring youthful skin elasticity.',
     keyBenefits: [
       'Natural Vitamin C brightens dull & uneven skin complexion',
@@ -37,7 +37,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Moringa Oleifera Leaf Powder',
     category: 'Superfood Detox & Anti-Pollution',
     origin: 'Organically cultivated Miracle Tree leaves',
-    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-serum.png',
     summary: 'Known as the "Miracle Tree," Moringa contains 46 antioxidants and 90+ nutrients. Protects skin against urban smog, environmental pollutants, and premature cell aging.',
     keyBenefits: [
       'Protects against urban pollution & micro-particulate damage',
@@ -55,7 +55,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Coffea Arabica Seed Powder',
     category: 'Exfoliant & Micro-Circulation Booster',
     origin: 'Single-origin shade-grown organic Arabica beans',
-    image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-serum.png',
     summary: 'Finely ground organic coffee beans deliver gentle mechanical exfoliation while active caffeine stimulates micro-circulation to reduce puffiness and dullness.',
     keyBenefits: [
       'Gently buffs away dead skin cells for silky smoothness',
@@ -73,7 +73,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Solum Fullonum',
     category: 'Deep Clay Clarifier & Oil Absorber',
     origin: 'Glacial mineral sediment deposits',
-    image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-kit.png',
     summary: 'Magnesium chloride rich natural clay deposit renowned for centuries in Ayurvedic skin detox rituals. Absorbs excess sebum oil, draws out deep blackheads, and cools inflamed skin.',
     keyBenefits: [
       'Deeply cleanses congested pores and removes stubborn impurities',
@@ -91,7 +91,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Rosa Damascena Flower Water',
     category: 'Pure Hydrosol & pH Balancer',
     origin: 'Traditional copper pot steam distillation',
-    image: 'https://images.unsplash.com/photo-1563178406-4cdc2923acbc?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-elixir.png',
     summary: 'Pure aromatic hydrosol captured during essential oil steam distillation. Restores natural skin pH (5.5), delivers oil-free hydration, and locks in moisture after face pack rituals.',
     keyBenefits: [
       'Instantly restores ideal skin pH balance after cleansing',
@@ -109,7 +109,7 @@ export const INGREDIENTS_DATA: IngredientDetail[] = [
     scientificName: 'Aloe Barbadensis Leaf Juice',
     category: 'Deep Hydration & Barrier Repair',
     origin: 'Cold-pressed organic Aloe Barbadensis leaves',
-    image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1000&auto=format&fit=crop',
+    image: '/images/glow-mist.png',
     summary: 'Concentrated inner-leaf polysaccharide gel that delivers 99% pure bio-active moisture. Accelerates skin cell healing, calms sun exposure, and binds water deep within the epidermis.',
     keyBenefits: [
       'Cools and relieves UV sun heat & environmental redness',

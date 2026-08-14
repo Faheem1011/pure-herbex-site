@@ -156,7 +156,7 @@ export const RoutineFinder: React.FC<RoutineFinderProps> = ({
                 src={recommendedProduct.image} 
                 alt={recommendedProduct.name} 
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                  (e.target as HTMLImageElement).src = '/images/glow-kit.png';
                 }}
                 className="w-36 h-36 object-cover rounded-2xl border border-sun-dark/20 flex-shrink-0"
               />

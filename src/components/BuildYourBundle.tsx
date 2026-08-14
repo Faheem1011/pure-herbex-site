@@ -98,7 +98,7 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
                     decoding="async"
                     loading="lazy"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                      (e.target as HTMLImageElement).src = '/images/glow-kit.png';
                     }}
                     className="max-h-full max-w-full h-auto w-auto object-contain"
                   />

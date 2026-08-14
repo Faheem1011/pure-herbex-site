@@ -64,7 +64,7 @@ export const SkincareJournalPage: React.FC<SkincareJournalPageProps> = ({
               src={currentPost.image} 
               alt={currentPost.title} 
               onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1608248597263-00079e96576d?q=80&w=1000&auto=format&fit=crop';
+                (e.target as HTMLImageElement).src = '/images/glow-kit.png';
               }}
               className="w-full max-h-[400px] aspect-video object-cover rounded-2xl border-3 border-sun-dark shadow-retro"
             />
