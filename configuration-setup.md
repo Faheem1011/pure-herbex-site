@@ -48,7 +48,7 @@ flowchart TD
 
 | Product Name | SKU / Identifier | Price (PKR) | Original Price | Image Asset |
 | :--- | :--- | :--- | :--- | :--- |
-| **Koveria Glow Complete Kit** | `koveria-glow-complete-kit` | **Rs. 1,500** | Rs. 1,800 | `/images/glow-kit.png` |
+| **Koveria Glow Complete Kit** | `koveria-glow-complete-kit` | **Rs. 2,000** | Rs. 2,000 | `/images/glow-kit.png` |
 | **Koveria Glow Face Pack** | `koveria-glow-face-pack` | **Rs. 1,399** | Rs. 1,600 | `/images/glow-facepack.png` |
 | **Koveria Glow Night Toner** | `koveria-glow-toner` | **Rs. 399** | Rs. 499 | `/images/glow-tonner.png` |
 | **Koveria Glow Rose Water** | `pure-rose-water` | **Rs. 170** | Rs. 250 | `/images/glow-rose-water.png` |

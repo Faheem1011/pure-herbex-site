@@ -43,7 +43,7 @@ export function App() {
       const saved = localStorage.getItem('pureherbex_products_db');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length === DEFAULT_PRODUCTS.length && parsed.every((p: any) => DEFAULT_PRODUCTS.some(dp => dp.id === p.id))) {
+        if (Array.isArray(parsed) && parsed.length === DEFAULT_PRODUCTS.length && parsed.every((p: any) => DEFAULT_PRODUCTS.some(dp => dp.id === p.id && dp.price === p.price))) {
           return parsed;
         }
       }
@@ -159,17 +159,17 @@ export function App() {
       name: 'Custom B.Y.O.G. Radiance Kit (3 Pieces)',
       subtitle: bundleItems.map(i => i.name).join(' + '),
       tagline: 'Personalized Botanical Bundle',
-      price: totalPrice,
-      originalPrice: 1800,
+      price: totalPrice || 2000,
+      originalPrice: 2000,
       rating: 5.0,
       reviewCount: 1,
       category: 'kits',
       image: '/images/glow-kit.png',
-      badge: '🎁 CUSTOM KIT • SAVE RS. 300',
+      badge: '🎁 COMPLETE 3-PIECE KIT',
       description: `Complete customized 3-step ritual featuring ${bundleItems.map(i => i.name).join(', ')}. Includes Free Pure Herbex Canvas Bag.`,
       benefits: [
         'Custom formulated 3-step ritual',
-        '20% Custom Kit bundle discount applied',
+        'Complete 3-step botanical glow routine',
         'Free Pure Herbex Canvas Beach Tote'
       ],
       ingredients: bundleItems.flatMap(i => i.ingredients),

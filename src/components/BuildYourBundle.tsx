@@ -22,12 +22,11 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
 
   const rawTotal = selectedProducts.reduce((sum, item) => sum + item.price, 0);
   const isComplete = selectedProducts.length === 3;
-  const discountedTotal = isComplete ? 1500 : rawTotal;
-  const savings = rawTotal > 1500 ? rawTotal - 1500 : 300;
+  const bundleTotal = isComplete ? 2000 : rawTotal;
 
   const handleAddBundle = () => {
     if (isComplete) {
-      onAddCustomBundleToCart(selectedProducts, discountedTotal);
+      onAddCustomBundleToCart(selectedProducts, bundleTotal);
     }
   };
 
@@ -44,7 +43,7 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
             BUILD YOUR <span className="text-amber-600">GLOW</span> KIT
           </h2>
           <p className="text-lg text-sun-brown font-medium">
-            Select all 3 botanical essentials (Face Pack + Night Toner + Rose Water) to unlock the complete kit for only <strong className="text-emerald-800 font-black">Rs. 1,500</strong> (Discounted from Rs. 1,800)!
+            Select all 3 botanical essentials (Face Pack + Night Toner + Rose Water) for the complete full kit at <strong className="text-sun-dark font-black">Rs. 2,000</strong>!
           </p>
 
           {/* Progress Tracker */}
@@ -52,8 +51,8 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
             <div className="flex justify-between items-center text-sm font-extrabold text-sun-dark mb-2">
               <span>PROGRESS: {selectedProducts.length}/3 ITEMS SELECTED</span>
               {isComplete ? (
-                <span className="text-emerald-600 flex items-center gap-1 font-black">
-                  <Check className="w-4 h-4" /> COMPLETE KIT DISCOUNT UNLOCKED (RS. 1,500)!
+                <span className="text-emerald-700 flex items-center gap-1 font-black">
+                  <Check className="w-4 h-4" /> ALL 3 ITEMS SELECTED (RS. 2,000)!
                 </span>
               ) : (
                 <span className="text-amber-600">
@@ -141,18 +140,8 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
             
             <div className="flex items-baseline justify-center md:justify-start gap-3">
               <span className="text-3xl font-black text-sun-dark">
-                Rs. {discountedTotal.toLocaleString()}
+                Rs. {bundleTotal.toLocaleString()}
               </span>
-              {isComplete && (
-                <>
-                  <span className="text-lg text-amber-950/75 line-through font-extrabold">
-                    Rs. 1,800
-                  </span>
-                  <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-2.5 py-1 rounded-full border border-emerald-500">
-                    SAVE RS. 300 (KIT DISCOUNT)
-                  </span>
-                </>
-              )}
             </div>
           </div>
 

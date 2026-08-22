@@ -95,15 +95,15 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
             </div>
 
             {/* Complete Kit Deal Callout */}
+            {/* Complete Kit Callout */}
             <div className="bg-sun-cream border-2 border-sun-dark p-3.5 rounded-2xl shadow-retro-sm text-left max-w-lg mx-auto lg:mx-0 flex items-center justify-between gap-4">
               <div>
-                <div className="text-[10px] font-black text-amber-950 uppercase tracking-widest">🎁 LIMITED TIME OFFER</div>
+                <div className="text-[10px] font-black text-amber-950 uppercase tracking-widest">🌿 COMPLETE 3-PIECE SET</div>
                 <div className="font-display font-black text-base text-sun-dark uppercase">Koveria Glow Face Pack Kit</div>
                 <p className="text-xs text-amber-950 font-bold">Face Pack + Night Toner + Rose Water</p>
               </div>
               <div className="text-right">
-                <span className="text-amber-950/75 line-through text-xs font-extrabold mr-1.5">Rs. 1,800</span>
-                <span className="text-xl font-black text-emerald-800">Rs. 1,500</span>
+                <span className="text-xl font-black text-sun-dark">Rs. 2,000</span>
               </div>
             </div>
 
@@ -113,7 +113,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                 onClick={() => onAddToCart(flagshipProduct)}
                 className="w-full sm:w-auto bg-sun-dark text-sun-cream font-extrabold text-base px-8 py-4 rounded-full border-2 border-sun-dark hover:bg-amber-900 transition-all transform active:scale-95 shadow-retro-lg flex items-center justify-center gap-3 uppercase tracking-wider"
               >
-                <span>Add Complete Kit • Rs. 1,500</span>
+                <span>Add Complete Kit • Rs. 2,000</span>
                 <ArrowRight className="w-5 h-5 text-sun-yellow" />
               </button>
               
@@ -149,8 +149,8 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                 className="bg-sun-cream border-4 border-sun-dark p-6 rounded-3xl shadow-retro-lg transform -rotate-1 group-hover:rotate-0 transition-all duration-300 relative cursor-pointer group-hover:shadow-2xl"
               >
                 
-                <div className="absolute -top-4 -right-4 bg-rose-900 text-white font-black text-xs px-4 py-2 rounded-full border-2 border-sun-dark shadow-retro-sm transform rotate-6 z-10">
-                  SAVE RS. 300 (COMPLETE KIT)
+                <div className="absolute -top-4 -right-4 bg-sun-yellow text-sun-dark font-black text-xs px-4 py-2 rounded-full border-2 border-sun-dark shadow-retro-sm transform rotate-6 z-10">
+                  COMPLETE 3-PIECE KIT
                 </div>
 
                 <div className="bg-gradient-to-b from-amber-100 to-amber-50 rounded-2xl p-2 border-2 border-sun-dark flex items-center justify-center relative overflow-hidden group-hover:bg-amber-100/80 transition-colors h-80 sm:h-96 w-full aspect-square">
@@ -191,14 +191,9 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                   {/* Price Tag & Direct Quick Action Buttons */}
                   <div className="pt-2 flex flex-col gap-2">
                     <div className="flex items-center justify-center gap-2">
-                      <span className="text-2xl font-black text-emerald-800">
-                        Rs. {flagshipProduct.price ? flagshipProduct.price.toLocaleString() : '1,500'}
+                      <span className="text-2xl font-black text-sun-dark">
+                        Rs. {flagshipProduct.price ? flagshipProduct.price.toLocaleString() : '2,000'}
                       </span>
-                      {flagshipProduct.originalPrice && (
-                        <span className="text-sm text-amber-950/75 line-through font-extrabold">
-                          Rs. {flagshipProduct.originalPrice.toLocaleString()}
-                        </span>
-                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 pt-1">

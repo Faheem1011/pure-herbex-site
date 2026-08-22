@@ -1050,14 +1050,14 @@ export const AdminPortal: React.FC = () => {
 
                   <div>
                     <label className="block text-sun-dark mb-1">Selling Price (Rs.)</label>
-                    <input type="number" required value={newProdPrice} onChange={e => setNewProdPrice(e.target.value)} className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" placeholder="1500" />
+                    <input type="number" required value={newProdPrice} onChange={e => setNewProdPrice(e.target.value)} className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" placeholder="2000" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sun-dark mb-1">Original Price (Rs.) [For Discount]</label>
-                    <input type="number" value={newProdOrigPrice} onChange={e => setNewProdOrigPrice(e.target.value)} className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" placeholder="1800" />
+                    <input type="number" value={newProdOrigPrice} onChange={e => setNewProdOrigPrice(e.target.value)} className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" placeholder="2000" />
                   </div>
 
                   <div>

@@ -168,7 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-sun-cream border-t-2 border-sun-dark p-4 space-y-3 font-black text-sm uppercase animate-fade-in">
           <button onClick={() => handleShopNav('all')} className="block w-full text-left py-2 hover:text-amber-600">Shop All Products</button>
-          <button onClick={() => handleShopNav('kits')} className="block w-full text-left py-2 text-amber-700">Complete Kit (Rs. 1,500)</button>
+          <button onClick={() => handleShopNav('kits')} className="block w-full text-left py-2 text-amber-700">Complete Kit (Rs. 2,000)</button>
           <button onClick={() => { onNavigate('story'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2">Trust The Glow (Brand Story)</button>
           <button onClick={() => { onNavigate('routine-finder'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-emerald-700">Routine Finder Quiz</button>
           <button onClick={() => { onNavigate('policies'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2">Policies & Customer Care</button>

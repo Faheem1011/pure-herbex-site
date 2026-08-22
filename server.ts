@@ -39,16 +39,16 @@ const DB_PATH = path.join(__dirname, 'db.json');
 const INITIAL_PRODUCTS = [
   {
     id: 'koveria-glow-complete-kit',
-    name: 'Complete Koveria Glow 3-Piece Kit',
-    subtitle: 'Face Pack + Toner + Pure Rose Water Set',
+    name: 'Koveria Glow Face Pack Kit',
+    subtitle: 'Complete 3-Piece Ritual (Face Pack + Night Toner + Rose Water)',
     tagline: 'Artisanal Handmade Radiance Ritual',
-    price: 1500,
-    originalPrice: 1800,
+    price: 2000,
+    originalPrice: 2000,
     rating: 5,
     reviewCount: 488,
     category: 'kits',
     image: '/images/glow-kit.png',
-    badge: '🎁 BEST VALUE - SAVE RS. 300',
+    badge: '🏆 COMPLETE 3-PIECE RITUAL',
     description: 'The ultimate 3-step artisanal herbal skincare routine. Handcrafted in small batches with pure natural ingredients and proprietary secret botanical elixirs for complete skin transformation.',
     benefits: [
       '✴️ Brightens & even tones skin complexion',

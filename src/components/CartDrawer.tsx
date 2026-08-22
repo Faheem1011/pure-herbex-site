@@ -338,16 +338,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div className="bg-gradient-to-r from-amber-100 to-amber-50 border-2 border-sun-dark p-4 rounded-2xl shadow-retro-sm space-y-3 text-left">
                   <div className="flex items-center gap-2">
                     <Gift className="w-5 h-5 text-amber-600 animate-bounce" />
-                    <span className="text-xs font-black uppercase tracking-wider text-sun-dark">💡 EXCLUSIVE KIT UPGRADE</span>
+                    <span className="text-xs font-black uppercase tracking-wider text-sun-dark">💡 COMPLETE KIT UPGRADE</span>
                   </div>
                   <p className="text-xs text-sun-brown font-semibold leading-relaxed">
-                    Upgrade to the <strong>Koveria Glow Face Pack Kit</strong> (includes Face Pack + Night Toner + Rose Water) for just <strong>Rs. 1,500</strong> (Discounted from Rs. 1,800)!
+                    Get all 3 essentials with the <strong>Koveria Glow Face Pack Kit</strong> (includes Face Pack + Night Toner + Rose Water) for <strong>Rs. 2,000</strong>!
                   </p>
                   <button 
                     onClick={handleUpgradeToKit}
                     className="w-full bg-sun-yellow text-sun-dark font-black text-xs py-2 rounded-full border-2 border-sun-dark hover:bg-amber-400 transition-colors uppercase"
                   >
-                    Upgrade & Save Rs. 300 Now!
+                    Upgrade to Complete Full Kit (Rs. 2,000)
                   </button>
                 </div>
               )}
