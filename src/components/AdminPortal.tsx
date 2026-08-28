@@ -12,6 +12,7 @@ import {
   updateCreatorApproval, registerCreatorAccount, getStoredCommissions, getStoredPayoutLogs 
 } from '../services/creatorService';
 import { getCourierConfig, saveCourierConfig, getAllShipments, getCourierApiLogs, trackCourierShipment, cancelCourierShipment, CourierShipment, RunCourierConfig } from '../services/courier/runCourierService';
+import { SORTED_PAKISTAN_CITIES } from '../data/pakistanCities';
 
 export const AdminPortal: React.FC = () => {
   // Navigation & Tabs
@@ -1121,14 +1122,12 @@ export const AdminPortal: React.FC = () => {
               <select 
                 value={filterCity}
                 onChange={(e) => setFilterCity(e.target.value)}
-                className="bg-sun-sand border-2 border-sun-dark rounded-full px-4 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-sun-yellow"
+                className="bg-sun-sand border-2 border-sun-dark rounded-full px-4 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-sun-yellow max-w-xs truncate"
               >
                 <option value="All">All Pakistan Cities</option>
-                <option value="Lahore">Lahore</option>
-                <option value="Karachi">Karachi</option>
-                <option value="Islamabad">Islamabad</option>
-                <option value="Rawalpindi">Rawalpindi</option>
-                <option value="Faisalabad">Faisalabad</option>
+                {SORTED_PAKISTAN_CITIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
             </div>
 

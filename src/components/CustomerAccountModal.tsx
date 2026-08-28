@@ -3,6 +3,7 @@ import { User, Lock, Mail, Phone, MapPin, Package, Heart, LogOut, CheckCircle2, 
 import { CustomerUser, getCurrentCustomer, loginCustomer, registerCustomer, logoutCustomer, updateCustomerProfile, getCustomerOrders } from '../services/customerAuth';
 import { Order, Product } from '../types';
 import { PRODUCTS } from '../data/products';
+import { SORTED_PAKISTAN_CITIES } from '../data/pakistanCities';
 
 interface CustomerAccountModalProps {
   isOpen: boolean;
@@ -328,16 +329,9 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                       onChange={(e) => setCity(e.target.value)}
                       className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-xs font-bold text-sun-dark focus:outline-none focus:ring-2 focus:ring-sun-yellow"
                     >
-                      <option value="Lahore">Lahore</option>
-                      <option value="Karachi">Karachi</option>
-                      <option value="Islamabad">Islamabad</option>
-                      <option value="Rawalpindi">Rawalpindi</option>
-                      <option value="Faisalabad">Faisalabad</option>
-                      <option value="Multan">Multan</option>
-                      <option value="Peshawar">Peshawar</option>
-                      <option value="Quetta">Quetta</option>
-                      <option value="Sialkot">Sialkot</option>
-                      <option value="Gujranwala">Gujranwala</option>
+                      {SORTED_PAKISTAN_CITIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="sm:col-span-2">
@@ -493,14 +487,9 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                       onChange={(e) => setCity(e.target.value)}
                       className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-xs font-bold text-sun-dark focus:outline-none focus:ring-2 focus:ring-sun-yellow"
                     >
-                      <option value="Lahore">Lahore</option>
-                      <option value="Karachi">Karachi</option>
-                      <option value="Islamabad">Islamabad</option>
-                      <option value="Rawalpindi">Rawalpindi</option>
-                      <option value="Faisalabad">Faisalabad</option>
-                      <option value="Multan">Multan</option>
-                      <option value="Peshawar">Peshawar</option>
-                      <option value="Quetta">Quetta</option>
+                      {SORTED_PAKISTAN_CITIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="sm:col-span-2">

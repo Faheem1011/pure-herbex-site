@@ -6,6 +6,7 @@ import { submitCustomerOrder } from '../services/supabase';
 import { createCourierShipment } from '../services/courier/runCourierService';
 import { getCurrentCustomer } from '../services/customerAuth';
 import { validatePromoCode, getActivePromoCode, saveActivePromoCode, clearActivePromoCode, processOrderCreatorCommission } from '../services/creatorService';
+import { SORTED_PAKISTAN_CITIES } from '../data/pakistanCities';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -345,17 +346,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     onChange={(e) => setFormData({...formData, city: e.target.value})}
                     className="w-full bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sun-yellow font-medium"
                   >
-                    <option value="Lahore">Lahore</option>
-                    <option value="Karachi">Karachi</option>
-                    <option value="Islamabad">Islamabad</option>
-                    <option value="Rawalpindi">Rawalpindi</option>
-                    <option value="Faisalabad">Faisalabad</option>
-                    <option value="Peshawar">Peshawar</option>
-                    <option value="Multan">Multan</option>
-                    <option value="Quetta">Quetta</option>
-                    <option value="Sialkot">Sialkot</option>
-                    <option value="Gujranwala">Gujranwala</option>
-                    <option value="Other">Other City (All Pakistan)</option>
+                    {SORTED_PAKISTAN_CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
 
