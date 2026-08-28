@@ -103,7 +103,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                 <p className="text-xs text-amber-950 font-bold">Face Pack + Night Toner + Rose Water</p>
               </div>
               <div className="text-right">
-                <span className="text-xl font-black text-sun-dark">Rs. 2,000</span>
+                <span className="text-xl font-black text-sun-dark">Rs. 1,800</span>
               </div>
             </div>
 
@@ -113,7 +113,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                 onClick={() => onAddToCart(flagshipProduct)}
                 className="w-full sm:w-auto bg-sun-dark text-sun-cream font-extrabold text-base px-8 py-4 rounded-full border-2 border-sun-dark hover:bg-amber-900 transition-all transform active:scale-95 shadow-retro-lg flex items-center justify-center gap-3 uppercase tracking-wider"
               >
-                <span>Add Complete Kit • Rs. 2,000</span>
+                <span>Add Complete Kit • Rs. 1,800</span>
                 <ArrowRight className="w-5 h-5 text-sun-yellow" />
               </button>
               
@@ -192,7 +192,7 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
                   <div className="pt-2 flex flex-col gap-2">
                     <div className="flex items-center justify-center gap-2">
                       <span className="text-2xl font-black text-sun-dark">
-                        Rs. {flagshipProduct.price ? flagshipProduct.price.toLocaleString() : '2,000'}
+                        Rs. {flagshipProduct.price ? flagshipProduct.price.toLocaleString() : '1,800'}
                       </span>
                     </div>
 

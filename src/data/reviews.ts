@@ -18,7 +18,7 @@ export const REVIEWS: Review[] = [
     rating: 5,
     date: 'July 20, 2026',
     title: 'The complete kit is worth every single rupee',
-    comment: 'Got the complete 3-piece kit for Rs. 2000 with the Face Pack, Night Toner, and Rose Water. Super fast delivery via Leopards Courier COD, arrived in 3 days in perfect condition!',
+    comment: 'Got the complete 3-piece kit for Rs. 1800 with the Face Pack, Night Toner, and Rose Water. Super fast delivery via Leopards Courier COD, arrived in 3 days in perfect condition!',
     verified: true,
     location: 'Karachi, Sindh',
     productName: 'Koveria Glow Face Pack Kit'

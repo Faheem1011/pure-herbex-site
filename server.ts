@@ -55,7 +55,7 @@ const INITIAL_PRODUCTS = [
     name: 'Koveria Glow Face Pack Kit',
     subtitle: 'Complete 3-Piece Ritual (Face Pack + Night Toner + Rose Water)',
     tagline: 'Artisanal Handmade Radiance Ritual',
-    price: 2000,
+    price: 1800,
     originalPrice: 2000,
     rating: 5,
     reviewCount: 488,

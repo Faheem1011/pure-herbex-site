@@ -74,7 +74,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
               <li><button onClick={() => handleCategoryNav('all')} className="hover:text-sun-yellow">All Botanical Products</button></li>
               <li><button onClick={() => onNavigate('ingredients')} className="hover:text-sun-yellow text-emerald-400">Botanical Actives Glossary</button></li>
               <li><button onClick={() => onNavigate('journal')} className="hover:text-sun-yellow text-amber-300">Skincare Radiance Journal</button></li>
-              <li><button onClick={() => onNavigate('story')} className="hover:text-sun-yellow">Trust The Glow Story</button></li>
+              <li><button onClick={() => onNavigate('creators')} className="hover:text-sun-yellow text-amber-400 font-bold">✨ Creator Circle (15% Commission)</button></li>
               <li><button onClick={() => handleCategoryNav('kits')} className="hover:text-sun-yellow">Koveria Glow Face Pack Kit</button></li>
             </ul>
           </div>

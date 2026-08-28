@@ -62,15 +62,18 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ onBack }) => {
                 <RefreshCw className="w-6 h-6" />
               </div>
               <h2 className="font-display font-black text-xl text-sun-dark uppercase">
-                2. 7-Day Returns & Exchange Policy
+                2. 2-Day Return & Refund Policy
               </h2>
             </div>
             <div className="bg-sun-sand p-6 rounded-2xl border-2 border-sun-dark space-y-3 text-xs font-medium text-sun-dark leading-relaxed">
               <p>
-                We take immense pride in our artisanal fresh botanical formulas. If your parcel arrives damaged, leaking, or incorrect, we offer a hassle-free <strong>7-Day Replacement Policy</strong>.
+                We offer a transparent <strong>2-Day Return & Refund Policy</strong> from the date your parcel is delivered by Leopards Courier.
               </p>
               <p>
-                To request a return or replacement, please contact our support team at <strong>admin@pureherbex.com</strong> or via WhatsApp within 7 days of receiving your order with photos of the damaged/incorrect product.
+                <strong>Eligibility Criteria:</strong> To qualify for a return or full refund, the parcel must be <strong>completely unused, undamaged, and unopened with all seals intact</strong> in its original packaging.
+              </p>
+              <p>
+                To initiate a return or claim within 2 days of delivery, please message our support desk via WhatsApp or email <strong>admin@pureherbex.com</strong> with your Tracking Number and photos of the sealed, intact parcel.
               </p>
             </div>
           </div>

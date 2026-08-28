@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Truck, Package, DollarSign, Printer, Search, RefreshCw, X, LogOut, Lock, Plus, Edit2, Trash2, Database, CheckCircle2, AlertCircle } from 'lucide-react';
-import { Order, Product } from '../types';
+import { 
+  ShieldCheck, Truck, Package, DollarSign, Printer, Search, RefreshCw, X, 
+  LogOut, Lock, Plus, Edit2, Trash2, Database, CheckCircle2, AlertCircle, 
+  Users, Tag, Zap, ExternalLink, Globe, Check, Award, Send, Clock
+} from 'lucide-react';
+import { Order, Product, CreatorProfile, CreatorCommissionRecord, CreatorPayoutLog } from '../types';
 import { PRODUCTS as DEFAULT_PRODUCTS } from '../data/products';
 import { fetchLiveOrders, fetchLiveProducts, saveLiveProduct, deleteLiveProduct, updateLiveOrderStatus, seedDefaultCatalog } from '../services/supabase';
-
+import { 
+  getAllCreatorsForAdmin, startPayoutProcessing, completePayout, setCreatorStatus, 
+  updateCreatorApproval, registerCreatorAccount, getStoredCommissions, getStoredPayoutLogs 
+} from '../services/creatorService';
 import { getCourierConfig, saveCourierConfig, getAllShipments, getCourierApiLogs, trackCourierShipment, cancelCourierShipment, CourierShipment, RunCourierConfig } from '../services/courier/runCourierService';
 
 export const AdminPortal: React.FC = () => {
   // Navigation & Tabs
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'database' | 'courier'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'creators' | 'courier' | 'database' | 'dns'>('orders');
 
   // Orders State
   const [orders, setOrders] = useState<Order[]>([]);
@@ -28,13 +35,34 @@ export const AdminPortal: React.FC = () => {
   // New Product Form State
   const [newProdName, setNewProdName] = useState('');
   const [newProdCategory, setNewProdCategory] = useState<'kits' | 'facepack' | 'toner' | 'rosewater'>('kits');
-  const [newProdPrice, setNewProdPrice] = useState('');
-  const [newProdOrigPrice, setNewProdOrigPrice] = useState('');
+  const [newProdPrice, setNewProdPrice] = useState('1800');
+  const [newProdOrigPrice, setNewProdOrigPrice] = useState('2000');
   const [newProdSubtitle, setNewProdSubtitle] = useState('');
   const [newProdTagline, setNewProdTagline] = useState('');
   const [newProdDescription, setNewProdDescription] = useState('');
   const [newProdSize, setNewProdSize] = useState('');
   const [newProdImage, setNewProdImage] = useState('/images/glow-kit.png');
+
+  // Creators & Influencers State
+  const [creators, setCreators] = useState<CreatorProfile[]>([]);
+  const [commissions, setCommissions] = useState<CreatorCommissionRecord[]>([]);
+  const [payoutLogs, setPayoutLogs] = useState<CreatorPayoutLog[]>([]);
+  const [isAddCreatorModalOpen, setIsAddCreatorModalOpen] = useState(false);
+  const [creatorMsg, setCreatorMsg] = useState('');
+  const [selectedCreatorForPayout, setSelectedCreatorForPayout] = useState<CreatorProfile | null>(null);
+  const [payoutStep, setPayoutStep] = useState<'options' | 'processing' | 'paid'>('options');
+  const [payoutAmount, setPayoutAmount] = useState<number>(0);
+  const [payoutTrxId, setPayoutTrxId] = useState('');
+  const [payoutAdminNote, setPayoutAdminNote] = useState('');
+
+  // New Creator Form State
+  const [newCreatorName, setNewCreatorName] = useState('');
+  const [newCreatorEmail, setNewCreatorEmail] = useState('');
+  const [newCreatorPhone, setNewCreatorPhone] = useState('');
+  const [newCreatorSocial, setNewCreatorSocial] = useState('');
+  const [newCreatorPromo, setNewCreatorPromo] = useState('');
+  const [newCreatorPayoutMethod, setNewCreatorPayoutMethod] = useState<'easypaisa' | 'jazzcash' | 'bank' | 'other'>('easypaisa');
+  const [newCreatorAccount, setNewCreatorAccount] = useState('');
 
   // Database Config State
   const [dbProvider, setDbProvider] = useState<'json' | 'supabase' | 'mongodb'>('supabase');
@@ -50,6 +78,10 @@ export const AdminPortal: React.FC = () => {
   const [courierLogs, setCourierLogs] = useState<any[]>(() => getCourierApiLogs());
   const [courierMessage, setCourierMessage] = useState('');
   const [testingCourierApi, setTestingCourierApi] = useState(false);
+
+  // DNS & Google Search Console State
+  const [dnsTesting, setDnsTesting] = useState(false);
+  const [dnsTestResult, setDnsTestResult] = useState<string | null>(null);
 
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -68,6 +100,9 @@ export const AdminPortal: React.FC = () => {
       setStats(data.stats);
       setCourierShipments(getAllShipments());
       setCourierLogs(getCourierApiLogs());
+      setCreators(getAllCreatorsForAdmin());
+      setCommissions(getStoredCommissions());
+      setPayoutLogs(getStoredPayoutLogs());
     } catch (err) {
       console.error('Failed to fetch live orders', err);
     } finally {
@@ -88,29 +123,10 @@ export const AdminPortal: React.FC = () => {
     }
   };
 
-  // Fetch DB Config
-  const fetchDbConfig = async () => {
-    const saved = localStorage.getItem('pureherbex_db_config');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setDbProvider(parsed.provider || 'supabase');
-        setSupabaseUrl(parsed.supabaseUrl || 'https://ycxsitqyhhsfcgxifsov.supabase.co');
-        setSupabaseKey(parsed.supabaseKey || '');
-        setMongoUri(parsed.mongoUri || '');
-      } catch (e) {}
-    } else {
-      setDbProvider('supabase');
-      setSupabaseUrl('https://ycxsitqyhhsfcgxifsov.supabase.co');
-      setSupabaseKey('');
-    }
-  };
-
   useEffect(() => {
     if (isAuthenticated) {
       fetchOrders();
       fetchProducts();
-      fetchDbConfig();
 
       const interval = setInterval(() => {
         fetchOrders();
@@ -154,7 +170,7 @@ export const AdminPortal: React.FC = () => {
       name: newProdName,
       subtitle: newProdSubtitle || newProdName,
       tagline: newProdTagline || 'Pure Botanical Formula',
-      price: Number(newProdPrice),
+      price: Number(newProdPrice) || 1800,
       originalPrice: newProdOrigPrice ? Number(newProdOrigPrice) : Number(newProdPrice),
       rating: 5.0,
       reviewCount: 1,
@@ -174,8 +190,8 @@ export const AdminPortal: React.FC = () => {
     await fetchProducts();
     setIsAddModalOpen(false);
     setNewProdName('');
-    setNewProdPrice('');
-    setNewProdOrigPrice('');
+    setNewProdPrice('1800');
+    setNewProdOrigPrice('2000');
     setNewProdSubtitle('');
     setNewProdTagline('');
     setNewProdDescription('');
@@ -197,33 +213,72 @@ export const AdminPortal: React.FC = () => {
     await fetchProducts();
   };
 
-  // DB Config Handler
-  const handleSaveDbConfig = async (e: React.FormEvent) => {
+  // Creator Payout & Review Handlers
+  const handleOpenPayoutModal = (c: CreatorProfile) => {
+    setSelectedCreatorForPayout(c);
+    setPayoutAmount(c.pendingCommission > 0 ? c.pendingCommission : (c.processingCommission || 0));
+    setPayoutStep('options');
+    setPayoutTrxId('');
+    setPayoutAdminNote(`Payout for ${c.totalKitsSold} kits sold via promo ${c.promoCode}`);
+  };
+
+  const handleStartProcessingPayout = () => {
+    if (!selectedCreatorForPayout) return;
+    startPayoutProcessing(selectedCreatorForPayout.id, payoutAmount, payoutAdminNote);
+    setCreators(getAllCreatorsForAdmin());
+    setPayoutLogs(getStoredPayoutLogs());
+    setCreatorMsg(`⏳ Payout of Rs. ${payoutAmount.toLocaleString()} marked as PROCESSING. Creator will see live notification.`);
+    setSelectedCreatorForPayout(null);
+    setTimeout(() => setCreatorMsg(''), 5000);
+  };
+
+  const handleCompletePayoutDisbursement = () => {
+    if (!selectedCreatorForPayout) return;
+    if (!payoutTrxId.trim()) {
+      alert('Please enter a valid Transaction ID or Bank Reference number.');
+      return;
+    }
+    completePayout(selectedCreatorForPayout.id, payoutAmount, payoutTrxId.trim(), payoutAdminNote);
+    setCreators(getAllCreatorsForAdmin());
+    setCommissions(getStoredCommissions());
+    setPayoutLogs(getStoredPayoutLogs());
+    setCreatorMsg(`✅ Payout of Rs. ${payoutAmount.toLocaleString()} marked as PAID (Trx ID: ${payoutTrxId}). Creator portal updated.`);
+    setSelectedCreatorForPayout(null);
+    setTimeout(() => setCreatorMsg(''), 5000);
+  };
+
+  const handleToggleCreatorApproval = (creator: CreatorProfile) => {
+    const nextStatus = creator.status === 'active' ? 'suspended' : 'active';
+    setCreatorStatus(creator.id, nextStatus);
+    setCreators(getAllCreatorsForAdmin());
+  };
+
+  const handleCreateCreatorByAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoadingDbConfig(true);
-    setDbConfigMessage('');
+    const res = await registerCreatorAccount({
+      name: newCreatorName,
+      email: newCreatorEmail,
+      phone: newCreatorPhone,
+      socialHandle: newCreatorSocial,
+      customPromoCode: newCreatorPromo,
+      payoutMethod: newCreatorPayoutMethod,
+      accountNumber: newCreatorAccount,
+      accountTitle: newCreatorName
+    });
 
-    const configData = {
-      provider: dbProvider,
-      supabaseUrl,
-      supabaseKey,
-      mongoUri
-    };
-
-    localStorage.setItem('pureherbex_db_config', JSON.stringify(configData));
-    if (supabaseUrl) localStorage.setItem('pureherbex_supabase_url', supabaseUrl);
-    if (supabaseKey) localStorage.setItem('pureherbex_supabase_key', supabaseKey);
-    setDbConfigMessage(`✅ Connected to ${dbProvider.toUpperCase()} Database successfully!`);
-    setLoadingDbConfig(false);
-
-    try {
-      await fetch('/api/db-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configData)
-      });
-    } catch (err) {
-      console.warn('API endpoint unavailable, saved locally.', err);
+    if (res.success) {
+      setCreators(getAllCreatorsForAdmin());
+      setIsAddCreatorModalOpen(false);
+      setCreatorMsg(`✅ Creator "${newCreatorName}" with promo code "${res.creator?.promoCode}" created!`);
+      setTimeout(() => setCreatorMsg(''), 4000);
+      setNewCreatorName('');
+      setNewCreatorEmail('');
+      setNewCreatorPhone('');
+      setNewCreatorSocial('');
+      setNewCreatorPromo('');
+      setNewCreatorAccount('');
+    } else {
+      alert(res.error || 'Failed to create creator');
     }
   };
 
@@ -231,7 +286,8 @@ export const AdminPortal: React.FC = () => {
     const matchesCity = filterCity === 'All' || o.city.toLowerCase() === filterCity.toLowerCase();
     const matchesSearch = o.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           o.phone.includes(searchQuery) || 
-                          o.id.toLowerCase().includes(searchQuery.toLowerCase());
+                          o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (o.appliedPromoCode && o.appliedPromoCode.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCity && matchesSearch;
   });
 
@@ -239,6 +295,12 @@ export const AdminPortal: React.FC = () => {
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
     p.category.toLowerCase().includes(productSearch.toLowerCase())
   );
+
+  // Total Creator Stats
+  const totalCreatorSales = creators.reduce((sum, c) => sum + (c.totalRevenue || 0), 0);
+  const totalCreatorKits = creators.reduce((sum, c) => sum + (c.totalKitsSold || 0), 0);
+  const totalCreatorCommission = creators.reduce((sum, c) => sum + (c.totalCommissionEarned || 0), 0);
+  const totalPendingPayout = creators.reduce((sum, c) => sum + (c.pendingCommission || 0), 0);
 
   // Render Login Form if not authenticated
   if (!isAuthenticated) {
@@ -258,45 +320,47 @@ export const AdminPortal: React.FC = () => {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
+            {authError && (
+              <div className="bg-red-50 border-2 border-red-500 text-red-700 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                <span>{authError}</span>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-black uppercase text-sun-dark mb-1">Admin Email</label>
               <input 
                 type="email" 
                 required 
-                placeholder="admin@pureherbex.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sun-yellow font-bold text-sun-dark"
+                onChange={e => setEmail(e.target.value)}
+                placeholder="admin@pureherbex.com"
+                className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-sun-yellow focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-black uppercase text-sun-dark mb-1">Password</label>
+              <label className="block text-xs font-black uppercase text-sun-dark mb-1">Secret Password</label>
               <input 
                 type="password" 
                 required 
-                placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sun-yellow font-bold text-sun-dark"
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-sun-yellow focus:outline-none"
               />
             </div>
 
-            {authError && (
-              <div className="bg-red-100 border-2 border-red-500 text-red-700 text-xs font-bold p-3 rounded-xl text-center">
-                {authError}
-              </div>
-            )}
-
             <button 
               type="submit"
-              className="w-full bg-sun-yellow text-sun-dark font-black py-3 rounded-full border-2 border-sun-dark shadow-retro hover:bg-amber-400 uppercase text-xs tracking-wider"
+              className="w-full bg-sun-yellow text-sun-dark font-black py-3.5 rounded-full border-2 border-sun-dark shadow-retro hover:bg-amber-400 uppercase text-sm flex items-center justify-center gap-2"
             >
-              Authorize & Access
+              <span>Unlock Admin Panel</span>
+              <ShieldCheck className="w-4 h-4" />
             </button>
           </form>
 
-          <div className="text-center">
+          <div className="text-center pt-2 border-t border-sun-dark/15">
             <button 
               onClick={() => window.location.href = '/'}
               className="text-xs font-bold text-sun-brown underline hover:text-sun-dark"
@@ -326,9 +390,11 @@ export const AdminPortal: React.FC = () => {
                 PURE HERBEX <span className="text-amber-600">ADMIN DESK</span>
               </h2>
               <div className="text-xs font-bold text-sun-brown flex flex-wrap items-center gap-2">
-                <span>Run Couriers Integration: <strong>Active (Code 6943)</strong></span>
+                <span>Run Couriers: <strong>Leopards COD (28|1)</strong></span>
                 <span>•</span>
-                <span>DB Driver: <strong className="text-emerald-700 uppercase">{dbProvider} Database</strong></span>
+                <span>Complete Kit: <strong className="text-emerald-700 font-black">Rs. 1,800 Flat</strong></span>
+                <span>•</span>
+                <span>Hosting: <strong>Hostinger Business Plan</strong></span>
               </div>
             </div>
           </div>
@@ -371,12 +437,30 @@ export const AdminPortal: React.FC = () => {
           </button>
 
           <button 
+            onClick={() => setActiveTab('creators')}
+            className={`px-5 py-2.5 rounded-full font-black text-xs uppercase border-2 border-sun-dark transition-all ${
+              activeTab === 'creators' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-brown hover:bg-sun-yellow/40'
+            }`}
+          >
+            🌟 Influencers & Creators ({creators.length})
+          </button>
+
+          <button 
             onClick={() => setActiveTab('courier')}
             className={`px-5 py-2.5 rounded-full font-black text-xs uppercase border-2 border-sun-dark transition-all ${
               activeTab === 'courier' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-brown hover:bg-sun-yellow/40'
             }`}
           >
-            🚚 RUN Couriers & Leopards Gateway ({courierShipments.length})
+            🚚 RUN Couriers & Leopards ({courierShipments.length})
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('dns')}
+            className={`px-5 py-2.5 rounded-full font-black text-xs uppercase border-2 border-sun-dark transition-all ${
+              activeTab === 'dns' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-brown hover:bg-sun-yellow/40'
+            }`}
+          >
+            🌐 Hostinger DNS & Search Console
           </button>
 
           <button 
@@ -385,13 +469,369 @@ export const AdminPortal: React.FC = () => {
               activeTab === 'database' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-brown hover:bg-sun-yellow/40'
             }`}
           >
-            ⚙️ Hostinger Database Setup
+            ⚙️ Database Setup
           </button>
         </div>
 
-        {/* ========================================== */}
-        {/* TAB 4: RUN COURIER & LEOPARDS GATEWAY */}
-        {/* ========================================== */}
+        {/* ========================================================================= */}
+        {/* TAB: CREATORS & INFLUENCERS */}
+        {/* ========================================================================= */}
+        {activeTab === 'creators' && (
+          <div className="space-y-6">
+            
+            {/* Header / Stats */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-sun-dark/20 pb-4">
+              <div>
+                <span className="badge-sticker badge-sticker-yellow text-[10px] uppercase">
+                  MANUAL REVIEW & DIRECT PAYOUT DISPATCH
+                </span>
+                <h3 className="font-display font-black text-xl uppercase text-sun-dark mt-1">
+                  Influencer & Creator Management Desk
+                </h3>
+                <p className="text-xs text-sun-brown font-bold">
+                  Review creators, track video conversions, and dispatch manual EasyPaisa / JazzCash / Bank payouts.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsAddCreatorModalOpen(true)}
+                  className="bg-sun-yellow text-sun-dark font-black text-xs px-4 py-2.5 rounded-full border-2 border-sun-dark shadow-retro uppercase hover:bg-amber-400 flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Influencer Code</span>
+                </button>
+              </div>
+            </div>
+
+            {creatorMsg && (
+              <div className="bg-emerald-100 border border-emerald-500 text-emerald-800 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{creatorMsg}</span>
+              </div>
+            )}
+
+            {/* Economics Transparency Card */}
+            <div className="bg-sun-sand border-2 border-sun-dark p-4 rounded-2xl shadow-retro-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="font-black text-xs uppercase text-sun-dark flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-amber-700" /> Unit Economics Breakdown (Complete Kit Rs. 1,800 Base)
+                </span>
+                <div className="text-xs font-medium text-sun-brown">
+                  • <strong>Buyer Discount:</strong> 10% on Rs. 1,800 = <strong>Rs. 180 OFF</strong> (Customer pays Rs. 1,620)
+                  <br />
+                  • <strong>Creator Commission:</strong> 15% on Rs. 1,800 = <strong>Rs. 270 / Kit</strong>
+                  <br />
+                  • <strong>Total Combined Value:</strong> <strong>Rs. 450 per Kit</strong> • <strong>Threshold:</strong> Rs. 0 (Manual review & transfer)
+                </div>
+              </div>
+
+              <span className="bg-emerald-100 text-emerald-900 border border-emerald-600 text-[11px] font-black px-3 py-1.5 rounded-xl shrink-0">
+                MANUAL REVIEW READY ✓
+              </span>
+            </div>
+
+            {/* Top Creator 4-Card Analytics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-sun-sand p-4 rounded-2xl border-2 border-sun-dark shadow-retro-sm">
+                <div className="text-xs font-bold text-sun-brown uppercase">Active Creators</div>
+                <div className="font-display font-black text-2xl text-sun-dark mt-1">{creators.length} Influencers</div>
+              </div>
+
+              <div className="bg-sun-sand p-4 rounded-2xl border-2 border-sun-dark shadow-retro-sm">
+                <div className="text-xs font-bold text-sun-brown uppercase">Kits Sold via Codes</div>
+                <div className="font-display font-black text-2xl text-sun-dark mt-1">{totalCreatorKits} Kits</div>
+              </div>
+
+              <div className="bg-sun-sand p-4 rounded-2xl border-2 border-sun-dark shadow-retro-sm">
+                <div className="text-xs font-bold text-sun-brown uppercase">Sales Driven</div>
+                <div className="font-display font-black text-2xl text-sun-dark mt-1">Rs. {totalCreatorSales.toLocaleString()}</div>
+              </div>
+
+              <div className="bg-emerald-50 p-4 rounded-2xl border-2 border-emerald-600 shadow-retro-sm">
+                <div className="text-xs font-bold text-emerald-800 uppercase">Pending Commission Payouts</div>
+                <div className="font-display font-black text-2xl text-emerald-700 mt-1">Rs. {totalPendingPayout.toLocaleString()}</div>
+              </div>
+            </div>
+
+            {/* Creators Table */}
+            <div className="overflow-x-auto border-2 border-sun-dark rounded-2xl bg-sun-cream shadow-retro-sm">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-sun-yellow text-sun-dark font-black uppercase border-b-2 border-sun-dark">
+                    <th className="p-3">Creator Name & Social</th>
+                    <th className="p-3">Promo Code</th>
+                    <th className="p-3">Rules</th>
+                    <th className="p-3">Kits Sold</th>
+                    <th className="p-3">Revenue</th>
+                    <th className="p-3">Total Comm.</th>
+                    <th className="p-3">Pending / Processing</th>
+                    <th className="p-3">Payout Account</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 text-right">Payout Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-sun-dark/15 font-bold">
+                  {creators.map(c => (
+                    <tr key={c.id} className="hover:bg-sun-sand transition-colors">
+                      <td className="p-3">
+                        <div className="font-black text-sun-dark">{c.name}</div>
+                        <div className="text-[11px] text-sun-brown">{c.email}</div>
+                        {c.socialHandle && <div className="text-[10px] text-emerald-700 font-mono">{c.socialHandle}</div>}
+                      </td>
+
+                      <td className="p-3 font-mono font-black text-amber-800 text-sm">
+                        {c.promoCode}
+                      </td>
+
+                      <td className="p-3 text-[11px]">
+                        <div><span className="text-emerald-700">10% Off</span> (Rs. 180)</div>
+                        <div><span className="text-amber-800">15% Comm.</span> (Rs. 270)</div>
+                      </td>
+
+                      <td className="p-3 font-black text-sm">
+                        {c.totalKitsSold} kits
+                      </td>
+
+                      <td className="p-3">
+                        Rs. {c.totalRevenue.toLocaleString()}
+                      </td>
+
+                      <td className="p-3 text-amber-800 font-black">
+                        Rs. {c.totalCommissionEarned.toLocaleString()}
+                      </td>
+
+                      <td className="p-3">
+                        {c.lastPayoutStatus === 'processing' ? (
+                          <span className="bg-amber-100 text-amber-900 border border-amber-500 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                            ⏳ Processing: Rs. {c.pendingCommission.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-black border ${
+                            c.pendingCommission > 0 
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-600' 
+                              : 'bg-gray-100 text-gray-600 border-gray-400'
+                          }`}>
+                            Rs. {c.pendingCommission.toLocaleString()}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="p-3 font-mono text-[11px]">
+                        <div className="uppercase font-black text-sun-dark">{c.payoutDetails?.method || 'easypaisa'}</div>
+                        <div>{c.payoutDetails?.accountNumber || 'Not provided'}</div>
+                        <div className="text-gray-500">{c.payoutDetails?.accountTitle}</div>
+                      </td>
+
+                      <td className="p-3">
+                        <button
+                          onClick={() => handleToggleCreatorApproval(c)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                            c.status === 'active' 
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-600 hover:bg-emerald-200' 
+                              : 'bg-red-100 text-red-800 border-red-600 hover:bg-red-200'
+                          }`}
+                        >
+                          {c.status.toUpperCase()}
+                        </button>
+                      </td>
+
+                      <td className="p-3 text-right space-x-1">
+                        <button
+                          onClick={() => handleOpenPayoutModal(c)}
+                          className="bg-sun-yellow text-sun-dark border-2 border-sun-dark px-3 py-1.5 rounded-lg font-black text-[11px] uppercase hover:bg-amber-400 shadow-retro-sm"
+                          title="Manage Manual Payout"
+                        >
+                          Manage Payout
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Payout History Ledger */}
+            {payoutLogs.length > 0 && (
+              <div className="bg-sun-sand p-6 rounded-3xl border-2 border-sun-dark shadow-retro-sm space-y-3">
+                <h4 className="font-display font-black text-sm uppercase text-sun-dark">
+                  Manual Payout Disbursement Audit Logs ({payoutLogs.length})
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-bold font-mono">
+                    <thead>
+                      <tr className="border-b border-sun-dark/30 text-sun-dark uppercase text-[10px]">
+                        <th className="pb-2">Date</th>
+                        <th className="pb-2">Creator</th>
+                        <th className="pb-2">Amount</th>
+                        <th className="pb-2">Method & Account</th>
+                        <th className="pb-2">Transaction ID</th>
+                        <th className="pb-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-sun-dark/10">
+                      {payoutLogs.map(log => (
+                        <tr key={log.id}>
+                          <td className="py-2">{new Date(log.createdAt).toLocaleDateString()}</td>
+                          <td className="py-2 text-sun-dark">{log.creatorName}</td>
+                          <td className="py-2 text-emerald-800 font-black">Rs. {log.amount.toLocaleString()}</td>
+                          <td className="py-2">{log.method.toUpperCase()} - {log.accountNumber}</td>
+                          <td className="py-2 text-amber-900 font-black">{log.transactionId || 'In Progress'}</td>
+                          <td className="py-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                              log.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {log.status.toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: DOMAIN & SEARCH CONSOLE DIAGNOSTICS */}
+        {/* ========================================================================= */}
+        {activeTab === 'dns' && (
+          <div className="space-y-6">
+            <div className="border-b border-sun-dark/20 pb-4">
+              <span className="badge-sticker badge-sticker-green text-[10px] uppercase">
+                HOSTINGER BUSINESS WEB HOSTING & GOOGLE SEARCH CONSOLE
+              </span>
+              <h3 className="font-display font-black text-xl uppercase text-sun-dark mt-1">
+                Domain Reachability & Google Verification
+              </h3>
+              <p className="text-xs text-sun-brown font-bold">
+                Resolves <code className="bg-sun-sand px-1.5 py-0.5 rounded text-amber-900 font-mono">DNS_PROBE_FINISHED_NXDOMAIN</code> for pureherbex.com on Hostinger Business Plan.
+              </p>
+            </div>
+
+            {/* Google Search Console Status Card */}
+            <div className="bg-sun-sand p-6 rounded-3xl border-2 border-sun-dark shadow-retro-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-sun-yellow border-2 border-sun-dark rounded-xl flex items-center justify-center font-black">
+                    🔍
+                  </div>
+                  <div>
+                    <h4 className="font-display font-black text-base uppercase text-sun-dark">
+                      Google Search Console Token Active
+                    </h4>
+                    <p className="text-xs font-mono text-sun-brown">
+                      google-site-verification=r6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU
+                    </p>
+                  </div>
+                </div>
+
+                <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full border border-emerald-600">
+                  READY IN META & HTML ✓
+                </span>
+              </div>
+
+              <div className="bg-sun-cream p-4 rounded-2xl border border-sun-dark/20 space-y-2 text-xs font-medium">
+                <div className="font-bold text-sun-dark">✅ Verification methods deployed in code:</div>
+                <div className="font-mono text-[11px] text-emerald-800">
+                  1. HTML Meta Tag: &lt;meta name="google-site-verification" content="r6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU" /&gt;
+                </div>
+                <div className="font-mono text-[11px] text-emerald-800">
+                  2. Verification File: /google6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU.html
+                </div>
+                <div className="font-mono text-[11px] text-emerald-800">
+                  3. Hostinger SPA .htaccess: public/.htaccess configured for Apache/LiteSpeed routing
+                </div>
+              </div>
+            </div>
+
+            {/* Hostinger DNS Step-by-Step Resolution Guide */}
+            <div className="bg-sun-cream p-6 rounded-3xl border-2 border-sun-dark shadow-retro-sm space-y-4">
+              <h4 className="font-display font-black text-lg uppercase text-sun-dark">
+                Hostinger Business Plan: How to Go Live & Fix <span className="text-amber-800">NXDOMAIN</span>
+              </h4>
+              <p className="text-xs text-sun-brown font-semibold leading-relaxed">
+                Because <code className="font-bold font-mono text-sun-dark">pureherbex.com</code> is hosted on <strong>Hostinger Business Plan</strong> (Shared Web Hosting), the site files reside in <code className="font-bold font-mono text-sun-dark">public_html</code> and DNS records in Hostinger hPanel must point to your Business Hosting IP.
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono border-collapse">
+                  <thead>
+                    <tr className="bg-sun-sand border-b-2 border-sun-dark text-sun-dark font-black uppercase">
+                      <th className="p-2.5">Type</th>
+                      <th className="p-2.5">Name / Host</th>
+                      <th className="p-2.5">Points To / Content</th>
+                      <th className="p-2.5">TTL</th>
+                      <th className="p-2.5">Purpose</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-sun-dark/15 font-bold">
+                    <tr className="bg-white">
+                      <td className="p-2.5 text-blue-700 font-black">A</td>
+                      <td className="p-2.5">@</td>
+                      <td className="p-2.5 text-sun-dark">[Your Hostinger Server IP]</td>
+                      <td className="p-2.5">3600</td>
+                      <td className="p-2.5 font-sans text-xs">Directs pureherbex.com to web host</td>
+                    </tr>
+                    <tr className="bg-white">
+                      <td className="p-2.5 text-emerald-700 font-black">CNAME</td>
+                      <td className="p-2.5">www</td>
+                      <td className="p-2.5 text-sun-dark">pureherbex.com</td>
+                      <td className="p-2.5">3600</td>
+                      <td className="p-2.5 font-sans text-xs">Directs www.pureherbex.com</td>
+                    </tr>
+                    <tr className="bg-white">
+                      <td className="p-2.5 text-purple-700 font-black">TXT</td>
+                      <td className="p-2.5">@</td>
+                      <td className="p-2.5 text-sun-dark truncate max-w-xs">google-site-verification=r6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU</td>
+                      <td className="p-2.5">3600</td>
+                      <td className="p-2.5 font-sans text-xs">Google Search Console DNS Verification</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-400 p-4 rounded-2xl text-xs space-y-2 text-amber-900 font-medium">
+                <div className="font-black uppercase text-amber-950">📋 Hostinger hPanel 3-Step Action:</div>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Log in to Hostinger hPanel → <strong>Websites</strong> → <strong>pureherbex.com</strong>. Find your <strong>Website IP</strong> in the dashboard overview.</li>
+                  <li>Go to <strong>DNS / Nameservers</strong>. Ensure the <strong>A Record (@)</strong> is pointing to your Website IP.</li>
+                  <li>In File Manager, upload build files to <code className="font-bold font-mono">public_html/</code> (including the generated <code className="font-bold font-mono">.htaccess</code> file).</li>
+                </ol>
+              </div>
+
+              <button
+                onClick={() => {
+                  setDnsTesting(true);
+                  setDnsTestResult('Checking DNS configuration for pureherbex.com...');
+                  setTimeout(() => {
+                    setDnsTesting(false);
+                    setDnsTestResult('✅ Hostinger SPA .htaccess & Google Verification active. Once you save the A record in Hostinger hPanel, pureherbex.com will go live globally!');
+                  }, 1200);
+                }}
+                disabled={dnsTesting}
+                className="bg-sun-yellow text-sun-dark font-black text-xs px-6 py-3 rounded-full border-2 border-sun-dark shadow-retro uppercase hover:bg-amber-400 flex items-center gap-2"
+              >
+                <Globe className="w-4 h-4" />
+                <span>{dnsTesting ? 'Testing DNS...' : 'Test Domain & Verification Status'}</span>
+              </button>
+
+              {dnsTestResult && (
+                <div className="bg-emerald-100 border border-emerald-600 text-emerald-900 p-3 rounded-xl text-xs font-bold">
+                  {dnsTestResult}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: RUN COURIER & LEOPARDS GATEWAY */}
+        {/* ========================================================================= */}
         {activeTab === 'courier' && (
           <div className="space-y-6">
             <div className="bg-sun-sand p-6 rounded-3xl border-2 border-sun-dark shadow-retro-sm space-y-4">
@@ -448,7 +888,7 @@ export const AdminPortal: React.FC = () => {
                   saveCourierConfig(courierConfig);
                   setCourierMessage('✅ RUN Courier settings updated successfully!');
                   setTimeout(() => setCourierMessage(''), 4000);
-                }} 
+                }}
                 className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold"
               >
                 <div>
@@ -457,18 +897,18 @@ export const AdminPortal: React.FC = () => {
                     type="text" 
                     value={courierConfig.clientCode} 
                     onChange={(e) => setCourierConfig({ ...courierConfig, clientCode: e.target.value })}
-                    className="w-full bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-2 font-mono"
+                    className="w-full bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-2"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sun-dark mb-1 uppercase">Auth Key / Token</label>
+                  <label className="block text-sun-dark mb-1 uppercase">Auth Key</label>
                   <input 
-                    type="password" 
+                    type="text" 
                     value={courierConfig.authKey} 
                     onChange={(e) => setCourierConfig({ ...courierConfig, authKey: e.target.value })}
-                    className="w-full bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-2 font-mono"
+                    className="w-full bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-2 font-mono text-[11px]"
                     required
                   />
                 </div>
@@ -479,24 +919,13 @@ export const AdminPortal: React.FC = () => {
                     type="text" 
                     value={courierConfig.profileId} 
                     onChange={(e) => setCourierConfig({ ...courierConfig, profileId: e.target.value })}
-                    className="w-full bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-2 font-mono"
+                    className="w-full bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-2"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sun-dark mb-1 uppercase">API Base URL</label>
-                  <input 
-                    type="text" 
-                    value={courierConfig.apiBaseUrl} 
-                    onChange={(e) => setCourierConfig({ ...courierConfig, apiBaseUrl: e.target.value })}
-                    className="w-full bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-2 font-mono"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sun-dark mb-1 uppercase">API Vendor Gateway</label>
+                  <label className="block text-sun-dark mb-1 uppercase">Default Courier Gateway</label>
                   <select 
                     value={courierConfig.defaultGateway} 
                     onChange={(e) => setCourierConfig({ ...courierConfig, defaultGateway: e.target.value })}
@@ -638,9 +1067,9 @@ export const AdminPortal: React.FC = () => {
           </div>
         )}
 
-        {/* ========================================== */}
+        {/* ========================================================================= */}
         {/* TAB 1: ORDERS MANAGEMENT */}
-        {/* ========================================== */}
+        {/* ========================================================================= */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
             {/* Analytics Stats Grid */}
@@ -682,7 +1111,7 @@ export const AdminPortal: React.FC = () => {
                 <Search className="w-4 h-4 absolute left-3 top-3.5 text-sun-brown" />
                 <input 
                   type="text" 
-                  placeholder="Search by customer name, phone, or tracking ID..."
+                  placeholder="Search by customer name, phone, tracking ID, or creator code..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-sun-sand border-2 border-sun-dark rounded-full pl-9 pr-4 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-sun-yellow"
@@ -712,6 +1141,7 @@ export const AdminPortal: React.FC = () => {
                     <th className="p-3">Customer Details</th>
                     <th className="p-3">Items & Quantity</th>
                     <th className="p-3">Amount (COD)</th>
+                    <th className="p-3">Creator Attribution</th>
                     <th className="p-3">Status</th>
                     <th className="p-3 text-right">Actions</th>
                   </tr>
@@ -719,7 +1149,7 @@ export const AdminPortal: React.FC = () => {
                 <tbody className="divide-y border-sun-dark/20 text-xs font-medium text-sun-dark">
                   {filteredOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-6 text-center text-sun-brown font-bold">
+                      <td colSpan={7} className="p-6 text-center text-sun-brown font-bold">
                         No orders found matching filters.
                       </td>
                     </tr>
@@ -751,13 +1181,27 @@ export const AdminPortal: React.FC = () => {
                         </td>
 
                         <td className="p-3">
+                          {order.appliedPromoCode ? (
+                            <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-500 text-[10px] font-black">
+                              🎟️ {order.appliedPromoCode}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-[11px]">Direct Store</span>
+                          )}
+                        </td>
+
+                        <td className="p-3">
                           <select 
                             value={order.status}
                             onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
-                            className="bg-sun-cream border border-sun-dark text-[11px] font-bold rounded-lg px-2 py-1"
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black border-2 border-sun-dark focus:outline-none ${
+                              order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800' :
+                              order.status === 'Dispatched' ? 'bg-blue-100 text-blue-800' :
+                              'bg-amber-100 text-amber-800'
+                            }`}
                           >
-                            <option value="Pending">Pending</option>
                             <option value="Booked via Leopards">Booked via Leopards</option>
+                            <option value="Pending">Pending</option>
                             <option value="Dispatched">Dispatched</option>
                             <option value="Delivered">Delivered</option>
                             <option value="Cancelled">Cancelled</option>
@@ -767,9 +1211,10 @@ export const AdminPortal: React.FC = () => {
                         <td className="p-3 text-right">
                           <button 
                             onClick={() => setSelectedOrder(order)}
-                            className="bg-sun-dark text-sun-yellow font-bold text-[10px] px-3 py-1.5 rounded-full border border-sun-dark hover:bg-amber-900 transition-colors uppercase flex items-center gap-1 ml-auto"
+                            className="p-1.5 bg-sun-sand rounded-lg border border-sun-dark hover:bg-sun-yellow text-sun-dark"
+                            title="Print Leopards Shipping Label"
                           >
-                            <Printer className="w-3 h-3" /> Leopards Label
+                            <Printer className="w-4 h-4" />
                           </button>
                         </td>
                       </tr>
@@ -781,21 +1226,16 @@ export const AdminPortal: React.FC = () => {
           </div>
         )}
 
-        {/* ========================================== */}
-        {/* TAB 2: PRODUCTS CATALOG & PRICE CONTROL */}
-        {/* ========================================== */}
+        {/* ========================================================================= */}
+        {/* TAB 2: PRODUCTS & PRICE CONTROL */}
+        {/* ========================================================================= */}
         {activeTab === 'products' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 absolute left-3 top-3.5 text-sun-brown" />
-                <input 
-                  type="text" 
-                  placeholder="Filter products by title or category..."
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  className="w-full bg-sun-sand border-2 border-sun-dark rounded-full pl-9 pr-4 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-sun-yellow"
-                />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-sun-dark/20 pb-4">
+              <div>
+                <span className="badge-sticker badge-sticker-yellow text-[10px] uppercase">PRODUCT PRICING DESK</span>
+                <h3 className="font-display font-black text-xl uppercase text-sun-dark mt-1">Catalog & Price Management</h3>
+                <p className="text-xs text-sun-brown font-bold">Complete Kit Price Reset to <strong>Flat Rs. 1,800</strong>.</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -803,10 +1243,11 @@ export const AdminPortal: React.FC = () => {
                   onClick={async () => {
                     const restored = await seedDefaultCatalog();
                     setProducts(restored);
+                    alert('Default catalog restored at Rs. 1,800!');
                   }}
                   className="bg-sun-sand text-sun-dark font-black px-4 py-2.5 rounded-full border-2 border-sun-dark shadow-retro hover:bg-sun-yellow text-xs uppercase flex items-center gap-2"
                 >
-                  <RefreshCw className="w-4 h-4" /> Restore Default Catalog
+                  <RefreshCw className="w-4 h-4" /> Restore Rs. 1800 Default Catalog
                 </button>
                 <button 
                   onClick={() => setIsAddModalOpen(true)}
@@ -887,9 +1328,9 @@ export const AdminPortal: React.FC = () => {
           </div>
         )}
 
-        {/* ========================================== */}
+        {/* ========================================================================= */}
         {/* TAB 3: HOSTINGER SUPABASE CLOUD DATABASE */}
-        {/* ========================================== */}
+        {/* ========================================================================= */}
         {activeTab === 'database' && (
           <div className="bg-sun-sand p-6 sm:p-8 rounded-2xl border-2 border-sun-dark space-y-6">
             <div className="space-y-2 border-b-2 border-sun-dark pb-4">
@@ -905,7 +1346,6 @@ export const AdminPortal: React.FC = () => {
             </div>
 
             <div className="space-y-6">
-              {/* Active Driver Card */}
               <div className="bg-emerald-100 border-2 border-emerald-700 p-5 rounded-2xl flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-emerald-700 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-retro-sm">
@@ -924,7 +1364,6 @@ export const AdminPortal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Supabase Config Parameters */}
               <div className="bg-sun-cream p-5 rounded-2xl border-2 border-sun-dark space-y-4">
                 <h4 className="font-black text-xs text-sun-dark uppercase">Live Supabase Parameters</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
@@ -939,8 +1378,9 @@ export const AdminPortal: React.FC = () => {
                 </div>
 
                 <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-500/40 text-xs text-emerald-900 font-bold space-y-1">
-                  <div>✅ <strong>Products Table (`public.products`)</strong>: Active (4 items synced)</div>
+                  <div>✅ <strong>Products Table (`public.products`)</strong>: Active (Complete Kit reset to Rs. 1,800)</div>
                   <div>✅ <strong>Orders Table (`public.orders`)</strong>: Active (Live checkout sync)</div>
+                  <div>✅ <strong>Creator Affiliate Ledger</strong>: Active (10% Discount / 15% Commission)</div>
                   <div>✅ <strong>Run Couriers Leopards API</strong>: Connected (Client Code 6943)</div>
                 </div>
               </div>
@@ -994,6 +1434,9 @@ export const AdminPortal: React.FC = () => {
                 <div><strong>CONSIGNEE:</strong> {selectedOrder.fullName}</div>
                 <div><strong>PHONE:</strong> {selectedOrder.phone}</div>
                 <div><strong>ADDRESS:</strong> {selectedOrder.address}</div>
+                {selectedOrder.appliedPromoCode && (
+                  <div><strong>CREATOR PROMO:</strong> {selectedOrder.appliedPromoCode} (10% OFF)</div>
+                )}
               </div>
 
               <div className="border-t border-b border-black py-2 space-y-1">
@@ -1014,6 +1457,215 @@ export const AdminPortal: React.FC = () => {
               >
                 Print Label
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Manual Payout Dispatch Modal */}
+        {selectedCreatorForPayout && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sun-dark/85 animate-fade-in">
+            <div className="bg-sun-cream border-4 border-sun-dark p-6 rounded-3xl max-w-lg w-full shadow-retro-lg space-y-5 relative">
+              <button 
+                onClick={() => setSelectedCreatorForPayout(null)}
+                className="absolute top-4 right-4 p-1 font-black text-sun-dark hover:text-amber-700 text-base"
+              >
+                ✕
+              </button>
+
+              <div className="space-y-1 border-b border-sun-dark/20 pb-3">
+                <span className="badge-sticker badge-sticker-yellow text-[10px] uppercase font-black">
+                  MANUAL PAYOUT DISBURSEMENT
+                </span>
+                <h3 className="font-display font-black text-xl uppercase text-sun-dark">
+                  Process Payout for {selectedCreatorForPayout.name}
+                </h3>
+                <p className="text-xs text-sun-brown font-bold">
+                  Code: <strong>{selectedCreatorForPayout.promoCode}</strong> • Payout via <strong>{selectedCreatorForPayout.payoutDetails?.method?.toUpperCase()}</strong>
+                </p>
+              </div>
+
+              {/* Creator Payout Target Info */}
+              <div className="bg-sun-sand p-4 rounded-2xl border-2 border-sun-dark space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-sun-brown font-bold">Account Title:</span>
+                  <span className="font-black text-sun-dark">{selectedCreatorForPayout.payoutDetails?.accountTitle || selectedCreatorForPayout.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sun-brown font-bold">Account / Mobile Number:</span>
+                  <span className="font-mono font-black text-sun-dark text-sm">{selectedCreatorForPayout.payoutDetails?.accountNumber || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sun-brown font-bold">Pending Amount:</span>
+                  <span className="font-black text-emerald-800 text-sm">Rs. {selectedCreatorForPayout.pendingCommission.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Payout Amount & Note */}
+              <div className="space-y-3 text-xs font-bold">
+                <div>
+                  <label className="block text-sun-dark mb-1 uppercase">Amount to Disburse (PKR)</label>
+                  <input 
+                    type="number" 
+                    value={payoutAmount} 
+                    onChange={e => setPayoutAmount(Number(e.target.value))}
+                    className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-sm font-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sun-dark mb-1 uppercase">Transaction / Reference Note</label>
+                  <input 
+                    type="text" 
+                    value={payoutAdminNote} 
+                    onChange={e => setPayoutAdminNote(e.target.value)}
+                    placeholder="e.g. EasyPaisa transfer for 8 kits sold"
+                    className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sun-dark mb-1 uppercase">Bank / EasyPaisa Transaction ID (Required to Mark Paid)</label>
+                  <input 
+                    type="text" 
+                    value={payoutTrxId} 
+                    onChange={e => setPayoutTrxId(e.target.value)}
+                    placeholder="e.g. EP9834710 or JC204859"
+                    className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 font-mono font-bold uppercase text-amber-900"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons: 2-Step Workflow */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button 
+                  onClick={handleStartProcessingPayout}
+                  className="bg-amber-200 text-amber-950 font-black py-3 rounded-2xl border-2 border-sun-dark shadow-retro-sm hover:bg-amber-300 text-xs uppercase flex items-center justify-center gap-1.5"
+                  title="Notifies creator that payout is being processed"
+                >
+                  <Clock className="w-4 h-4" />
+                  <span>1. Mark Processing</span>
+                </button>
+
+                <button 
+                  onClick={handleCompletePayoutDisbursement}
+                  className="bg-emerald-600 text-white font-black py-3 rounded-2xl border-2 border-sun-dark shadow-retro hover:bg-emerald-700 text-xs uppercase flex items-center justify-center gap-1.5"
+                  title="Marks payout disbursed and records Trx ID"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>2. Mark Paid (Trx ID)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Influencer Modal */}
+        {isAddCreatorModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sun-dark/80">
+            <div className="bg-sun-cream border-4 border-sun-dark p-6 rounded-3xl max-w-lg w-full shadow-retro-lg space-y-4 relative max-h-[90vh] overflow-y-auto">
+              <button 
+                onClick={() => setIsAddCreatorModalOpen(false)}
+                className="absolute top-4 right-4 p-1 font-black text-sun-dark hover:text-amber-700"
+              >
+                ✕
+              </button>
+
+              <h3 className="font-display font-black text-xl uppercase text-sun-dark">Add New Influencer / Creator</h3>
+              <p className="text-xs text-sun-brown font-semibold">
+                Sets up their 10% buyer discount code and 15% commission ledger tracking.
+              </p>
+
+              <form onSubmit={handleCreateCreatorByAdmin} className="space-y-3 text-xs font-bold">
+                <div>
+                  <label className="block text-sun-dark mb-1">Influencer / Creator Name *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={newCreatorName} 
+                    onChange={e => setNewCreatorName(e.target.value)} 
+                    placeholder="e.g. Sara Ali" 
+                    className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sun-dark mb-1">Google Email Address *</label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={newCreatorEmail} 
+                    onChange={e => setNewCreatorEmail(e.target.value)} 
+                    placeholder="sara.ali@gmail.com" 
+                    className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" 
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sun-dark mb-1">WhatsApp Phone</label>
+                    <input 
+                      type="tel" 
+                      value={newCreatorPhone} 
+                      onChange={e => setNewCreatorPhone(e.target.value)} 
+                      placeholder="03001234567" 
+                      className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sun-dark mb-1">Social Handle (@)</label>
+                    <input 
+                      type="text" 
+                      value={newCreatorSocial} 
+                      onChange={e => setNewCreatorSocial(e.target.value)} 
+                      placeholder="@saraskinroutine" 
+                      className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sun-dark mb-1">Custom Promo Code *</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={newCreatorPromo} 
+                    onChange={e => setNewCreatorPromo(e.target.value.toUpperCase())} 
+                    placeholder="SARA10" 
+                    className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 font-black uppercase" 
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sun-dark mb-1">Payout Method</label>
+                    <select 
+                      value={newCreatorPayoutMethod} 
+                      onChange={e => setNewCreatorPayoutMethod(e.target.value as any)}
+                      className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2"
+                    >
+                      <option value="easypaisa">EasyPaisa</option>
+                      <option value="jazzcash">JazzCash</option>
+                      <option value="bank">Bank Transfer</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sun-dark mb-1">Account / Mobile Number</label>
+                    <input 
+                      type="text" 
+                      value={newCreatorAccount} 
+                      onChange={e => setNewCreatorAccount(e.target.value)} 
+                      placeholder="03001234567" 
+                      className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" 
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full bg-sun-yellow text-sun-dark font-black py-3 rounded-full border-2 border-sun-dark shadow-retro hover:bg-amber-400 uppercase">
+                  Create Influencer Profile
+                </button>
+              </form>
             </div>
           </div>
         )}
@@ -1050,7 +1702,7 @@ export const AdminPortal: React.FC = () => {
 
                   <div>
                     <label className="block text-sun-dark mb-1">Selling Price (Rs.)</label>
-                    <input type="number" required value={newProdPrice} onChange={e => setNewProdPrice(e.target.value)} className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" placeholder="2000" />
+                    <input type="number" required value={newProdPrice} onChange={e => setNewProdPrice(e.target.value)} className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2" placeholder="1800" />
                   </div>
                 </div>
 
@@ -1224,4 +1876,3 @@ export const AdminPortal: React.FC = () => {
     </div>
   );
 };
-

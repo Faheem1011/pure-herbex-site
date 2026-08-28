@@ -22,7 +22,7 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
 
   const rawTotal = selectedProducts.reduce((sum, item) => sum + item.price, 0);
   const isComplete = selectedProducts.length === 3;
-  const bundleTotal = isComplete ? 2000 : rawTotal;
+  const bundleTotal = isComplete ? 1800 : rawTotal;
 
   const handleAddBundle = () => {
     if (isComplete) {
@@ -43,7 +43,7 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
             BUILD YOUR <span className="text-amber-600">GLOW</span> KIT
           </h2>
           <p className="text-lg text-sun-brown font-medium">
-            Select all 3 botanical essentials (Face Pack + Night Toner + Rose Water) for the complete full kit at <strong className="text-sun-dark font-black">Rs. 2,000</strong>!
+            Select all 3 botanical essentials (Face Pack + Night Toner + Rose Water) for the complete full kit at <strong className="text-sun-dark font-black">Rs. 1,800</strong>!
           </p>
 
           {/* Progress Tracker */}
@@ -52,7 +52,7 @@ export const BuildYourBundle: React.FC<BuildYourBundleProps> = ({ products, onAd
               <span>PROGRESS: {selectedProducts.length}/3 ITEMS SELECTED</span>
               {isComplete ? (
                 <span className="text-emerald-700 flex items-center gap-1 font-black">
-                  <Check className="w-4 h-4" /> ALL 3 ITEMS SELECTED (RS. 2,000)!
+                  <Check className="w-4 h-4" /> ALL 3 ITEMS SELECTED (RS. 1,800)!
                 </span>
               ) : (
                 <span className="text-amber-600">

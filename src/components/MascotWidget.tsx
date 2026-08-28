@@ -9,7 +9,7 @@ export const MascotWidget: React.FC = () => {
     "Kovera says: 'Rose petals and Moringa are the secret to baby soft skin!' 🌹",
     "Glow Aisa Ke Dunya Dekhay! ✴️ 100% natural, freshly handmade.",
     "Did you know? Order today & Leopards Courier will deliver in 3-4 days! 🚚",
-    "Get the complete 3-piece Face Pack Kit for Rs. 2,000! 🎁",
+    "Get the complete 3-piece Face Pack Kit for Rs. 1,800! 🎁",
     "No chemical garbage here. Only pure botanical goodness! 🌿"
   ];
 

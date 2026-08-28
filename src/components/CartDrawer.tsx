@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Trash2, ShoppingBag, Truck, ShieldCheck, CheckCircle, ArrowRight, Gift, Sparkles, User } from 'lucide-react';
+import { X, Plus, Minus, Trash2, ShoppingBag, Truck, ShieldCheck, CheckCircle, ArrowRight, Gift, Sparkles, User, Tag, Check, AlertCircle } from 'lucide-react';
 import { CartItem, Product } from '../types';
 import { PRODUCTS } from '../data/products';
 import { submitCustomerOrder } from '../services/supabase';
 import { createCourierShipment } from '../services/courier/runCourierService';
 import { getCurrentCustomer } from '../services/customerAuth';
+import { validatePromoCode, getActivePromoCode, saveActivePromoCode, clearActivePromoCode, processOrderCreatorCommission } from '../services/creatorService';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -31,6 +32,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [leopardTrackingCode, setLeopardTrackingCode] = useState('');
   const [lastWaMessage, setLastWaMessage] = useState('');
   
+  // Promo Code State
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [promoSuccessMsg, setPromoSuccessMsg] = useState('');
+  const [promoErrorMsg, setPromoErrorMsg] = useState('');
+
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -39,6 +47,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     notes: ''
   });
 
+  // Check saved customer & active promo code on open
   useEffect(() => {
     if (isOpen) {
       const user = getCurrentCustomer();
@@ -51,14 +60,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           address: user.address || prev.address
         }));
       }
+
+      // Check if there is an active creator promo code in storage
+      const activeCode = getActivePromoCode();
+      if (activeCode && !appliedPromo) {
+        const val = validatePromoCode(activeCode);
+        if (val.isValid) {
+          setAppliedPromo(val.code || activeCode);
+          setDiscountPercent(val.discountPercent || 10);
+          setPromoSuccessMsg(val.message || `🎉 10% Creator Discount applied!`);
+        }
+      }
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const discountAmount = appliedPromo && discountPercent > 0 ? Math.round(subtotal * (discountPercent / 100)) : 0;
+  const discountedSubtotal = Math.max(0, subtotal - discountAmount);
   const shippingCost = 150; // Flat Rs. 150 delivery charges
-  const totalAmount = subtotal + shippingCost;
+  const totalAmount = discountedSubtotal + shippingCost;
 
   // Check if eligible for upselling to the Complete Kit
   const hasFacePack = cartItems.some(i => i.product.id === 'koveria-glow-face-pack');
@@ -79,15 +101,60 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   };
 
-  const buildWaMessage = (trackingCode: string) => {
+  const handleApplyPromo = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPromoErrorMsg('');
+    setPromoSuccessMsg('');
+
+    if (!promoInput.trim()) {
+      setPromoErrorMsg('Please enter a creator promo code.');
+      return;
+    }
+
+    const val = validatePromoCode(promoInput);
+    if (val.isValid && val.code) {
+      setAppliedPromo(val.code);
+      setDiscountPercent(val.discountPercent || 10);
+      setPromoSuccessMsg(val.message || `🎉 Creator code "${val.code}" applied! 10% OFF.`);
+      saveActivePromoCode(val.code);
+      setPromoInput('');
+    } else {
+      setPromoErrorMsg(val.message || 'Invalid or expired promo code.');
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setDiscountPercent(0);
+    setPromoSuccessMsg('');
+    setPromoErrorMsg('');
+    clearActivePromoCode();
+  };
+
+  const buildWaMessage = (trackingCode: string, commissionAmt: number) => {
     const itemsSummary = cartItems.map(i => `• ${i.quantity}x ${i.product.name} (Rs. ${(i.product.price * i.quantity).toLocaleString()})`).join('\n');
-    return `🛍️ *NEW ORDER PLACED ON PURE HERBEX!*\n-----------------------------------\n👤 *Customer Name:* ${formData.fullName}\n📞 *Phone:* ${formData.phone}\n📍 *City:* ${formData.city}\n🏠 *Address:* ${formData.address}\n-----------------------------------\n📦 *Order Items:*\n${itemsSummary}\n-----------------------------------\n💵 *Subtotal:* Rs. ${subtotal.toLocaleString()}\n🚚 *Delivery:* Rs. ${shippingCost} (Leopards COD via RUN)\n💰 *TOTAL AMOUNT:* Rs. ${totalAmount.toLocaleString()}\n🆔 *Leopards Tracking:* ${trackingCode}`;
+    let promoLine = '';
+    if (appliedPromo) {
+      promoLine = `\n🎟️ *Creator Promo Used:* ${appliedPromo} (-10% OFF: Rs. ${discountAmount.toLocaleString()})\n💰 *Creator 15% Commission:* Rs. ${commissionAmt.toLocaleString()}`;
+    }
+
+    return `🛍️ *NEW ORDER PLACED ON PURE HERBEX!*\n-----------------------------------\n👤 *Customer Name:* ${formData.fullName}\n📞 *Phone:* ${formData.phone}\n📍 *City:* ${formData.city}\n🏠 *Address:* ${formData.address}\n-----------------------------------\n📦 *Order Items:*\n${itemsSummary}${promoLine}\n-----------------------------------\n💵 *Subtotal:* Rs. ${subtotal.toLocaleString()}${discountAmount > 0 ? `\n🏷️ *Discount (10% OFF):* -Rs. ${discountAmount.toLocaleString()}` : ''}\n🚚 *Delivery:* Rs. ${shippingCost} (Leopards COD via RUN)\n💰 *TOTAL AMOUNT:* Rs. ${totalAmount.toLocaleString()}\n🆔 *Leopards Tracking:* ${trackingCode}`;
   };
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
     let trackingCode = 'LEO-' + Math.floor(100000000 + Math.random() * 900000000);
+
+    // Process creator commission attribution if promo applied
+    const commissionResult = processOrderCreatorCommission({
+      orderId,
+      appliedPromoCode: appliedPromo || undefined,
+      cartItems,
+      subtotal,
+      discountAmount,
+      customerCity: formData.city
+    });
 
     try {
       // 1. Book shipment with RUN Courier (Forcing Leopard Gateway 28|1)
@@ -118,7 +185,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         city: formData.city,
         address: formData.address,
         items: cartItems,
-        subtotal,
+        subtotal: discountedSubtotal,
         shippingFee: shippingCost,
         totalAmount
       });
@@ -126,7 +193,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       console.warn('Checkout/Shipment error:', err);
     } finally {
       setOrderTrackingCode(trackingCode);
-      const msg = buildWaMessage(trackingCode);
+      const msg = buildWaMessage(trackingCode, commissionResult.commissionEarned);
       setLastWaMessage(msg);
 
       // Auto-launch WhatsApp alert to Primary Admin number (+92 320 6972422)
@@ -184,6 +251,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div><strong className="text-sun-dark">Courier Tracking ID:</strong> {orderTrackingCode}</div>
                 <div><strong className="text-sun-dark">Payment Method:</strong> Cash On Delivery (COD)</div>
                 <div><strong className="text-sun-dark">Estimated Delivery:</strong> 3 to 4 Days Nationwide</div>
+                {appliedPromo && (
+                  <div className="text-emerald-700 font-bold border-t border-sun-dark/20 pt-1">
+                    <strong>Creator Discount (10% OFF):</strong> Applied ({appliedPromo})
+                  </div>
+                )}
               </div>
 
               {/* Instant WhatsApp Admin Alert Buttons */}
@@ -229,7 +301,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             /* Checkout Form Step */
             <form onSubmit={handleCheckoutSubmit} className="space-y-4">
               <button 
-                type="button"
+                type="button" 
                 onClick={() => setIsCheckoutStep(false)}
                 className="text-xs font-bold text-amber-700 underline flex items-center gap-1 mb-2"
               >
@@ -300,8 +372,58 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
-              <div className="bg-sun-sand p-4 rounded-xl border border-sun-dark space-y-1 text-xs font-bold text-sun-dark">
+              {/* Promo Code in Checkout */}
+              <div className="bg-sun-sand p-3.5 rounded-xl border border-sun-dark space-y-2">
+                <label className="block text-xs font-black uppercase text-sun-dark flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Creator Promo Code (10% OFF)</span>
+                </label>
+
+                {appliedPromo ? (
+                  <div className="flex items-center justify-between bg-emerald-100 border border-emerald-600 px-3 py-2 rounded-xl text-xs font-bold text-emerald-900">
+                    <span className="flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-700" />
+                      Code <strong>{appliedPromo}</strong> applied (-10% OFF)
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={handleRemovePromo}
+                      className="text-red-600 hover:text-red-800 text-[11px] font-black underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="e.g. AYESHA10"
+                      value={promoInput}
+                      onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                      className="flex-1 bg-sun-cream border-2 border-sun-dark rounded-xl px-3 py-1.5 text-xs uppercase font-black focus:outline-none"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={handleApplyPromo}
+                      className="bg-sun-dark text-sun-yellow font-black text-xs px-4 py-1.5 rounded-xl border-2 border-sun-dark hover:bg-amber-900 transition-colors uppercase"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
+                {promoErrorMsg && <p className="text-[11px] text-red-600 font-bold">{promoErrorMsg}</p>}
+                {promoSuccessMsg && !promoErrorMsg && <p className="text-[11px] text-emerald-700 font-bold">{promoSuccessMsg}</p>}
+              </div>
+
+              {/* Cost Summary Breakdown */}
+              <div className="bg-sun-sand p-4 rounded-xl border border-sun-dark space-y-1.5 text-xs font-bold text-sun-dark">
                 <div className="flex justify-between"><span>Subtotal:</span><span>Rs. {subtotal.toLocaleString()}</span></div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-black">
+                    <span>Creator Discount (10% OFF):</span>
+                    <span>-Rs. {discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between"><span>Leopards Shipping Fee:</span><span>Rs. {shippingCost}</span></div>
                 <div className="flex justify-between text-sm font-black border-t border-sun-dark/20 pt-1 text-amber-800">
                   <span>Total COD Amount:</span>
@@ -333,6 +455,53 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </p>
               </div>
 
+              {/* Promo Code Input in Cart Drawer View */}
+              <div className="bg-sun-cream border-2 border-sun-dark p-3.5 rounded-2xl shadow-retro-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-sun-dark flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Have a Creator / Promo Code?</span>
+                  </span>
+                  <span className="text-[10px] font-black bg-sun-yellow text-sun-dark px-2 py-0.5 rounded-full border border-sun-dark">
+                    10% OFF
+                  </span>
+                </div>
+
+                {appliedPromo ? (
+                  <div className="flex items-center justify-between bg-emerald-100 border border-emerald-600 px-3 py-2 rounded-xl text-xs font-bold text-emerald-900">
+                    <span className="flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-700" />
+                      Creator Code <strong>{appliedPromo}</strong> active!
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={handleRemovePromo}
+                      className="text-red-600 hover:text-red-800 text-[11px] font-black underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleApplyPromo} className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Enter code (e.g. AYESHA10)"
+                      value={promoInput}
+                      onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                      className="flex-1 bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-xs uppercase font-black focus:outline-none focus:ring-2 focus:ring-sun-yellow"
+                    />
+                    <button 
+                      type="submit"
+                      className="bg-sun-dark text-sun-yellow font-black text-xs px-4 py-2 rounded-xl border-2 border-sun-dark hover:bg-amber-900 transition-colors uppercase shadow-retro-sm"
+                    >
+                      Apply
+                    </button>
+                  </form>
+                )}
+                {promoErrorMsg && <p className="text-[11px] text-red-600 font-bold">{promoErrorMsg}</p>}
+                {promoSuccessMsg && !promoErrorMsg && <p className="text-[11px] text-emerald-700 font-bold">{promoSuccessMsg}</p>}
+              </div>
+
               {/* Smart Upselling Banner */}
               {showUpsell && (
                 <div className="bg-gradient-to-r from-amber-100 to-amber-50 border-2 border-sun-dark p-4 rounded-2xl shadow-retro-sm space-y-3 text-left">
@@ -341,13 +510,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <span className="text-xs font-black uppercase tracking-wider text-sun-dark">💡 COMPLETE KIT UPGRADE</span>
                   </div>
                   <p className="text-xs text-sun-brown font-semibold leading-relaxed">
-                    Get all 3 essentials with the <strong>Koveria Glow Face Pack Kit</strong> (includes Face Pack + Night Toner + Rose Water) for <strong>Rs. 2,000</strong>!
+                    Get all 3 essentials with the <strong>Koveria Glow Face Pack Kit</strong> (includes Face Pack + Night Toner + Rose Water) for <strong>Rs. 1,800</strong>!
                   </p>
                   <button 
                     onClick={handleUpgradeToKit}
                     className="w-full bg-sun-yellow text-sun-dark font-black text-xs py-2 rounded-full border-2 border-sun-dark hover:bg-amber-400 transition-colors uppercase"
                   >
-                    Upgrade to Complete Full Kit (Rs. 2,000)
+                    Upgrade to Complete Full Kit (Rs. 1,800)
                   </button>
                 </div>
               )}
@@ -429,6 +598,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <span>Subtotal</span>
                 <span>Rs. {subtotal.toLocaleString()}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-700 font-black">
+                  <span>Creator Discount (10% OFF)</span>
+                  <span>-Rs. {discountAmount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between text-xs text-sun-brown">
                 <span>Leopards Delivery</span>
                 <span>Rs. {shippingCost}</span>

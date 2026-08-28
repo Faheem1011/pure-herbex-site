@@ -21,10 +21,12 @@ import { SkincareJournalPage } from './components/SkincareJournalPage';
 import { FAQPage } from './components/FAQPage';
 import { ContactPage } from './components/ContactPage';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
+import { CreatorPortal } from './components/CreatorPortal';
 
 import { PRODUCTS as DEFAULT_PRODUCTS } from './data/products';
 import { Product, CartItem } from './types';
 import { fetchLiveProducts } from './services/supabase';
+import { saveActivePromoCode, validatePromoCode } from './services/creatorService';
 
 export function App() {
   // Routing State synced with window.location
@@ -37,6 +39,9 @@ export function App() {
     const match = window.location.pathname.match(/^\/product\/(.+)$/);
     return match ? match[1] : null;
   });
+
+  // Promo Notification Banner
+  const [promoBanner, setPromoBanner] = useState<string | null>(null);
 
   // Dynamic Products List loaded from Database / Cache
   const [productsList, setProductsList] = useState<Product[]>(() => {
@@ -81,12 +86,27 @@ export function App() {
 
   useEffect(() => {
     loadProducts();
+
+    // Check for Creator Promo in URL (e.g. ?promo=AYESHA10 or ?ref=SARA10)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPromo = urlParams.get('promo') || urlParams.get('ref') || urlParams.get('code');
+      if (urlPromo) {
+        const val = validatePromoCode(urlPromo);
+        if (val.isValid && val.code) {
+          saveActivePromoCode(val.code);
+          setPromoBanner(`🎉 Creator Promo "${val.code}" Activated: 10% OFF at Checkout!`);
+          setTimeout(() => setPromoBanner(null), 8000);
+        }
+      }
+    } catch (e) {}
   }, []);
 
   // Sync route changes with browser address bar & history
   const navigateTo = (route: string, itemId?: string) => {
     let path = '/';
     if (route === 'admin') path = '/admin';
+    else if (route === 'creators' || route === 'creator' || route === 'affiliate') path = '/creators';
     else if (route === 'shop') path = '/shop';
     else if (route === 'story') path = '/story';
     else if (route === 'policies') path = '/policies';
@@ -160,7 +180,7 @@ export function App() {
       name: 'Custom B.Y.O.G. Radiance Kit (3 Pieces)',
       subtitle: bundleItems.map(i => i.name).join(' + '),
       tagline: 'Personalized Botanical Bundle',
-      price: totalPrice || 2000,
+      price: totalPrice || 1800,
       originalPrice: 2000,
       rating: 5.0,
       reviewCount: 1,
@@ -178,6 +198,7 @@ export function App() {
       size: 'Custom 3-Piece Kit',
       inStock: true
     };
+
     handleAddToCart(customBundleProduct, 1);
   };
 
@@ -240,6 +261,9 @@ export function App() {
 
   // Render Subpage content based on route
   const renderPageContent = () => {
+    if (currentRoute === 'creators' || currentRoute === 'creator' || currentRoute === 'influencer' || currentRoute === 'affiliate') {
+      return <CreatorPortal onNavigateHome={() => navigateTo('home')} onOpenShop={() => navigateTo('shop')} />;
+    }
     if (currentRoute === 'product' && activeProduct) {
       return (
         <ProductDetail 
@@ -346,6 +370,19 @@ export function App() {
           { name: 'Home', url: '/' }
         ]}
       />
+
+      {/* Auto-Applied Creator Promo Banner */}
+      {promoBanner && (
+        <div className="bg-sun-dark text-sun-yellow font-black py-2.5 px-4 text-xs sm:text-sm text-center border-b-2 border-sun-yellow flex items-center justify-center gap-2 animate-fade-in shadow-md">
+          <span>{promoBanner}</span>
+          <button 
+            onClick={() => setPromoBanner(null)} 
+            className="text-white hover:text-sun-yellow ml-2 text-xs font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Navigation Header */}
       <Header {...headerProps} />
