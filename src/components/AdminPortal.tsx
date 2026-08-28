@@ -1334,7 +1334,7 @@ export const AdminPortal: React.FC = () => {
                       </td>
 
                       <td className="p-3 font-bold text-gray-500">
-                        Rs. {prod.originalPrice?.toLocaleString() || prod.price.toLocaleString()}
+                        {prod.originalPrice && prod.originalPrice > prod.price ? `Rs. ${prod.originalPrice.toLocaleString()}` : '-'}
                       </td>
 
                       <td className="p-3">

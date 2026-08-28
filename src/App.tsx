@@ -181,7 +181,6 @@ export function App() {
       subtitle: bundleItems.map(i => i.name).join(' + '),
       tagline: 'Personalized Botanical Bundle',
       price: totalPrice || 1800,
-      originalPrice: 2000,
       rating: 5.0,
       reviewCount: 1,
       category: 'kits',

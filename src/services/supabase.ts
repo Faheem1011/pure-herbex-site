@@ -17,7 +17,7 @@ export async function fetchLiveProducts(): Promise<Product[]> {
     const cached = localStorage.getItem('pureherbex_products_db');
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length === DEFAULT_PRODUCTS.length && parsed.every(p => DEFAULT_PRODUCTS.some(dp => dp.id === p.id && dp.price === p.price))) {
+      if (Array.isArray(parsed) && parsed.length === DEFAULT_PRODUCTS.length && parsed.every(p => DEFAULT_PRODUCTS.some(dp => dp.id === p.id && dp.price === p.price && dp.originalPrice === p.originalPrice))) {
         return parsed;
       }
     }
