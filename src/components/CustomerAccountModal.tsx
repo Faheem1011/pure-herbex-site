@@ -1,26 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { User, Lock, Mail, Phone, MapPin, Package, Heart, LogOut, CheckCircle2, AlertCircle, X, ArrowRight, ShoppingBag, Eye } from 'lucide-react';
+import { 
+  User, Lock, Mail, Phone, MapPin, Package, Heart, LogOut, CheckCircle2, 
+  AlertCircle, X, ArrowRight, ShoppingBag, Eye, Sparkles, Instagram, Award, 
+  DollarSign, Tag, Globe, Check 
+} from 'lucide-react';
 import { CustomerUser, getCurrentCustomer, loginCustomer, registerCustomer, logoutCustomer, updateCustomerProfile, getCustomerOrders } from '../services/customerAuth';
 import { Order, Product } from '../types';
 import { PRODUCTS } from '../data/products';
 import { SORTED_PAKISTAN_CITIES } from '../data/pakistanCities';
+import { registerCreatorAccount, loginCreatorWithEmail, getCurrentCreator } from '../services/creatorService';
 
 interface CustomerAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddToCart: (product: Product) => void;
   onOpenTrackOrder: (trackingOrOrderId?: string) => void;
+  onNavigateToCreators?: () => void;
 }
 
 export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
   isOpen,
   onClose,
   onAddToCart,
-  onOpenTrackOrder
+  onOpenTrackOrder,
+  onNavigateToCreators
 }) => {
   const [currentUser, setCurrentUser] = useState<CustomerUser | null>(null);
   const [activeTab, setActiveTab] = useState<'login' | 'register' | 'orders' | 'wishlist' | 'profile'>('login');
   
+  // Registration Type: Customer vs Creator
+  const [accountType, setAccountType] = useState<'customer' | 'creator'>('customer');
+
   // Auth Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +38,14 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('Lahore');
   const [address, setAddress] = useState('');
+  
+  // Creator-Specific Signup State
+  const [socialHandle, setSocialHandle] = useState('');
+  const [socialPlatform, setSocialPlatform] = useState<'instagram' | 'tiktok' | 'youtube' | 'facebook'>('instagram');
+  const [customPromoCode, setCustomPromoCode] = useState('');
+  const [payoutMethod, setPayoutMethod] = useState<'easypaisa' | 'jazzcash' | 'bank'>('easypaisa');
+  const [accountNumber, setAccountNumber] = useState('');
+  
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,7 +86,14 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
     e.preventDefault();
     setAuthError('');
     setLoading(true);
+
     const res = await loginCustomer({ email, password });
+    
+    // Also try logging in as creator if registered as one
+    try {
+      await loginCreatorWithEmail(email);
+    } catch (e) {}
+
     setLoading(false);
     if (res.success && res.user) {
       setCurrentUser(res.user);
@@ -83,12 +108,54 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
     e.preventDefault();
     setAuthError('');
     setLoading(true);
+
+    // 1. If registering as Content Creator
+    if (accountType === 'creator') {
+      if (!socialHandle.trim()) {
+        setLoading(false);
+        setAuthError('Please provide your Instagram, TikTok, or YouTube social handle.');
+        return;
+      }
+
+      const fullSocial = socialHandle.startsWith('@') ? socialHandle : `@${socialHandle}`;
+      const creatorRes = await registerCreatorAccount({
+        name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        socialHandle: `${fullSocial} (${socialPlatform})`,
+        customPromoCode: customPromoCode.trim(),
+        payoutMethod,
+        accountNumber: accountNumber.trim(),
+        accountTitle: fullName.trim()
+      });
+
+      if (!creatorRes.success) {
+        setLoading(false);
+        setAuthError(creatorRes.error || 'Failed to create creator account');
+        return;
+      }
+    }
+
+    // 2. Register Standard Customer Profile
     const res = await registerCustomer({ email, password, fullName, phone, city, address });
     setLoading(false);
+
     if (res.success && res.user) {
       setCurrentUser(res.user);
-      setActiveTab('orders');
-      loadOrders();
+      if (accountType === 'creator') {
+        setAuthSuccess('🎉 Creator account registered! You can now access the Creator Portal.');
+        setTimeout(() => {
+          onClose();
+          if (onNavigateToCreators) {
+            onNavigateToCreators();
+          } else {
+            window.location.href = '/creators';
+          }
+        }, 1500);
+      } else {
+        setActiveTab('orders');
+        loadOrders();
+      }
     } else {
       setAuthError(res.error || 'Failed to create account');
     }
@@ -135,45 +202,48 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
           </div>
           <div>
             <h2 className="font-display font-black text-2xl uppercase tracking-tight text-sun-dark">
-              {currentUser ? `Assalam-o-Alaikum, ${currentUser.fullName.split(' ')[0]}!` : 'Customer Account'}
+              {currentUser ? `Assalam-o-Alaikum, ${currentUser.fullName.split(' ')[0]}!` : 'Customer & Creator Account'}
             </h2>
             <p className="text-xs font-bold text-sun-brown">
-              {currentUser ? currentUser.email : 'Log in to track shipments, view your orders, and manage wishlist.'}
+              {currentUser ? 'Manage your order history, delivery addresses, and wishlist.' : 'Log in to track shipments, view your orders, or sign up as a creator.'}
             </p>
           </div>
         </div>
 
-        {/* User Navigation Tabs */}
         {currentUser ? (
+          /* LOGGED IN VIEW */
           <div className="space-y-6">
             <div className="flex flex-wrap gap-2 border-b border-sun-dark/15 pb-3">
               <button 
                 onClick={() => setActiveTab('orders')}
-                className={`text-xs font-black uppercase px-4 py-2 rounded-full border-2 border-sun-dark transition-all flex items-center gap-1.5 ${
+                className={`font-black text-xs uppercase px-4 py-2 rounded-full border-2 border-sun-dark transition-all flex items-center gap-1.5 ${
                   activeTab === 'orders' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-dark/80 hover:bg-amber-100'
                 }`}
               >
-                <Package className="w-4 h-4" /> My Orders ({customerOrders.length})
+                <Package className="w-3.5 h-3.5" /> My Orders ({customerOrders.length})
               </button>
+
               <button 
                 onClick={() => setActiveTab('wishlist')}
-                className={`text-xs font-black uppercase px-4 py-2 rounded-full border-2 border-sun-dark transition-all flex items-center gap-1.5 ${
+                className={`font-black text-xs uppercase px-4 py-2 rounded-full border-2 border-sun-dark transition-all flex items-center gap-1.5 ${
                   activeTab === 'wishlist' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-dark/80 hover:bg-amber-100'
                 }`}
               >
-                <Heart className="w-4 h-4" /> Wishlist ({wishlistProducts.length})
+                <Heart className="w-3.5 h-3.5" /> Wishlist ({currentUser.wishlistProductIds.length})
               </button>
+
               <button 
                 onClick={() => setActiveTab('profile')}
-                className={`text-xs font-black uppercase px-4 py-2 rounded-full border-2 border-sun-dark transition-all flex items-center gap-1.5 ${
+                className={`font-black text-xs uppercase px-4 py-2 rounded-full border-2 border-sun-dark transition-all flex items-center gap-1.5 ${
                   activeTab === 'profile' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-dark/80 hover:bg-amber-100'
                 }`}
               >
-                <User className="w-4 h-4" /> Saved Address
+                <MapPin className="w-3.5 h-3.5" /> Saved Address
               </button>
+
               <button 
                 onClick={handleLogout}
-                className="text-xs font-black uppercase px-4 py-2 rounded-full border-2 border-sun-dark bg-red-100 text-red-700 hover:bg-red-200 ml-auto flex items-center gap-1"
+                className="font-black text-xs uppercase px-4 py-2 rounded-full border-2 border-red-500 bg-red-100 text-red-700 hover:bg-red-200 ml-auto flex items-center gap-1.5"
               >
                 <LogOut className="w-3.5 h-3.5" /> Logout
               </button>
@@ -183,59 +253,59 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
             {activeTab === 'orders' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-display font-black text-lg text-sun-dark uppercase">Order History</h3>
-                  <button onClick={loadOrders} className="text-xs font-bold text-amber-700 underline">Refresh</button>
+                  <h3 className="font-display font-black text-lg text-sun-dark uppercase">Your Order History</h3>
+                  <button 
+                    onClick={loadOrders}
+                    className="text-xs font-bold text-amber-800 underline hover:text-sun-dark"
+                  >
+                    Refresh Orders
+                  </button>
                 </div>
 
                 {loadingOrders ? (
-                  <div className="py-8 text-center text-xs font-bold text-sun-brown">Loading your order history...</div>
+                  <div className="text-center py-8 text-xs font-bold text-sun-brown">Loading your order history...</div>
                 ) : customerOrders.length === 0 ? (
                   <div className="bg-sun-sand border-2 border-sun-dark rounded-2xl p-8 text-center space-y-3">
-                    <Package className="w-10 h-10 mx-auto text-sun-dark opacity-30" />
-                    <p className="text-sm font-bold text-sun-dark">No orders found for your account yet.</p>
-                    <button 
-                      onClick={onClose}
-                      className="bg-sun-yellow text-sun-dark font-black text-xs px-5 py-2.5 rounded-full border-2 border-sun-dark shadow-retro-sm uppercase"
-                    >
-                      Shop Botanical Radiance
-                    </button>
+                    <ShoppingBag className="w-10 h-10 mx-auto text-sun-dark opacity-30" />
+                    <p className="text-sm font-bold text-sun-dark">No orders found matching your account.</p>
+                    <p className="text-xs text-sun-brown">When you place an order with Cash on Delivery, it will appear here automatically with live tracking!</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {customerOrders.map(order => (
-                      <div key={order.id} className="bg-sun-sand border-2 border-sun-dark rounded-2xl p-4 space-y-3 shadow-retro-sm">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sun-dark/15 pb-2.5">
+                      <div key={order.id} className="bg-sun-sand border-2 border-sun-dark rounded-2xl p-4 shadow-retro-sm space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sun-dark/10 pb-2">
                           <div>
-                            <span className="font-mono font-black text-xs text-sun-dark">Order #{order.id}</span>
-                            <span className="text-[11px] text-sun-brown block">{order.orderDate}</span>
+                            <span className="font-mono text-xs font-black text-amber-800">Tracking #: {order.trackingNumber}</span>
+                            <div className="text-[10px] text-sun-brown font-bold">{new Date(order.orderDate).toLocaleDateString()}</div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-500 text-[11px] font-black px-2.5 py-0.5 rounded-full">
-                              {order.status || 'Booked via Leopards'}
-                            </span>
-                            <span className="font-black text-sm text-sun-dark">
-                              Rs. {order.totalAmount.toLocaleString()}
-                            </span>
-                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border uppercase ${
+                            order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800 border-emerald-500' :
+                            order.status === 'Dispatched' ? 'bg-blue-100 text-blue-800 border-blue-500' :
+                            'bg-amber-100 text-amber-800 border-amber-500'
+                          }`}>
+                            {order.status}
+                          </span>
                         </div>
 
                         <div className="space-y-1">
                           {order.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-xs font-semibold text-sun-dark">
+                            <div key={idx} className="flex justify-between text-xs font-bold text-sun-dark">
                               <span>• {item.quantity}x {item.product.name}</span>
-                              <span className="font-mono">Rs. {(item.product.price * item.quantity).toLocaleString()}</span>
+                              <span>Rs. {(item.product.price * item.quantity).toLocaleString()}</span>
                             </div>
                           ))}
                         </div>
 
-                        <div className="pt-2 border-t border-sun-dark/15 flex flex-wrap items-center justify-between gap-2">
-                          <div className="text-[11px] font-bold text-amber-900">
-                            🚚 Tracking: <strong className="font-mono">{order.trackingNumber}</strong>
+                        <div className="flex items-center justify-between pt-2 border-t border-sun-dark/10 text-xs">
+                          <div>
+                            <span className="font-bold text-sun-brown">Total (COD): </span>
+                            <span className="font-black text-sun-dark text-sm">Rs. {order.totalAmount.toLocaleString()}</span>
                           </div>
                           <button 
                             onClick={() => {
-                              onClose();
                               onOpenTrackOrder(order.trackingNumber);
+                              onClose();
                             }}
                             className="bg-sun-yellow hover:bg-amber-400 text-sun-dark font-black text-xs px-3.5 py-1.5 rounded-full border border-sun-dark shadow-retro-sm flex items-center gap-1 uppercase"
                           >
@@ -362,7 +432,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
           <div className="space-y-6">
             <div className="flex border-b border-sun-dark/15 pb-3 gap-3">
               <button 
-                onClick={() => { setActiveTab('login'); setAuthError(''); }}
+                onClick={() => { setActiveTab('login'); setAuthError(''); setAuthSuccess(''); }}
                 className={`font-black text-xs uppercase px-6 py-2.5 rounded-full border-2 border-sun-dark transition-all ${
                   activeTab === 'login' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-dark/80 hover:bg-amber-100'
                 }`}
@@ -370,7 +440,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                 Log In
               </button>
               <button 
-                onClick={() => { setActiveTab('register'); setAuthError(''); }}
+                onClick={() => { setActiveTab('register'); setAuthError(''); setAuthSuccess(''); }}
                 className={`font-black text-xs uppercase px-6 py-2.5 rounded-full border-2 border-sun-dark transition-all ${
                   activeTab === 'register' ? 'bg-sun-yellow text-sun-dark shadow-retro-sm' : 'bg-sun-sand text-sun-dark/80 hover:bg-amber-100'
                 }`}
@@ -383,6 +453,13 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
               <div className="bg-red-100 border border-red-500 text-red-800 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                 <span>{authError}</span>
+              </div>
+            )}
+
+            {authSuccess && (
+              <div className="bg-emerald-100 border border-emerald-500 text-emerald-800 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{authSuccess}</span>
               </div>
             )}
 
@@ -428,10 +505,57 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleRegister} className="space-y-3">
+              <form onSubmit={handleRegister} className="space-y-4">
+                
+                {/* Account Type Selector: Customer vs Creator */}
+                <div className="bg-sun-sand p-1.5 rounded-2xl border-2 border-sun-dark grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('customer')}
+                    className={`py-2.5 px-3 rounded-xl font-black text-xs uppercase transition-all flex items-center justify-center gap-1.5 ${
+                      accountType === 'customer'
+                        ? 'bg-sun-cream text-sun-dark border-2 border-sun-dark shadow-retro-sm'
+                        : 'text-sun-brown hover:text-sun-dark'
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>Customer Account</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('creator')}
+                    className={`py-2.5 px-3 rounded-xl font-black text-xs uppercase transition-all flex items-center justify-center gap-1.5 ${
+                      accountType === 'creator'
+                        ? 'bg-sun-yellow text-sun-dark border-2 border-sun-dark shadow-retro-sm'
+                        : 'text-amber-900 font-extrabold hover:text-sun-dark'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Content Creator (15%)</span>
+                  </button>
+                </div>
+
+                {accountType === 'creator' && (
+                  <div className="bg-amber-100 border-2 border-amber-600 p-3.5 rounded-2xl text-xs space-y-1 text-amber-950 font-medium animate-fade-in">
+                    <div className="font-black uppercase flex items-center gap-1 text-amber-900">
+                      <Award className="w-4 h-4" /> Creator Affiliate Program Benefits:
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      • Earn <strong>15% Commission (Rs. 270 / Kit)</strong> on every kit sold.
+                      <br />
+                      • Your followers get <strong>10% OFF (Save Rs. 180)</strong> with your custom code.
+                      <br />
+                      • Zero minimum payout threshold • Direct EasyPaisa / JazzCash / Bank payouts.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-black uppercase text-sun-dark mb-1">Full Name</label>
+                    <label className="block text-xs font-black uppercase text-sun-dark mb-1">
+                      {accountType === 'creator' ? 'Creator / Full Name *' : 'Full Name *'}
+                    </label>
                     <input 
                       type="text" 
                       required 
@@ -442,7 +566,9 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-black uppercase text-sun-dark mb-1">Phone / WhatsApp</label>
+                    <label className="block text-xs font-black uppercase text-sun-dark mb-1">
+                      {accountType === 'creator' ? 'WhatsApp Phone (For Payouts) *' : 'Phone / WhatsApp *'}
+                    </label>
                     <input 
                       type="tel" 
                       required 
@@ -456,7 +582,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-black uppercase text-sun-dark mb-1">Email Address</label>
+                    <label className="block text-xs font-black uppercase text-sun-dark mb-1">Email Address *</label>
                     <input 
                       type="email" 
                       required 
@@ -467,7 +593,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-black uppercase text-sun-dark mb-1">Password (Min 6 chars)</label>
+                    <label className="block text-xs font-black uppercase text-sun-dark mb-1">Password (Min 6 chars) *</label>
                     <input 
                       type="password" 
                       required 
@@ -479,6 +605,91 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                   </div>
                 </div>
 
+                {/* CREATOR-SPECIFIC FIELDS */}
+                {accountType === 'creator' && (
+                  <div className="space-y-3 pt-1 border-t border-sun-dark/15 animate-fade-in">
+                    
+                    {/* Social Platform & Handle */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-black uppercase text-sun-dark mb-1">Social Platform *</label>
+                        <select 
+                          value={socialPlatform} 
+                          onChange={(e) => setSocialPlatform(e.target.value as any)}
+                          className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-xs font-bold text-sun-dark focus:outline-none focus:ring-2 focus:ring-sun-yellow"
+                        >
+                          <option value="instagram">Instagram (@handle)</option>
+                          <option value="tiktok">TikTok (@handle)</option>
+                          <option value="youtube">YouTube Channel</option>
+                          <option value="facebook">Facebook Page / Profile</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-black uppercase text-sun-dark mb-1">Social Media Handle / URL *</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="@ayeshaskinroutine"
+                          value={socialHandle}
+                          onChange={(e) => setSocialHandle(e.target.value)}
+                          className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-xs font-bold text-sun-dark focus:outline-none focus:ring-2 focus:ring-sun-yellow"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Custom Promo Code */}
+                    <div>
+                      <label className="block text-xs font-black uppercase text-sun-dark mb-1">
+                        Preferred Custom Promo Code (Optional)
+                      </label>
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          placeholder="e.g. AYESHA10"
+                          value={customPromoCode}
+                          onChange={(e) => setCustomPromoCode(e.target.value.toUpperCase())}
+                          className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wider text-amber-900 focus:outline-none focus:ring-2 focus:ring-sun-yellow"
+                        />
+                        <span className="absolute right-3 top-2 text-[10px] font-black text-sun-brown bg-sun-cream px-2 py-0.5 rounded border border-sun-dark/30">
+                          10% OFF BUYER DISCOUNT
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-sun-brown mt-0.5">Leave blank to automatically create a promo code from your name.</p>
+                    </div>
+
+                    {/* Payout Details */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-black uppercase text-sun-dark mb-1">Payout Method *</label>
+                        <select 
+                          value={payoutMethod} 
+                          onChange={(e) => setPayoutMethod(e.target.value as any)}
+                          className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-xs font-bold text-sun-dark focus:outline-none focus:ring-2 focus:ring-sun-yellow"
+                        >
+                          <option value="easypaisa">EasyPaisa Mobile Account</option>
+                          <option value="jazzcash">JazzCash Mobile Account</option>
+                          <option value="bank">Bank Account Transfer</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-black uppercase text-sun-dark mb-1">Account / Mobile Number *</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="0300-1234567 or IBAN"
+                          value={accountNumber}
+                          onChange={(e) => setAccountNumber(e.target.value)}
+                          className="w-full bg-sun-sand border-2 border-sun-dark rounded-xl px-3 py-2 text-xs font-bold text-sun-dark focus:outline-none focus:ring-2 focus:ring-sun-yellow font-mono"
+                        />
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* City & Address */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-black uppercase text-sun-dark mb-1">City</label>
@@ -510,7 +721,13 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                   disabled={loading}
                   className="w-full bg-sun-yellow text-sun-dark font-black text-sm py-3.5 rounded-full border-2 border-sun-dark shadow-retro uppercase hover:bg-amber-400 transition-colors flex items-center justify-center gap-2 mt-4"
                 >
-                  <span>{loading ? 'Creating Account...' : 'Register & Save Delivery Profile'}</span>
+                  <span>
+                    {loading 
+                      ? 'Creating Account...' 
+                      : accountType === 'creator' 
+                        ? 'Register as Content Creator (15% Commission)' 
+                        : 'Register & Save Delivery Profile'}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>

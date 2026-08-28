@@ -101,12 +101,6 @@ export const Header: React.FC<HeaderProps> = ({
               FAQ
             </button>
             <button 
-              onClick={() => { onNavigate('creators'); setIsMobileMenuOpen(false); }} 
-              className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow text-amber-800 font-black flex items-center gap-1"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-700" /> Creators (15%)
-            </button>
-            <button 
               onClick={() => { onNavigate('contact'); setIsMobileMenuOpen(false); }} 
               className="hover:text-amber-600 transition-colors py-2 border-b-2 border-transparent hover:border-sun-yellow"
             >

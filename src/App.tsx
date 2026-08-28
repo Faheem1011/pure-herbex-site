@@ -416,12 +416,13 @@ export function App() {
         initialTrackingCode={trackInitialCode}
       />
 
-      {/* Customer Account & Wishlist Modal */}
+      {/* Customer Account, Creator Signup & Wishlist Modal */}
       <CustomerAccountModal 
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onAddToCart={handleAddToCart}
         onOpenTrackOrder={(code) => openTrackWithCode(code)}
+        onNavigateToCreators={() => navigateTo('creators')}
       />
 
       {/* Routine Finder 3-Step Quiz */}
