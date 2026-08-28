@@ -38,7 +38,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
               type="email" 
               placeholder="Enter your email address..."
               required
-              className="bg-sun-cream border-2 border-sun-dark rounded-full px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sun-dark font-medium text-sun-dark min-w-[260px]"
+              className="bg-sun-cream border-2 border-sun-dark rounded-full px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sun-dark font-medium text-sun-dark w-full sm:w-auto sm:min-w-[240px]"
             />
             <button 
               type="submit"
@@ -107,12 +107,22 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenTrackOrder, on
         {/* Copyright & Disclaimer */}
         <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 font-medium gap-4">
           <div>
-            © {new Date().getFullYear()} Koveria Glow by Pure Herbex®. All Rights Reserved. Inspired by Sun Bum® design aesthetic.
+            © {new Date().getFullYear()} Koveria Glow by Pure Herbex®. All Rights Reserved.
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4 items-center">
             <button onClick={() => onNavigate('policies')} className="hover:underline">Privacy Policy</button>
             <button onClick={() => onNavigate('policies')} className="hover:underline">Terms of Service</button>
             <button onClick={() => onNavigate('policies')} className="hover:underline">COD Conditions</button>
+            <button 
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('pureherbex_open_cookie_settings'));
+                }
+              }} 
+              className="text-sun-yellow hover:underline flex items-center gap-1 font-bold"
+            >
+              🍪 Cookie Settings
+            </button>
           </div>
         </div>
 

@@ -66,26 +66,26 @@ export const Hero: React.FC<HeroProps> = ({ flagshipProduct, onAddToCart, onOpen
 
             {/* Headline & Tagline */}
             <div className="space-y-2">
-              <h1 className="text-4xl sm:text-6xl lg:text-6xl font-black tracking-tight text-sun-dark leading-tight uppercase">
-                GLOW LIKE <span className="text-sun-cream drop-shadow-[0_4px_0_#2C1E14]">SUMMER</span> ALL YEAR LONG
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-sun-dark leading-tight uppercase">
+                GLOW LIKE <span className="text-sun-cream drop-shadow-[0_3px_0_#2C1E14]">SUMMER</span> ALL YEAR LONG
               </h1>
-              <p className="font-handwriting text-2xl sm:text-3xl text-sun-dark font-bold">
+              <p className="font-handwriting text-xl sm:text-3xl text-sun-dark font-bold">
                 "Smells Like Pure Botanical Radiance®"
               </p>
             </div>
 
-            <p className="text-sm sm:text-base text-sun-dark font-semibold max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+            <p className="text-xs sm:text-base text-sun-dark font-semibold max-w-2xl mx-auto lg:mx-0 leading-relaxed">
               Experience the magic of 100% home-made artisanal skincare. Freshly blended in small batches with premium organic ingredients and secret herbal elixirs to deliver flawless, luminous skin.
             </p>
 
             {/* Exact Benefits List */}
-            <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto lg:mx-0 text-left bg-sun-cream/50 border-2 border-sun-dark p-4 rounded-2xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 max-w-lg mx-auto lg:mx-0 text-left bg-sun-cream/50 border-2 border-sun-dark p-3.5 sm:p-4 rounded-2xl">
               {[
                 '✴️ Brightens & even tones',
-                '✴️ Prevents Acne',
+                '✴️ Prevents Acne & clarifies',
                 '✴️ Gentle Exfoliation',
                 '✴️ Soothes & boost collagen',
-                '✴️ Anti Aging',
+                '✴️ Anti Aging defense',
                 '✴️ Instant Glow & baby soft skin'
               ].map((benefit, i) => (
                 <div key={i} className="text-xs sm:text-sm font-black text-sun-dark flex items-center gap-1.5">

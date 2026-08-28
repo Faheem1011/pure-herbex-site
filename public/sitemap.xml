@@ -43,25 +43,49 @@
   <!-- Journal Article 1 -->
   <url>
     <loc>https://pureherbex.com/journal/5-benefits-of-steam-distilled-rose-water</loc>
-    <lastmod>2026-08-07</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.80</priority>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
   </url>
 
   <!-- Journal Article 2 -->
   <url>
     <loc>https://pureherbex.com/journal/why-artisanal-herbal-powder-masks-beat-chemical-sheet-masks</loc>
-    <lastmod>2026-08-07</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.80</priority>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
   </url>
 
   <!-- Journal Article 3 -->
   <url>
     <loc>https://pureherbex.com/journal/ultimate-3-step-skincare-ritual-for-sun-stressed-skin</loc>
-    <lastmod>2026-08-07</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.80</priority>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Journal Article 4 -->
+  <url>
+    <loc>https://pureherbex.com/journal/moringa-and-multani-mitti-acne-oil-control-guide</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Journal Article 5 -->
+  <url>
+    <loc>https://pureherbex.com/journal/why-small-batch-artisanal-skincare-beats-commercial-cosmetics</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Journal Article 6 -->
+  <url>
+    <loc>https://pureherbex.com/journal/top-7-botanical-secrets-for-natural-anti-aging-and-collagen</loc>
+    <lastmod>2026-08-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
   </url>
 
   <!-- Knowledge Base & FAQ Portal -->

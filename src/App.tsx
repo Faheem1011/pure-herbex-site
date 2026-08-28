@@ -20,6 +20,7 @@ import { BotanicalGlossaryPage } from './components/BotanicalGlossaryPage';
 import { SkincareJournalPage } from './components/SkincareJournalPage';
 import { FAQPage } from './components/FAQPage';
 import { ContactPage } from './components/ContactPage';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
 
 import { PRODUCTS as DEFAULT_PRODUCTS } from './data/products';
 import { Product, CartItem } from './types';
@@ -403,6 +404,9 @@ export function App() {
 
       {/* Floating Kovera Mascot Dialogue Widget */}
       <MascotWidget />
+
+      {/* GDPR / ePrivacy Cookie Consent Banner */}
+      <CookieConsentBanner onOpenPolicies={() => navigateTo('policies')} />
     </div>
   );
 }

@@ -178,6 +178,38 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       if (existingProductJsonLd) existingProductJsonLd.remove();
     }
 
+    // 2b. Article / BlogPosting Schema (if viewing an article)
+    if (type === 'article') {
+      addJsonLd('jsonld-article', {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: metaTitle,
+        description: metaDescription,
+        image: [metaImage],
+        author: {
+          '@type': 'Organization',
+          name: 'Pure Herbex Botanical Research Team',
+          url: domain
+        },
+        publisher: {
+          '@type': 'Organization',
+          name: 'Pure Herbex',
+          logo: {
+            '@type': 'ImageObject',
+            url: `${domain}/images/brand_logo.png`
+          }
+        },
+        mainEntityOfPage: {
+          '@type': 'WebPage',
+          '@id': canonicalUrl
+        },
+        inLanguage: 'en-US'
+      });
+    } else {
+      const existingArticleJsonLd = document.getElementById('jsonld-article');
+      if (existingArticleJsonLd) existingArticleJsonLd.remove();
+    }
+
     // 3. Breadcrumb Schema
     if (breadcrumbs && breadcrumbs.length > 0) {
       addJsonLd('jsonld-breadcrumbs', {

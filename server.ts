@@ -12,7 +12,20 @@ const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Optimized Static Asset Caching Middleware
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    } else if (filePath.match(/\.(png|jpe?g|gif|webp|svg|ico)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    } else if (filePath.includes('/assets/')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 
 // SEO Crawling Endpoints: /robots.txt & /sitemap.xml
 app.get('/robots.txt', (req, res) => {

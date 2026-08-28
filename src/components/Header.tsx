@@ -166,16 +166,82 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer Navigation */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-sun-cream border-t-2 border-sun-dark p-4 space-y-3 font-black text-sm uppercase animate-fade-in">
-          <button onClick={() => handleShopNav('all')} className="block w-full text-left py-2 hover:text-amber-600">Shop All Products</button>
-          <button onClick={() => handleShopNav('kits')} className="block w-full text-left py-2 text-amber-700">Complete Kit (Rs. 2,000)</button>
-          <button onClick={() => { onNavigate('story'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2">Trust The Glow (Brand Story)</button>
-          <button onClick={() => { onNavigate('routine-finder'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-emerald-700">Routine Finder Quiz</button>
-          <button onClick={() => { onNavigate('policies'); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2">Policies & Customer Care</button>
-          <button onClick={() => { onOpenTrackOrder(); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-amber-800">Track Order (Leopards COD)</button>
-          <button onClick={() => { onOpenAuthModal(); setIsMobileMenuOpen(false); }} className="block w-full text-left py-2 text-emerald-800 flex items-center gap-2">
-            <User className="w-4 h-4" /> My Account & Wishlist
+        <div className="lg:hidden bg-sun-cream border-t-2 border-sun-dark p-5 space-y-2.5 font-black text-sm uppercase animate-fade-in shadow-retro max-h-[80vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-2 pb-2 border-b border-sun-dark/15">
+            <button 
+              onClick={() => handleShopNav('all')} 
+              className="w-full text-left py-2.5 px-3 bg-sun-sand rounded-xl border border-sun-dark hover:bg-sun-yellow transition-colors text-xs font-black flex items-center justify-between"
+            >
+              <span>Shop All</span>
+              <span>→</span>
+            </button>
+            <button 
+              onClick={() => handleShopNav('kits')} 
+              className="w-full text-left py-2.5 px-3 bg-sun-yellow text-sun-dark rounded-xl border border-sun-dark hover:bg-amber-400 transition-colors text-xs font-black flex items-center justify-between shadow-retro-sm"
+            >
+              <span>Complete Kit</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-900" />
+            </button>
+          </div>
+
+          <button 
+            onClick={() => { onNavigate('journal'); setIsMobileMenuOpen(false); }} 
+            className="w-full text-left py-2 px-3 rounded-xl hover:bg-sun-sand flex items-center justify-between text-amber-900 font-black"
+          >
+            <span>🌿 Skincare Journal & Guides</span>
+            <span className="text-xs bg-sun-yellow text-sun-dark px-2 py-0.5 rounded-full border border-sun-dark">NEW</span>
           </button>
+          <button 
+            onClick={() => { onNavigate('ingredients'); setIsMobileMenuOpen(false); }} 
+            className="w-full text-left py-2 px-3 rounded-xl hover:bg-sun-sand flex items-center justify-between text-emerald-800"
+          >
+            <span>🔬 Botanical Ingredients Glossary</span>
+          </button>
+          <button 
+            onClick={() => { onNavigate('routine-finder'); setIsMobileMenuOpen(false); }} 
+            className="w-full text-left py-2 px-3 rounded-xl hover:bg-sun-sand flex items-center justify-between text-amber-800"
+          >
+            <span>✨ Routine Finder Quiz</span>
+          </button>
+          <button 
+            onClick={() => { onNavigate('story'); setIsMobileMenuOpen(false); }} 
+            className="w-full text-left py-2 px-3 rounded-xl hover:bg-sun-sand flex items-center justify-between"
+          >
+            <span>📜 Trust The Glow (Brand Story)</span>
+          </button>
+          <button 
+            onClick={() => { onNavigate('faq'); setIsMobileMenuOpen(false); }} 
+            className="w-full text-left py-2 px-3 rounded-xl hover:bg-sun-sand flex items-center justify-between"
+          >
+            <span>❓ Frequently Asked Questions</span>
+          </button>
+          <button 
+            onClick={() => { onNavigate('contact'); setIsMobileMenuOpen(false); }} 
+            className="w-full text-left py-2 px-3 rounded-xl hover:bg-sun-sand flex items-center justify-between"
+          >
+            <span>📞 Contact Customer Care</span>
+          </button>
+          <button 
+            onClick={() => { onNavigate('policies'); setIsMobileMenuOpen(false); }} 
+            className="w-full text-left py-2 px-3 rounded-xl hover:bg-sun-sand flex items-center justify-between text-xs text-sun-brown"
+          >
+            <span>🛡️ Shipping & COD Policies</span>
+          </button>
+
+          <div className="pt-3 border-t border-sun-dark/15 grid grid-cols-2 gap-2">
+            <button 
+              onClick={() => { onOpenTrackOrder(); setIsMobileMenuOpen(false); }} 
+              className="py-2.5 px-3 bg-sun-sand text-sun-dark border-2 border-sun-dark rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-retro-sm"
+            >
+              <MapPin className="w-3.5 h-3.5 text-amber-700" /> Track Order
+            </button>
+            <button 
+              onClick={() => { onOpenAuthModal(); setIsMobileMenuOpen(false); }} 
+              className="py-2.5 px-3 bg-sun-sand text-sun-dark border-2 border-sun-dark rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-retro-sm"
+            >
+              <User className="w-3.5 h-3.5 text-emerald-800" /> Account
+            </button>
+          </div>
         </div>
       )}
     </header>
