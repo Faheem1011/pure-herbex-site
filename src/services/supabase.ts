@@ -279,3 +279,27 @@ export async function updateLiveOrderStatus(orderId: string, newStatus: string):
 
   return true;
 }
+
+export async function deleteLiveOrder(orderId: string): Promise<boolean> {
+  try {
+    // 1. Remove from local cache
+    const existing = localStorage.getItem('pureherbex_orders_db');
+    if (existing) {
+      const parsed: Order[] = JSON.parse(existing);
+      const filtered = parsed.filter(o => o.id !== orderId && o.trackingNumber !== orderId);
+      localStorage.setItem('pureherbex_orders_db', JSON.stringify(filtered));
+    }
+
+    // 2. Delete from Supabase orders table
+    await supabase
+      .from('orders')
+      .delete()
+      .or(`id.eq.${orderId},tracking_number.eq.${orderId}`);
+      
+    return true;
+  } catch (err) {
+    console.warn('[Supabase Delete Order Error]', err);
+    return false;
+  }
+}
+

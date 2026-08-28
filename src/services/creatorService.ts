@@ -6,71 +6,28 @@ const STORAGE_KEY_PAYOUT_LOGS = 'pureherbex_creator_payout_logs_db';
 const STORAGE_KEY_CURRENT_CREATOR = 'pureherbex_current_creator';
 const STORAGE_KEY_ACTIVE_PROMO = 'pureherbex_applied_promo';
 
-// Default starter creators / sample data for demonstration and instant testing
-const DEFAULT_CREATORS: CreatorProfile[] = [
-  {
-    id: 'creator-ayesha-glow',
-    name: 'Ayesha Khan',
-    email: 'ayesha.glow@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    phone: '03001234567',
-    socialHandle: '@ayeshaskinroutine',
-    promoCode: 'AYESHA10',
-    discountPercent: 10,
-    commissionPercent: 15,
-    payoutDetails: {
-      method: 'easypaisa',
-      accountTitle: 'Ayesha Khan',
-      accountNumber: '03001234567'
-    },
-    totalKitsSold: 12,
-    totalRevenue: 19440,
-    totalCommissionEarned: 3240, // 12 * Rs. 270 = 3240
-    totalPaidCommission: 2160,
-    pendingCommission: 1080,
-    processingCommission: 0,
-    joinedAt: '2026-07-15T10:00:00.000Z',
-    status: 'active',
-    approvalStatus: 'approved',
-    lastPayoutStatus: 'paid',
-    lastPayoutNote: 'Disbursed via EasyPaisa Trx #EP8934710',
-    lastPayoutTrxId: 'EP8934710'
-  },
-  {
-    id: 'creator-fatima-organics',
-    name: 'Fatima Noor',
-    email: 'fatima.noor.skincare@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80',
-    phone: '03219876543',
-    socialHandle: '@fatimaglowdiaries',
-    promoCode: 'FATIMA10',
-    discountPercent: 10,
-    commissionPercent: 15,
-    payoutDetails: {
-      method: 'jazzcash',
-      accountTitle: 'Fatima Noor',
-      accountNumber: '03219876543'
-    },
-    totalKitsSold: 8,
-    totalRevenue: 12960,
-    totalCommissionEarned: 2160, // 8 * Rs. 270 = 2160
-    totalPaidCommission: 0,
-    pendingCommission: 2160,
-    processingCommission: 0,
-    joinedAt: '2026-08-01T12:00:00.000Z',
-    status: 'active',
-    approvalStatus: 'approved',
-    lastPayoutStatus: 'idle'
-  }
-];
+// Production Ready: No mock or demo creators are pre-seeded
+const DEFAULT_CREATORS: CreatorProfile[] = [];
 
-// Helper: Initialize creators db
+// Helper: Initialize creators db and purge any legacy mock/demo entries
 export function getStoredCreators(): CreatorProfile[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEY_CREATORS);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        // Filter out any legacy dummy/demo entries if present
+        const productionOnly = parsed.filter(c => 
+          c.id !== 'creator-ayesha-glow' && 
+          c.id !== 'creator-fatima-organics' &&
+          !c.email?.includes('ayesha.glow@gmail.com') &&
+          !c.email?.includes('fatima.noor.skincare@gmail.com')
+        );
+        if (productionOnly.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEY_CREATORS, JSON.stringify(productionOnly));
+        }
+        return productionOnly;
+      }
     }
   } catch (e) {}
   localStorage.setItem(STORAGE_KEY_CREATORS, JSON.stringify(DEFAULT_CREATORS));
@@ -79,6 +36,41 @@ export function getStoredCreators(): CreatorProfile[] {
 
 export function saveCreators(creators: CreatorProfile[]): void {
   localStorage.setItem(STORAGE_KEY_CREATORS, JSON.stringify(creators));
+}
+
+// Helper: Delete creator account entirely
+export function deleteCreatorAccount(creatorId: string): boolean {
+  const creators = getStoredCreators();
+  const filtered = creators.filter(c => c.id !== creatorId);
+  saveCreators(filtered);
+
+  // Clear from commission ledger
+  const commissions = getStoredCommissions();
+  const filteredComm = commissions.filter(c => c.creatorId !== creatorId);
+  saveCommissions(filteredComm);
+
+  // Clear from payout logs
+  const logs = getStoredPayoutLogs();
+  const filteredLogs = logs.filter(l => l.creatorId !== creatorId);
+  savePayoutLogs(filteredLogs);
+
+  // If current logged-in creator is deleted, logout
+  const current = getCurrentCreator();
+  if (current && current.id === creatorId) {
+    logoutCreator();
+  }
+
+  return true;
+}
+
+// Helper: Purge any test/demo data completely
+export function purgeAllDemoCreatorData(): void {
+  const creators = getStoredCreators();
+  const realCreators = creators.filter(c => 
+    c.id !== 'creator-ayesha-glow' && 
+    c.id !== 'creator-fatima-organics'
+  );
+  saveCreators(realCreators);
 }
 
 // Helper: Get all promo codes

@@ -6,10 +6,10 @@ import {
 } from 'lucide-react';
 import { Order, Product, CreatorProfile, CreatorCommissionRecord, CreatorPayoutLog } from '../types';
 import { PRODUCTS as DEFAULT_PRODUCTS } from '../data/products';
-import { fetchLiveOrders, fetchLiveProducts, saveLiveProduct, deleteLiveProduct, updateLiveOrderStatus, seedDefaultCatalog } from '../services/supabase';
+import { fetchLiveOrders, fetchLiveProducts, saveLiveProduct, deleteLiveProduct, updateLiveOrderStatus, deleteLiveOrder, seedDefaultCatalog } from '../services/supabase';
 import { 
   getAllCreatorsForAdmin, startPayoutProcessing, completePayout, setCreatorStatus, 
-  updateCreatorApproval, registerCreatorAccount, getStoredCommissions, getStoredPayoutLogs 
+  updateCreatorApproval, registerCreatorAccount, deleteCreatorAccount, getStoredCommissions, getStoredPayoutLogs 
 } from '../services/creatorService';
 import { getCourierConfig, saveCourierConfig, getAllShipments, getCourierApiLogs, trackCourierShipment, cancelCourierShipment, CourierShipment, RunCourierConfig } from '../services/courier/runCourierService';
 import { SORTED_PAKISTAN_CITIES } from '../data/pakistanCities';
@@ -212,6 +212,20 @@ export const AdminPortal: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this product from the database?')) return;
     await deleteLiveProduct(productId);
     await fetchProducts();
+  };
+
+  const handleDeleteOrder = async (order: Order) => {
+    if (!window.confirm(`Are you sure you want to permanently delete order ${order.trackingNumber || order.id} for "${order.fullName}"?`)) return;
+    await deleteLiveOrder(order.id || order.trackingNumber);
+    await fetchOrders();
+  };
+
+  const handleDeleteCreator = (creator: CreatorProfile) => {
+    if (!window.confirm(`Are you sure you want to permanently remove content creator "${creator.name}" (Promo Code: ${creator.promoCode})? This will delete their affiliate account and ledger.`)) return;
+    deleteCreatorAccount(creator.id);
+    setCreators(getAllCreatorsForAdmin());
+    setCreatorMsg(`🗑️ Content creator "${creator.name}" (${creator.promoCode}) removed.`);
+    setTimeout(() => setCreatorMsg(''), 4000);
   };
 
   // Creator Payout & Review Handlers
@@ -569,85 +583,106 @@ export const AdminPortal: React.FC = () => {
                     <th className="p-3">Pending / Processing</th>
                     <th className="p-3">Payout Account</th>
                     <th className="p-3">Status</th>
-                    <th className="p-3 text-right">Payout Actions</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-sun-dark/15 font-bold">
-                  {creators.map(c => (
-                    <tr key={c.id} className="hover:bg-sun-sand transition-colors">
-                      <td className="p-3">
-                        <div className="font-black text-sun-dark">{c.name}</div>
-                        <div className="text-[11px] text-sun-brown">{c.email}</div>
-                        {c.socialHandle && <div className="text-[10px] text-emerald-700 font-mono">{c.socialHandle}</div>}
-                      </td>
-
-                      <td className="p-3 font-mono font-black text-amber-800 text-sm">
-                        {c.promoCode}
-                      </td>
-
-                      <td className="p-3 text-[11px]">
-                        <div><span className="text-emerald-700">10% Off</span> (Rs. 180)</div>
-                        <div><span className="text-amber-800">15% Comm.</span> (Rs. 270)</div>
-                      </td>
-
-                      <td className="p-3 font-black text-sm">
-                        {c.totalKitsSold} kits
-                      </td>
-
-                      <td className="p-3">
-                        Rs. {c.totalRevenue.toLocaleString()}
-                      </td>
-
-                      <td className="p-3 text-amber-800 font-black">
-                        Rs. {c.totalCommissionEarned.toLocaleString()}
-                      </td>
-
-                      <td className="p-3">
-                        {c.lastPayoutStatus === 'processing' ? (
-                          <span className="bg-amber-100 text-amber-900 border border-amber-500 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
-                            ⏳ Processing: Rs. {c.pendingCommission.toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-black border ${
-                            c.pendingCommission > 0 
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-600' 
-                              : 'bg-gray-100 text-gray-600 border-gray-400'
-                          }`}>
-                            Rs. {c.pendingCommission.toLocaleString()}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="p-3 font-mono text-[11px]">
-                        <div className="uppercase font-black text-sun-dark">{c.payoutDetails?.method || 'easypaisa'}</div>
-                        <div>{c.payoutDetails?.accountNumber || 'Not provided'}</div>
-                        <div className="text-gray-500">{c.payoutDetails?.accountTitle}</div>
-                      </td>
-
-                      <td className="p-3">
-                        <button
-                          onClick={() => handleToggleCreatorApproval(c)}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
-                            c.status === 'active' 
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-600 hover:bg-emerald-200' 
-                              : 'bg-red-100 text-red-800 border-red-600 hover:bg-red-200'
-                          }`}
-                        >
-                          {c.status.toUpperCase()}
-                        </button>
-                      </td>
-
-                      <td className="p-3 text-right space-x-1">
-                        <button
-                          onClick={() => handleOpenPayoutModal(c)}
-                          className="bg-sun-yellow text-sun-dark border-2 border-sun-dark px-3 py-1.5 rounded-lg font-black text-[11px] uppercase hover:bg-amber-400 shadow-retro-sm"
-                          title="Manage Manual Payout"
-                        >
-                          Manage Payout
-                        </button>
+                  {creators.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="p-8 text-center text-sun-brown">
+                        <Users className="w-8 h-8 mx-auto mb-2 opacity-40 text-sun-dark" />
+                        <p className="font-bold text-xs text-sun-dark uppercase">No Content Creators registered yet.</p>
+                        <p className="text-[11px] text-sun-brown mt-1">
+                          When influencers sign up via the Account modal or are added manually, their live performance, promo codes, and payout ledger will appear here.
+                        </p>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    creators.map(c => (
+                      <tr key={c.id} className="hover:bg-sun-sand transition-colors">
+                        <td className="p-3">
+                          <div className="font-black text-sun-dark">{c.name}</div>
+                          <div className="text-[11px] text-sun-brown">{c.email}</div>
+                          {c.socialHandle && <div className="text-[10px] text-emerald-700 font-mono font-bold">{c.socialHandle}</div>}
+                        </td>
+
+                        <td className="p-3 font-mono font-black text-amber-800 text-sm">
+                          {c.promoCode}
+                        </td>
+
+                        <td className="p-3 text-[11px]">
+                          <div><span className="text-emerald-700">10% Off</span> (Rs. 180)</div>
+                          <div><span className="text-amber-800">15% Comm.</span> (Rs. 270)</div>
+                        </td>
+
+                        <td className="p-3 font-black text-sm">
+                          {c.totalKitsSold} kits
+                        </td>
+
+                        <td className="p-3">
+                          Rs. {c.totalRevenue.toLocaleString()}
+                        </td>
+
+                        <td className="p-3 text-amber-800 font-black">
+                          Rs. {c.totalCommissionEarned.toLocaleString()}
+                        </td>
+
+                        <td className="p-3">
+                          {c.lastPayoutStatus === 'processing' ? (
+                            <span className="bg-amber-100 text-amber-900 border border-amber-500 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                              ⏳ Processing: Rs. {c.pendingCommission.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-black border ${
+                              c.pendingCommission > 0 
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-600' 
+                                : 'bg-gray-100 text-gray-600 border-gray-400'
+                            }`}>
+                              Rs. {c.pendingCommission.toLocaleString()}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-3 font-mono text-[11px]">
+                          <div className="uppercase font-black text-sun-dark">{c.payoutDetails?.method || 'easypaisa'}</div>
+                          <div>{c.payoutDetails?.accountNumber || 'Not provided'}</div>
+                          <div className="text-gray-500">{c.payoutDetails?.accountTitle}</div>
+                        </td>
+
+                        <td className="p-3">
+                          <button
+                            onClick={() => handleToggleCreatorApproval(c)}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                              c.status === 'active' 
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-600 hover:bg-emerald-200' 
+                                : 'bg-red-100 text-red-800 border-red-600 hover:bg-red-200'
+                            }`}
+                          >
+                            {c.status.toUpperCase()}
+                          </button>
+                        </td>
+
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenPayoutModal(c)}
+                              className="bg-sun-yellow text-sun-dark border-2 border-sun-dark px-3 py-1.5 rounded-lg font-black text-[11px] uppercase hover:bg-amber-400 shadow-retro-sm"
+                              title="Manage Manual Payout"
+                            >
+                              Payout
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCreator(c)}
+                              className="p-1.5 bg-red-100 text-red-700 border border-red-400 rounded-lg hover:bg-red-200"
+                              title="Remove Creator Profile"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1208,13 +1243,22 @@ export const AdminPortal: React.FC = () => {
                         </td>
 
                         <td className="p-3 text-right">
-                          <button 
-                            onClick={() => setSelectedOrder(order)}
-                            className="p-1.5 bg-sun-sand rounded-lg border border-sun-dark hover:bg-sun-yellow text-sun-dark"
-                            title="Print Leopards Shipping Label"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button 
+                              onClick={() => setSelectedOrder(order)}
+                              className="p-1.5 bg-sun-sand rounded-lg border border-sun-dark hover:bg-sun-yellow text-sun-dark"
+                              title="Print Leopards Shipping Label"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteOrder(order)}
+                              className="p-1.5 bg-red-100 rounded-lg border border-red-500 hover:bg-red-200 text-red-700"
+                              title="Permanently Delete Order"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
