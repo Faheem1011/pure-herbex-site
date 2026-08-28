@@ -153,6 +153,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           <button 
             onClick={onClose}
             className="p-1.5 bg-sun-cream rounded-full border-2 border-sun-dark hover:bg-sun-sand transition-colors"
+            aria-label="Close cart"
           >
             <X className="w-5 h-5 text-sun-dark" />
           </button>
@@ -391,6 +392,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             <button 
                               onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
                               className="p-1 hover:bg-sun-yellow rounded-l-full"
+                              aria-label={`Decrease quantity of ${item.product.name}`}
                             >
                               <Minus className="w-3 h-3 text-sun-dark" />
                             </button>
@@ -398,6 +400,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             <button 
                               onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
                               className="p-1 hover:bg-sun-yellow rounded-r-full"
+                              aria-label={`Increase quantity of ${item.product.name}`}
                             >
                               <Plus className="w-3 h-3 text-sun-dark" />
                             </button>
@@ -407,6 +410,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             onClick={() => onRemoveItem(item.product.id)}
                             className="text-red-600 hover:text-red-800 p-1"
                             title="Remove Item"
+                            aria-label={`Remove ${item.product.name} from cart`}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
