@@ -1,0 +1,6 @@
+## 2024-05-18 - App.tsx Centralized State Causes O(N) Re-renders
+**Learning:** The application architecture uses `App.tsx` as a monolithic state container for routing, cart, and modals, passing unmemoized callbacks (`handleAddToCart`, `navigateTo`) down the tree. This specific architecture causes O(N) re-renders of list components (like `ProductCard`) on any completely unrelated state change (e.g., opening the cart drawer).
+**Action:** Since we cannot refactor the entire state management architecture without exceeding the complexity budget, the most effective localized optimization is wrapping list item components (`ProductCard`) in `React.memo` with custom equality functions that intentionally ignore stale callback prop changes.
+## 2024-05-18 - Avoid stale closures with React.memo
+**Learning:** Using `React.memo` with a custom equality function that ignores callback props can lead to stale closures if the parent component relies on the callbacks to access the latest state. While the initial optimization successfully reduced re-renders, it introduced a blocking bug risk.
+**Action:** The safer optimization is to use `useCallback` in the parent component (`App.tsx`) to memoize the functions passed down, ensuring they always have the correct state without causing re-renders.
