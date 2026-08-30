@@ -9,7 +9,7 @@ interface ProductCardProps {
   onQuickView: (product: Product) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onQuickView }) => {
+const ProductCardComponent: React.FC<ProductCardProps> = ({ product, onAddToCart, onQuickView }) => {
   const [added, setAdded] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -151,3 +151,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
     </article>
   );
 };
+
+// Memoize ProductCard to prevent re-renders when parent state changes (e.g., opening cart)
+export const ProductCard = React.memo(ProductCardComponent);
