@@ -1,0 +1,3 @@
+## 2024-05-18 - Memoizing Filtered Product List
+**Learning:** In highly interactive list and grid views, redefining static arrays and re-calculating filtered lists on every render cycle can lead to performance inefficiencies, especially when triggered by parent component re-renders (like category changes).
+**Action:** Always move purely static arrays (like category definitions) outside of the component scope to ensure single instantiation. Wrap filtered lists in `useMemo` so that they only recalculate when their dependencies change. This reduces React's reconciliation work and garbage collection overhead in frequently updated UI structures.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { Product } from '../types';
 import { ProductCard } from './ProductCard';
 import { Sparkles } from 'lucide-react';
@@ -11,6 +11,14 @@ interface ProductGridProps {
   onQuickView: (product: Product) => void;
 }
 
+const CATEGORIES = [
+  { id: 'all', label: 'All Products' },
+  { id: 'kits', label: 'Complete Kit' },
+  { id: 'facepack', label: 'Face Pack' },
+  { id: 'toner', label: 'Night Toner' },
+  { id: 'rosewater', label: 'Rose Water' }
+];
+
 export const ProductGrid: React.FC<ProductGridProps> = ({
   products,
   selectedCategory,
@@ -18,17 +26,13 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   onAddToCart,
   onQuickView
 }) => {
-  const categories = [
-    { id: 'all', label: 'All Products' },
-    { id: 'kits', label: 'Complete Kit' },
-    { id: 'facepack', label: 'Face Pack' },
-    { id: 'toner', label: 'Night Toner' },
-    { id: 'rosewater', label: 'Rose Water' }
-  ];
-
-  const filteredProducts = selectedCategory === 'all' 
-    ? products 
-    : products.filter(p => p.category === selectedCategory);
+  // ⚡ Bolt: Memoized filtering logic to avoid unnecessary re-calculations on every render.
+  // This ensures the filtered array is only re-computed when the products list or selected category changes.
+  const filteredProducts = useMemo(() => {
+    return selectedCategory === 'all'
+      ? products
+      : products.filter(p => p.category === selectedCategory);
+  }, [products, selectedCategory]);
 
   return (
     <section id="shop-section" className="py-16 bg-sun-sand border-b-4 border-sun-dark">
@@ -49,7 +53,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
         {/* Category Filter Pills */}
         <div className="flex flex-wrap justify-center gap-3 mb-12">
-          {categories.map((cat) => {
+          {CATEGORIES.map((cat) => {
             const isActive = selectedCategory === cat.id;
             return (
               <button 
