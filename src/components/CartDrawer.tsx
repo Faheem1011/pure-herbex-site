@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Minus, Trash2, ShoppingBag, Truck, ShieldCheck, CheckCircle, ArrowRight, Gift, Sparkles, User, Tag, Check, AlertCircle } from 'lucide-react';
 import { CartItem, Product } from '../types';
 import { PRODUCTS } from '../data/products';
@@ -77,17 +77,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const discountAmount = appliedPromo && discountPercent > 0 ? Math.round(subtotal * (discountPercent / 100)) : 0;
+  // Memoize cart derived states to prevent recalculation on every render (e.g. when typing in forms)
+  const subtotal = useMemo(() => {
+    return cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  }, [cartItems]);
+
+  const discountAmount = useMemo(() => {
+    return appliedPromo && discountPercent > 0 ? Math.round(subtotal * (discountPercent / 100)) : 0;
+  }, [subtotal, appliedPromo, discountPercent]);
+
   const discountedSubtotal = Math.max(0, subtotal - discountAmount);
   const shippingCost = 150; // Flat Rs. 150 delivery charges
   const totalAmount = discountedSubtotal + shippingCost;
 
   // Check if eligible for upselling to the Complete Kit
-  const hasFacePack = cartItems.some(i => i.product.id === 'koveria-glow-face-pack');
-  const hasToner = cartItems.some(i => i.product.id === 'koveria-glow-toner');
-  const hasRoseWater = cartItems.some(i => i.product.id === 'pure-rose-water');
-  const hasCompleteKit = cartItems.some(i => i.product.id === 'koveria-glow-complete-kit');
+  const hasFacePack = useMemo(() => cartItems.some(i => i.product.id === 'koveria-glow-face-pack'), [cartItems]);
+  const hasToner = useMemo(() => cartItems.some(i => i.product.id === 'koveria-glow-toner'), [cartItems]);
+  const hasRoseWater = useMemo(() => cartItems.some(i => i.product.id === 'pure-rose-water'), [cartItems]);
+  const hasCompleteKit = useMemo(() => cartItems.some(i => i.product.id === 'koveria-glow-complete-kit'), [cartItems]);
 
   const showUpsell = (hasFacePack || hasToner || hasRoseWater) && !hasCompleteKit;
 
