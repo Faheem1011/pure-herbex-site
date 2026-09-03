@@ -9,7 +9,7 @@ interface ProductCardProps {
   onQuickView: (product: Product) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onQuickView }) => {
+export const ProductCard: React.FC<ProductCardProps> = React.memo( ({ product, onAddToCart, onQuickView }) => {
   const [added, setAdded] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -150,4 +150,4 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
 
     </article>
   );
-};
+});
