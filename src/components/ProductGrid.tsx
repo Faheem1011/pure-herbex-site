@@ -11,7 +11,7 @@ interface ProductGridProps {
   onQuickView: (product: Product) => void;
 }
 
-export const ProductGrid: React.FC<ProductGridProps> = ({
+export const ProductGrid: React.FC<ProductGridProps> = React.memo(({
   products,
   selectedCategory,
   onSelectCategory,
@@ -82,4 +82,4 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       </div>
     </section>
   );
-};
+});

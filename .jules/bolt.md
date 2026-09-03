@@ -1,0 +1,3 @@
+## 2024-05-24 - Prevent Unnecessary Re-renders in ProductGrid and ProductCard
+**Learning:** Found a performance bottleneck where updating non-related state in `App.tsx` (like cart or auth modal visibility) caused the entire list of `ProductCard` components to re-render because `ProductGrid` and `ProductCard` were not memoized and their props (`onAddToCart`, `onRemoveItem`, etc.) were recreated on every render of `App.tsx`.
+**Action:** Wrapped `ProductGrid` and `ProductCard` in `React.memo` and wrapped the callback functions passed to them in `useCallback` in `App.tsx` to prevent unnecessary re-renders of the product list.
