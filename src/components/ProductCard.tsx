@@ -9,7 +9,9 @@ interface ProductCardProps {
   onQuickView: (product: Product) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onQuickView }) => {
+// ⚡ Bolt: Wrapped in React.memo to prevent re-renders when parent's global state changes.
+// Requires stable callback references (onAddToCart, onQuickView) passed from parent.
+export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product, onAddToCart, onQuickView }) => {
   const [added, setAdded] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -150,4 +152,4 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
 
     </article>
   );
-};
+});

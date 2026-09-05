@@ -1,0 +1,4 @@
+## 2024-05-24 - Overcoming Inline Function Re-render Cascades
+
+**Learning:** In this architecture, `App.tsx` handles almost all global UI states (`isCartOpen`, `isAuthOpen`) and passes inline navigation/action functions down to components like `ProductGrid`. This causes severe re-render cascades across heavy components like `ProductCard` because the inline functions are recreated on every trivial state change (like opening the cart drawer).
+**Action:** When attempting to use `React.memo` with custom comparators to ignore recreated parent callbacks, I learned this is a dangerous anti-pattern that can lead to stale closures or missed prop updates. The correct and robust approach to preventing these codebase-specific re-render cascades is to wrap the handler functions in `App.tsx` with `useCallback` (using functional state updates where necessary to avoid dependencies), and then safely wrap `ProductCard` with `React.memo` using its default shallow equality check.

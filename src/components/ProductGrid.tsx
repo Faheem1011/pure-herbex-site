@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import { ProductCard } from './ProductCard';
 import { Sparkles } from 'lucide-react';
@@ -26,9 +26,12 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     { id: 'rosewater', label: 'Rose Water' }
   ];
 
-  const filteredProducts = selectedCategory === 'all' 
-    ? products 
-    : products.filter(p => p.category === selectedCategory);
+  // ⚡ Bolt: Memoized array filtering to prevent O(N) operations on every trivial re-render.
+  const filteredProducts = useMemo(() => {
+    return selectedCategory === 'all'
+      ? products
+      : products.filter(p => p.category === selectedCategory);
+  }, [products, selectedCategory]);
 
   return (
     <section id="shop-section" className="py-16 bg-sun-sand border-b-4 border-sun-dark">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { BuildYourBundle } from './components/BuildYourBundle';
@@ -103,7 +103,8 @@ export function App() {
   }, []);
 
   // Sync route changes with browser address bar & history
-  const navigateTo = (route: string, itemId?: string) => {
+  // ⚡ Bolt: Wrapped in useCallback to provide stable reference to child components (prevents cascade re-renders)
+  const navigateTo = useCallback((route: string, itemId?: string) => {
     let path = '/';
     if (route === 'admin') path = '/admin';
     else if (route === 'creators' || route === 'creator' || route === 'affiliate') path = '/creators';
@@ -135,7 +136,7 @@ export function App() {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, []);
 
   // Handle browser back/forward buttons
   useEffect(() => {
@@ -159,7 +160,8 @@ export function App() {
   }, []);
 
   // Cart operations
-  const handleAddToCart = (product: Product, quantity = 1) => {
+  // ⚡ Bolt: Wrapped in useCallback to prevent ProductCard cascade re-renders when global state changes.
+  const handleAddToCart = useCallback((product: Product, quantity = 1) => {
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
@@ -172,7 +174,7 @@ export function App() {
       return [...prev, { product, quantity }];
     });
     setIsCartOpen(true);
-  };
+  }, []);
 
   const handleAddCustomBundleToCart = (bundleItems: Product[], totalPrice: number) => {
     const customBundleProduct: Product = {
@@ -218,6 +220,11 @@ export function App() {
   const handleClearCart = () => {
     setCartItems([]);
   };
+
+  // ⚡ Bolt: Stable reference for the Quick View callback passed to ProductGrid/ProductCard
+  const handleQuickView = useCallback((prod: Product) => {
+    navigateTo('product', prod.id);
+  }, [navigateTo]);
 
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const flagshipProduct = productsList[0] || DEFAULT_PRODUCTS[0];
@@ -291,7 +298,7 @@ export function App() {
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             onAddToCart={handleAddToCart}
-            onQuickView={(prod) => navigateTo('product', prod.id)}
+            onQuickView={handleQuickView}
           />
           <BuildYourBundle 
             products={productsList}
@@ -347,7 +354,7 @@ export function App() {
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
           onAddToCart={handleAddToCart}
-          onQuickView={(prod) => navigateTo('product', prod.id)}
+          onQuickView={handleQuickView}
         />
 
         {/* Brand Story & Efficacy ("Trust The Glow") */}
