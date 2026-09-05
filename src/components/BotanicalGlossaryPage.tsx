@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, Sparkles, BookOpen, ShieldCheck, ArrowRight, Leaf } from 'lucide-react';
 import { INGREDIENTS_DATA } from '../data/ingredients';
 import { PRODUCTS } from '../data/products';
@@ -11,15 +11,18 @@ export const BotanicalGlossaryPage: React.FC<BotanicalGlossaryPageProps> = ({ on
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const categories = ['all', ...Array.from(new Set(INGREDIENTS_DATA.map(i => i.category)))];
+  const categories = useMemo(() => ['all', ...Array.from(new Set(INGREDIENTS_DATA.map(i => i.category)))], []);
 
-  const filteredIngredients = INGREDIENTS_DATA.filter(ing => {
-    const matchesSearch = ing.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          ing.scientificName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          ing.summary.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || ing.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredIngredients = useMemo(() => {
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return INGREDIENTS_DATA.filter(ing => {
+      const matchesSearch = ing.name.toLowerCase().includes(lowerSearchTerm) ||
+                            ing.scientificName.toLowerCase().includes(lowerSearchTerm) ||
+                            ing.summary.toLowerCase().includes(lowerSearchTerm);
+      const matchesCategory = selectedCategory === 'all' || ing.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchTerm, selectedCategory]);
 
   return (
     <div className="bg-sun-sand min-h-screen py-12 px-4 sm:px-6 lg:px-8">
