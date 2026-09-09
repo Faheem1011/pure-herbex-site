@@ -1,0 +1,3 @@
+## 2024-05-24 - Prevent Re-render Cascades in Global State Architecture
+**Learning:** This codebase relies heavily on `App.tsx` for global UI states, passing down handlers to many deeply nested leaf components. Because these leaf components might use `React.memo` or other optimizations, not wrapping the handler functions in `App.tsx` with `useCallback` breaks memoization and causes severe re-render cascades across the entire app whenever any state in `App.tsx` updates.
+**Action:** Always ensure that handler functions (like navigation, cart manipulation, and modal toggling) passed down from `App.tsx` or any major parent component are wrapped in `useCallback` to maintain reference equality and prevent unnecessary re-renders in optimized child components.
