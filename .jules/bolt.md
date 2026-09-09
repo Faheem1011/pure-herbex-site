@@ -1,0 +1,3 @@
+## 2024-09-09 - App.tsx Architectural Handler Performance
+**Learning:** Because `App.tsx` acts as the central global state hub in this architecture, missing `useCallback` on heavily propagated functions (like `handleAddToCart`, `navigateTo`) triggers severe re-render cascades in leaf components, which is a key performance bottleneck specific to this architecture.
+**Action:** Always wrap primary state mutation handlers passed down from `App.tsx` in `useCallback` to prevent these cascading re-renders in leaf components.
