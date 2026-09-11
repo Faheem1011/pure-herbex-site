@@ -1,0 +1,3 @@
+## 2024-10-24 - Prevent Re-render Cascades in App.tsx
+**Learning:** The application architecture relies heavily on `App.tsx` for global UI state and passes handler functions deep into the component tree. Passing unstable handler functions (like `handleAddToCart`, `navigateTo`, etc.) causes severe re-render cascades in leaf components whenever unrelated state changes (like `promoBanner` or `isCartOpen`).
+**Action:** Always wrap handler functions passed down from `App.tsx` with `useCallback` instead of using custom comparators in `React.memo` for deeply nested components to prevent these re-render cascades.
