@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { BuildYourBundle } from './components/BuildYourBundle';
@@ -103,7 +103,10 @@ export function App() {
   }, []);
 
   // Sync route changes with browser address bar & history
-  const navigateTo = (route: string, itemId?: string) => {
+  // ⚡ BOLT OPTIMIZATION: Wrapped navigateTo in useCallback to prevent re-render cascades
+  // in leaf components when passed down from App.tsx. Expected impact: Reduces unnecessary
+  // re-renders of deeply nested UI components triggered by route state changes.
+  const navigateTo = useCallback((route: string, itemId?: string) => {
     let path = '/';
     if (route === 'admin') path = '/admin';
     else if (route === 'creators' || route === 'creator' || route === 'affiliate') path = '/creators';
@@ -135,7 +138,7 @@ export function App() {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, []);
 
   // Handle browser back/forward buttons
   useEffect(() => {
@@ -159,7 +162,10 @@ export function App() {
   }, []);
 
   // Cart operations
-  const handleAddToCart = (product: Product, quantity = 1) => {
+  // ⚡ BOLT OPTIMIZATION: Wrapped handleAddToCart in useCallback to stabilize the handler reference.
+  // Expected impact: Prevents unnecessary re-rendering of ProductGrid, ProductCard, and other
+  // components that receive this handler as a prop when App.tsx state changes.
+  const handleAddToCart = useCallback((product: Product, quantity = 1) => {
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
@@ -172,7 +178,7 @@ export function App() {
       return [...prev, { product, quantity }];
     });
     setIsCartOpen(true);
-  };
+  }, []);
 
   const handleAddCustomBundleToCart = (bundleItems: Product[], totalPrice: number) => {
     const customBundleProduct: Product = {
