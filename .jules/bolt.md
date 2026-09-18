@@ -1,0 +1,3 @@
+## 2024-09-18 - App.tsx Re-render Cascades
+**Learning:** This codebase relies heavily on `App.tsx` for global UI state management (like cart items, routes, and modal states). When passing handler functions down to deep leaf components, omitting `useCallback` causes severe re-render cascades across the entire app because the handlers are recreated on every render of `App.tsx`.
+**Action:** Always wrap handler functions passed down from `App.tsx` in `useCallback`. This is preferred over using custom comparators in `React.memo` for leaf components, as it addresses the root cause of the referential inequality.
