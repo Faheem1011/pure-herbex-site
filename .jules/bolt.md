@@ -1,0 +1,3 @@
+## 2024-05-24 - React Context/Props Waterfall in Global UI State
+**Learning:** The architecture of this app relies heavily on `App.tsx` for global UI states and passing down functions to heavily used leaf components (like `ProductCard` within `ProductGrid`). Passing inline or non-memoized functions (like `handleAddToCart`, `onQuickView`) triggers a severe re-render cascade across the entire product list whenever unrelated global state (like `cartItems` or `isCartOpen`) changes.
+**Action:** Always wrap handler functions passed down from `App.tsx` in `useCallback`, and wrap the leaf component receiving these handlers in `React.memo` using strict referential equality. Custom comparators in `React.memo` are less effective if the function references themselves keep changing.

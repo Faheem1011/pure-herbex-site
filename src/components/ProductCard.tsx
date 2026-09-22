@@ -9,7 +9,8 @@ interface ProductCardProps {
   onQuickView: (product: Product) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onQuickView }) => {
+// ⚡ Bolt: Wrapped ProductCard in React.memo to prevent unnecessary re-renders when global cart state updates, improving scrolling and list rendering performance.
+export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product, onAddToCart, onQuickView }) => {
   const [added, setAdded] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -150,4 +151,4 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
 
     </article>
   );
-};
+});
