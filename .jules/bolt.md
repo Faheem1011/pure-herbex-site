@@ -1,0 +1,3 @@
+## 2023-10-25 - Stabilizing Global State Handlers in App.tsx
+**Learning:** The application heavily relies on `App.tsx` for global UI state management (cart, modals, navigation). Passing dynamically recreated functions down the component tree caused severe re-render cascades in deeply nested leaf components (e.g., `ProductGrid`, `CartDrawer`). Attempting to use custom comparators in `React.memo` is inefficient and prone to bugs in this architecture.
+**Action:** Always wrap state-mutating handler functions in `App.tsx` with `useCallback`. This provides stable function references, naturally preventing re-renders in memoized child components without the need for complex custom logic.
