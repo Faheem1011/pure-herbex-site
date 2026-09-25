@@ -1,0 +1,3 @@
+## 2025-02-27 - [App.tsx Global Handlers Causing Render Cascades]
+**Learning:** The application heavily relies on `App.tsx` passing handler functions (e.g., `handleAddToCart`, `navigateTo`, `handleUpdateQuantity`) down to many child components. Since these handlers were created on every render, it caused severe re-render cascades across the entire component tree, even in components not directly related to state changes. Custom comparators in `React.memo` are insufficient and overly complex for this architecture.
+**Action:** Always wrap global handler functions in `App.tsx` (and similar top-level components) with `useCallback` to ensure stable references, rather than trying to optimize individual child component updates.
