@@ -1,0 +1,3 @@
+## 2024-05-29 - [Missing useCallback on Root Handlers]
+**Learning:** The architecture relies heavily on `App.tsx` for global UI states. To prevent severe re-render cascades in leaf components, handler functions passed down from `App.tsx` must be wrapped in `useCallback` rather than relying purely on custom comparators in React.memo without stable function references.
+**Action:** Wrapped root-level functions passed down to UI components (`navigateTo`, `handleAddToCart`, `handleAddCustomBundleToCart`, `handleRemoveItem`, `handleUpdateQuantity`, `handleClearCart`, and `openTrackWithCode`) in `useCallback`.
