@@ -1,0 +1,3 @@
+## 2024-05-18 - App.tsx Handler Optimization
+**Learning:** The architecture heavily relies on `App.tsx` for global UI states (like routing and cart states). Without memoization, handler functions defined here are recreated on every render, causing severe re-render cascades down the component tree (e.g. leaf components constantly re-rendering).
+**Action:** Ensure handler functions passed down from `App.tsx` (like `navigateTo`, `handleAddToCart`, `handleUpdateQuantity`, etc.) are wrapped in `useCallback` rather than relying on child component custom comparators in `React.memo`.
