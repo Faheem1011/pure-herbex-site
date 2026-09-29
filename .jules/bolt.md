@@ -1,0 +1,3 @@
+## 2024-09-30 - Re-render Cascades in Centralized State Hub
+**Learning:** The application architecture relies heavily on `App.tsx` as a global state hub. Passing down un-memoized handler functions (like `handleAddToCart`, `navigateTo`) to deep component trees caused severe re-render cascades, negating the potential benefits of `React.memo` in leaf components if those components use custom equality comparators or rely on reference equality.
+**Action:** Always wrap handler functions passed from `App.tsx` (and similar global state providers) in `useCallback` to stabilize their references and prevent unnecessary re-renders in child components.
