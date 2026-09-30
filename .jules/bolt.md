@@ -1,0 +1,3 @@
+## 2024-10-01 - Global State Manager Handlers Re-render Cascades
+**Learning:** `App.tsx` acts as a global state manager in this architecture. Omitting `useCallback` on its handlers (which are passed down as props to many leaf components) causes severe re-render cascades across all leaf components whenever any top-level state changes. Using custom comparators in `React.memo` inside leaf components is insufficient if the handler references are recreated on every render of `App.tsx`.
+**Action:** Always wrap handler functions passed down from `App.tsx` (or similar top-level state components) in `useCallback` to stabilize their references and prevent re-render cascades.
