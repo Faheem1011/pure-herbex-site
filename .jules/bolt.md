@@ -1,0 +1,3 @@
+## 2024-05-24 - Wrap App.tsx global handlers in useCallback
+**Learning:** Due to the heavy reliance on `App.tsx` for global state management in this architecture, passing inline anonymous functions (e.g., `(prod) => navigateTo('product', prod.id)`) or non-memoized handler functions down to leaf components like `ProductGrid` or `ProductCard` causes severe and unnecessary re-render cascades across the entire component tree.
+**Action:** Always wrap handler functions defined in `App.tsx` that are passed as props in `useCallback`, and extract any inline arrow functions passed to large child components into memoized helper functions to ensure referential equality is preserved across renders.
