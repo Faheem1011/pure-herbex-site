@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { BuildYourBundle } from './components/BuildYourBundle';
@@ -103,7 +103,8 @@ export function App() {
   }, []);
 
   // Sync route changes with browser address bar & history
-  const navigateTo = (route: string, itemId?: string) => {
+  // ⚡ OPTIMIZATION: Memoize navigation to prevent header/footer re-renders
+  const navigateTo = useCallback((route: string, itemId?: string) => {
     let path = '/';
     if (route === 'admin') path = '/admin';
     else if (route === 'creators' || route === 'creator' || route === 'affiliate') path = '/creators';
@@ -135,7 +136,7 @@ export function App() {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, []);
 
   // Handle browser back/forward buttons
   useEffect(() => {
@@ -159,7 +160,8 @@ export function App() {
   }, []);
 
   // Cart operations
-  const handleAddToCart = (product: Product, quantity = 1) => {
+  // ⚡ OPTIMIZATION: Memoize cart handlers
+  const handleAddToCart = useCallback((product: Product, quantity = 1) => {
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
@@ -172,9 +174,9 @@ export function App() {
       return [...prev, { product, quantity }];
     });
     setIsCartOpen(true);
-  };
+  }, []);
 
-  const handleAddCustomBundleToCart = (bundleItems: Product[], totalPrice: number) => {
+  const handleAddCustomBundleToCart = useCallback((bundleItems: Product[], totalPrice: number) => {
     const customBundleProduct: Product = {
       id: `custom-bundle-${Date.now()}`,
       name: 'Custom B.Y.O.G. Radiance Kit (3 Pieces)',
@@ -199,9 +201,14 @@ export function App() {
     };
 
     handleAddToCart(customBundleProduct, 1);
-  };
+  }, [handleAddToCart]);
 
-  const handleUpdateQuantity = (productId: string, quantity: number) => {
+
+  const handleRemoveItem = useCallback((productId: string) => {
+    setCartItems(prev => prev.filter(item => item.product.id !== productId));
+  }, []);
+
+  const handleUpdateQuantity = useCallback((productId: string, quantity: number) => {
     if (quantity <= 0) {
       handleRemoveItem(productId);
     } else {
@@ -209,15 +216,11 @@ export function App() {
         item.product.id === productId ? { ...item, quantity } : item
       ));
     }
-  };
+  }, [handleRemoveItem]);
 
-  const handleRemoveItem = (productId: string) => {
-    setCartItems(prev => prev.filter(item => item.product.id !== productId));
-  };
-
-  const handleClearCart = () => {
+  const handleClearCart = useCallback(() => {
     setCartItems([]);
-  };
+  }, []);
 
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const flagshipProduct = productsList[0] || DEFAULT_PRODUCTS[0];
@@ -234,28 +237,37 @@ export function App() {
   }
 
   // Helper for opening track modal with code
-  const openTrackWithCode = (code?: string) => {
+  // ⚡ OPTIMIZATION: Memoize ui interactions
+  const openTrackWithCode = useCallback((code?: string) => {
     if (code) setTrackInitialCode(code);
     setIsTrackOrderOpen(true);
-  };
+  }, []);
+
+  // Shared Header Props
+    // ⚡ OPTIMIZATION: Memoize shared callback props to avoid cascading re-renders
+  const handleOpenCart = useCallback(() => setIsCartOpen(true), []);
+  const handleOpenAuthModal = useCallback(() => setIsAuthOpen(true), []);
+  const handleOpenQuiz = useCallback(() => setIsQuizOpen(true), []);
+  const handleOpenTrackOrder = useCallback(() => openTrackWithCode(), [openTrackWithCode]);
+  const handleSelectCategory = useCallback((cat: string) => { setSelectedCategory(cat); navigateTo('shop'); }, [navigateTo]);
 
   // Shared Header Props
   const headerProps = {
     cartCount,
     onNavigate: navigateTo,
-    onOpenCart: () => setIsCartOpen(true),
-    onOpenTrackOrder: () => openTrackWithCode(),
-    onOpenAuthModal: () => setIsAuthOpen(true),
-    onOpenQuiz: () => setIsQuizOpen(true),
-    onSelectCategory: (cat: string) => { setSelectedCategory(cat); navigateTo('shop'); }
+    onOpenCart: handleOpenCart,
+    onOpenTrackOrder: handleOpenTrackOrder,
+    onOpenAuthModal: handleOpenAuthModal,
+    onOpenQuiz: handleOpenQuiz,
+    onSelectCategory: handleSelectCategory
   };
 
   // Shared Footer Props
   const footerProps = {
     onNavigate: navigateTo,
-    onOpenTrackOrder: () => openTrackWithCode(),
-    onOpenQuiz: () => setIsQuizOpen(true),
-    onSelectCategory: (cat: string) => { setSelectedCategory(cat); navigateTo('shop'); }
+    onOpenTrackOrder: handleOpenTrackOrder,
+    onOpenQuiz: handleOpenQuiz,
+    onSelectCategory: handleSelectCategory
   };
 
   // Render Subpage content based on route
