@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { BuildYourBundle } from './components/BuildYourBundle';
@@ -103,7 +103,9 @@ export function App() {
   }, []);
 
   // Sync route changes with browser address bar & history
-  const navigateTo = (route: string, itemId?: string) => {
+  // ⚡ Bolt: Wrapped in useCallback to maintain reference equality across state updates
+  // 📊 Impact: Prevents re-render cascades in deeply nested components (Header, Footer, ProductGrid)
+  const navigateTo = useCallback((route: string, itemId?: string) => {
     let path = '/';
     if (route === 'admin') path = '/admin';
     else if (route === 'creators' || route === 'creator' || route === 'affiliate') path = '/creators';
@@ -135,7 +137,13 @@ export function App() {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, []);
+
+  // ⚡ Bolt: Extracted inline function and wrapped in useCallback to prevent new instances on every App render
+  // 📊 Impact: Preserves React.memo optimization in ProductCard
+  const handleQuickView = useCallback((product: Product) => {
+    navigateTo('product', product.id);
+  }, [navigateTo]);
 
   // Handle browser back/forward buttons
   useEffect(() => {
@@ -159,7 +167,9 @@ export function App() {
   }, []);
 
   // Cart operations
-  const handleAddToCart = (product: Product, quantity = 1) => {
+  // ⚡ Bolt: Wrapped in useCallback to prevent new instances on every App render
+  // 📊 Impact: Preserves React.memo optimization in ProductCard
+  const handleAddToCart = useCallback((product: Product, quantity = 1) => {
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
@@ -172,9 +182,10 @@ export function App() {
       return [...prev, { product, quantity }];
     });
     setIsCartOpen(true);
-  };
+  }, []);
 
-  const handleAddCustomBundleToCart = (bundleItems: Product[], totalPrice: number) => {
+  // ⚡ Bolt: Wrapped in useCallback to prevent new instances on every App render
+  const handleAddCustomBundleToCart = useCallback((bundleItems: Product[], totalPrice: number) => {
     const customBundleProduct: Product = {
       id: `custom-bundle-${Date.now()}`,
       name: 'Custom B.Y.O.G. Radiance Kit (3 Pieces)',
@@ -199,7 +210,7 @@ export function App() {
     };
 
     handleAddToCart(customBundleProduct, 1);
-  };
+  }, [handleAddToCart]);
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
     if (quantity <= 0) {
@@ -291,7 +302,7 @@ export function App() {
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             onAddToCart={handleAddToCart}
-            onQuickView={(prod) => navigateTo('product', prod.id)}
+            onQuickView={handleQuickView}
           />
           <BuildYourBundle 
             products={productsList}
@@ -347,7 +358,7 @@ export function App() {
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
           onAddToCart={handleAddToCart}
-          onQuickView={(prod) => navigateTo('product', prod.id)}
+          onQuickView={handleQuickView}
         />
 
         {/* Brand Story & Efficacy ("Trust The Glow") */}
