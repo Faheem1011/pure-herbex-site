@@ -263,6 +263,12 @@
       status.textContent = '✓ ' + (data.message || ('Added ' + data.addedCount + ' numbers successfully!'));
 
       // Instant refresh of Promo list in UI
+      if (typeof window.setPromoLeads === 'function' && Array.isArray(data.leads)) {
+        window.setPromoLeads(data.leads);
+      }
+      if (typeof window.setCampaignStatus === 'function' && data.status && typeof data.status === 'object') {
+        window.setCampaignStatus(data.status);
+      }
       if (typeof window.refreshCampaignLeads === 'function') {
         window.refreshCampaignLeads();
       }

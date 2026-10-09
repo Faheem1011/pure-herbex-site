@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 import { getDb, saveDb, isAuthorized, Contact, Message } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -114,10 +116,14 @@ export async function GET(request: NextRequest) {
     const pending = leads.filter((c: any) => !c.status || c.status === "pending").length;
     const sent = leads.filter((c: any) => c.status === "sent").length;
     const failed = leads.filter((c: any) => c.status === "failed").length;
+    const statusMap: Record<string, { status: string }> = {};
+    for (const c of leads) {
+      statusMap[c.phone] = { status: (c as any).status || "pending" };
+    }
 
     return NextResponse.json({
       success: true,
-      status: "active",
+      status: statusMap,
       leads,
       pending,
       sent,
@@ -184,13 +190,24 @@ export async function POST(request: NextRequest) {
 
       await saveDb(db);
 
+      try {
+        const contactsFile = path.join(process.cwd(), "public", "contacts.json");
+        fs.writeFileSync(contactsFile, JSON.stringify(db.campaignContacts, null, 2), "utf-8");
+      } catch (e) {}
+
       const pending = db.campaignContacts.filter((c: any) => !c.status || c.status === "pending").length;
+      const statusMap: Record<string, { status: string }> = {};
+      for (const c of db.campaignContacts) {
+        statusMap[c.phone] = { status: (c as any).status || "pending" };
+      }
+
       return NextResponse.json({
         success: true,
         message: `Successfully added ${addedCount} new numbers (${db.campaignContacts.length} total in Promo list).`,
         addedCount,
         total: db.campaignContacts.length,
         pending,
+        status: statusMap,
         leads: db.campaignContacts,
       });
     }
