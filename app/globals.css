@@ -25,7 +25,7 @@
 @layer base {
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30;
-    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+    font-feature-settings: normal;
   }
 }
 

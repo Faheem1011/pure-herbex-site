@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { kv } from "@vercel/kv";
+import { put, list } from "@vercel/blob";
 
 const DB_FILE = path.join(process.cwd(), "data", "whatsapp_db.json");
 
@@ -80,9 +81,34 @@ function loadDefaultFileDb(): DatabaseSchema {
 
 // In-memory cache for serverless invocation lifecycle
 let memoryDb: DatabaseSchema | null = null;
+let lastBlobUrl: string | null = null;
 
 export async function getDb(): Promise<DatabaseSchema> {
-  // 1. Try Vercel KV if available
+  // 1. Try Vercel Blob if available
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      if (!memoryDb) {
+        const { blobs } = await list({ prefix: "mushtaq_db.json" });
+        if (blobs.length > 0) {
+          const res = await fetch(blobs[0].url, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.contacts)) {
+              memoryDb = data;
+              lastBlobUrl = blobs[0].url;
+              return memoryDb!;
+            }
+          }
+        }
+      } else {
+        return memoryDb;
+      }
+    } catch (err) {
+      console.warn("Vercel Blob fetch warning:", err);
+    }
+  }
+
+  // 2. Try Vercel KV if available
   try {
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       const kvData = await kv.get<DatabaseSchema>("mushtaq:db");
@@ -94,12 +120,12 @@ export async function getDb(): Promise<DatabaseSchema> {
     console.warn("KV fetch failed, falling back to local store:", err);
   }
 
-  // 2. Memory cache
+  // 3. Memory cache
   if (memoryDb) {
     return memoryDb;
   }
 
-  // 3. Local file load
+  // 4. Local file load
   memoryDb = loadDefaultFileDb();
   return memoryDb;
 }
@@ -108,7 +134,20 @@ export async function saveDb(db: DatabaseSchema): Promise<void> {
   db.version = (db.version || 0) + 1;
   memoryDb = db;
 
-  // 1. Try Vercel KV
+  // 1. Try Vercel Blob (Persistent Cloud Database)
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const blob = await put("mushtaq_db.json", JSON.stringify(db, null, 2), {
+        access: "public",
+        addRandomSuffix: false,
+      });
+      lastBlobUrl = blob.url;
+    } catch (err) {
+      console.warn("Vercel Blob save warning:", err);
+    }
+  }
+
+  // 2. Try Vercel KV
   try {
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       await kv.set("mushtaq:db", db);
@@ -117,7 +156,7 @@ export async function saveDb(db: DatabaseSchema): Promise<void> {
     console.warn("KV save error:", err);
   }
 
-  // 2. Try writing local file if filesystem is writable
+  // 3. Try writing local file if filesystem is writable
   try {
     const dir = path.dirname(DB_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
