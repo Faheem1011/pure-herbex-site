@@ -16,7 +16,7 @@ export default function AboutPage() {
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
                 <p>
-                  At Pure Herbex, we believe that nature holds the ultimate solution for human vitality. 
+                  At Mushtaq, we believe that nature holds the ultimate solution for human vitality. 
                   Our journey began with a simple mission: to provide the men of Pakistan with an authentic, 
                   medical-grade herbal alternative to chemical performance enhancers.
                 </p>
@@ -30,13 +30,17 @@ export default function AboutPage() {
                   the most effective natural sexual enhancement formula available.
                 </p>
               </div>
-              <div className="relative aspect-square glass-card rounded-3xl overflow-hidden border-primary/20">
-                <Image 
-                  src="/assets/images/typo-herbex.png" 
-                  alt="Pure Herbex Brand" 
-                  fill 
-                  className="object-contain p-12 brightness-125"
-                />
+              <div className="relative aspect-square glass-card rounded-3xl overflow-hidden border-primary/20 flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-primary/10 to-transparent">
+                <div className="relative w-36 h-36 mb-6">
+                  <Image 
+                    src="/assets/images/logo.svg" 
+                    alt="Mushtaq Emblem" 
+                    fill 
+                    className="object-contain drop-shadow-[0_0_25px_rgba(16,115,84,0.4)]"
+                  />
+                </div>
+                <h3 className="text-3xl font-heading font-black tracking-wider text-foreground">MUSHTAQ</h3>
+                <span className="text-xs font-bold tracking-[0.3em] text-primary uppercase mt-1">Ultra Force Pakistan</span>
               </div>
             </div>
           </div>

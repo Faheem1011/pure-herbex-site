@@ -17,12 +17,12 @@ export const blogPosts: BlogPost[] = [
     title: "The Power of Ashwagandha: More Than Just Stress Relief",
     slug: "ashwagandha-stamina-guide",
     date: "May 12, 2026",
-    author: "Pure Herbex Research Team",
+    author: "Mushtaq Research Team",
     readTime: "8 min read",
     category: "Herbal Science",
     seoDescription: "Comprehensive clinical guide on Ashwagandha benefits for male performance, testosterone optimization, and stamina in Pakistan.",
     seoKeywords: ["Ashwagandha benefits for men", "testosterone booster Pakistan", "natural stamina", "herbal endurance"],
-    seoTitle: "Ashwagandha Stamina & Vitality Guide | Pure Herbex",
+    seoTitle: "Ashwagandha Stamina & Vitality Guide | Mushtaq",
     excerpt: "A comprehensive look at how Ashwagandha (Withania somnifera) acts as the biological foundation for male vitality and endurance.",
     content: `
       <p>In the vast pharmacopoeia of Ayurvedic medicine, Ashwagandha (Withania somnifera) stands as a 'Rasayana'—a premier rejuvenative herb. For the modern man in Pakistan, where high-pressure careers and environmental stressors are rampant, Ashwagandha isn't just an option; it's a necessity for maintaining biological equilibrium.</p>
@@ -37,7 +37,7 @@ export const blogPosts: BlogPost[] = [
       <p>Performance isn't just physical; it's mental. Ashwagandha promotes the production of GABA, a neurotransmitter that helps calm the nervous system. This reduces performance anxiety, allowing for a more focused and relaxed experience, which is often the missing piece of the puzzle for many men.</p>
 
       <h2>Our Extraction Process</h2>
-      <p>At Pure Herbex, we don't just grind the root. We use a proprietary low-heat extraction method to preserve the delicate <strong>Withanolides</strong>—the active chemical compounds. This ensures that every capsule of Ultra Force contains the exact clinical dosage required to see measurable results in stamina and vitality.</p>
+      <p>At Mushtaq, we don't just grind the root. We use a proprietary low-heat extraction method to preserve the delicate <strong>Withanolides</strong>—the active chemical compounds. This ensures that every capsule of Ultra Force contains the exact clinical dosage required to see measurable results in stamina and vitality.</p>
     `
   },
   {
@@ -49,13 +49,13 @@ export const blogPosts: BlogPost[] = [
     category: "Vitality",
     seoDescription: "Why Himalayan Shilajit is superior to synthetic performance boosters. Detailed look at Fulvic Acid and trace minerals.",
     seoKeywords: ["Pure Shilajit benefits", "Himalayan Shilajit Pakistan", "Fulvic acid for men", "natural energy boost"],
-    seoTitle: "Shilajit vs. Synthetic Supplements | Pure Herbex",
+    seoTitle: "Shilajit vs. Synthetic Supplements | Mushtaq",
     excerpt: "Understand the deep biological difference between synthetic energy spikes and the sustained mineral vitality of Gold-Grade Shilajit.",
     content: `
       <p>Walk into any local pharmacy in Lahore or Karachi, and you'll see shelves of synthetic performance boosters. While these might offer a temporary rush, they often come with side effects like heart palpitations, headaches, and a severe 'crash.' Pure Himalayan Shilajit offers a biological upgrade that synthetic chemistry simply cannot replicate.</p>
       
       <h2>The Fulvic Acid Factor</h2>
-      <p>Shilajit is composed of humus and organic plant material that has been compressed by layers of rock for centuries. This process produces <strong>Fulvic Acid</strong>, one of nature's most powerful electrolytes. Fulvic acid makes cell membranes more permeable, allowing nutrients to enter and toxins to leave more efficiently. This means the other herbs in Pure Herbex Ultra Force work even better because Shilajit 'shuttles' them directly into your bloodstream.</p>
+      <p>Shilajit is composed of humus and organic plant material that has been compressed by layers of rock for centuries. This process produces <strong>Fulvic Acid</strong>, one of nature's most powerful electrolytes. Fulvic acid makes cell membranes more permeable, allowing nutrients to enter and toxins to leave more efficiently. This means the other herbs in Mushtaq Ultra Force work even better because Shilajit 'shuttles' them directly into your bloodstream.</p>
       
       <h2>Over 84 Trace Minerals</h2>
       <p>Modern diets are mineral-deficient. Shilajit provides 84+ minerals in their ionic form, which is the most bioavailable state for human absorption. These include Magnesium, Zinc, and Selenium—all critical for male reproductive health and sperm quality. By restoring these minerals, Shilajit helps fix the 'root cause' of low energy rather than just masking the symptoms.</p>
@@ -63,29 +63,29 @@ export const blogPosts: BlogPost[] = [
       <h2>Sustained ATP Production</h2>
       <p>ATP (Adenosine Triphosphate) is the energy currency of your cells. Clinical trials have demonstrated that Shilajit enhances mitochondrial function, leading to higher ATP production. This results in a deep, sustained sense of power and stamina that lasts throughout the day and into the night, without the jitters associated with caffeine or chemicals.</p>
 
-      <h2>The Pure Herbex Standard</h2>
-      <p>Most 'Shilajit' sold in the market is either diluted or contains heavy metals like lead. Pure Herbex Ultra Force uses only <strong>Gold Grade Shilajit</strong>, sourced from altitudes above 16,000 feet and purified through 7 stages of filtration to ensure total safety and maximum potency.</p>
+      <h2>The Mushtaq Standard</h2>
+      <p>Most 'Shilajit' sold in the market is either diluted or contains heavy metals like lead. Mushtaq Ultra Force uses only <strong>Gold Grade Shilajit</strong>, sourced from altitudes above 16,000 feet and purified through 7 stages of filtration to ensure total safety and maximum potency.</p>
     `
   },
   {
     title: "Natural Girth Enhancement: Fact or Fiction?",
     slug: "natural-enhancement-science",
     date: "May 08, 2026",
-    author: "Pure Herbex Medical Advisor",
+    author: "Mushtaq Medical Advisor",
     readTime: "10 min read",
     category: "Men's Health",
     seoDescription: "The medical science of vascular expansion and herbal vasodilation. How to improve blood flow for natural enhancement.",
     seoKeywords: ["natural enhancement Pakistan", "vascular expansion herbs", "blood flow supplements", "male health science"],
-    seoTitle: "Natural Girth & Vascular Expansion Guide | Pure Herbex",
+    seoTitle: "Natural Girth & Vascular Expansion Guide | Mushtaq",
     excerpt: "We analyze the biological mechanisms of vascular expansion and how herbal vasodilators can influence physical dimensions naturally.",
     content: `
-      <p>In the world of men's health, few topics are surrounded by as much myth and marketing as 'enhancement.' At Pure Herbex, we believe in radical transparency. While no herbal supplement can rewrite your genetic blueprint, there is a very real, scientifically-proven way to maximize your functional potential through <strong>Vascular Optimization</strong>.</p>
+      <p>In the world of men's health, few topics are surrounded by as much myth and marketing as 'enhancement.' At Mushtaq, we believe in radical transparency. While no herbal supplement can rewrite your genetic blueprint, there is a very real, scientifically-proven way to maximize your functional potential through <strong>Vascular Optimization</strong>.</p>
       
       <h2>The Biology of the Corpus Cavernosum</h2>
       <p>The erectile tissue, known as the Corpus Cavernosum, is essentially a series of blood-holding chambers. Your physical dimensions during performance are determined by how much blood these chambers can hold. Over time, due to age, smoking, or poor diet, these tissues can become less elastic, and blood flow can become restricted.</p>
       
       <h2>Nitric Oxide and Vasodilation</h2>
-      <p>The key to maximizing this volume is <strong>Nitric Oxide (NO)</strong>. This molecule signals the smooth muscles in your blood vessels to relax (vasodilation), allowing for a surge of blood flow. Ingredients in Pure Herbex Ultra Force, such as Tribulus Terrestris and specific alkaloids from Saffron, act as natural precursors to Nitric Oxide. By maintaining consistent levels of these precursors, you support the long-term expansion and health of your vascular tissue.</p>
+      <p>The key to maximizing this volume is <strong>Nitric Oxide (NO)</strong>. This molecule signals the smooth muscles in your blood vessels to relax (vasodilation), allowing for a surge of blood flow. Ingredients in Mushtaq Ultra Force, such as Tribulus Terrestris and specific alkaloids from Saffron, act as natural precursors to Nitric Oxide. By maintaining consistent levels of these precursors, you support the long-term expansion and health of your vascular tissue.</p>
       
       <h2>Cellular Regeneration</h2>
       <p>Consistent use of potent antioxidants (like those found in our Amla and Saffron extracts) helps protect these delicate vascular tissues from oxidative damage. This 'maintenance' ensures that your vascular system remains responsive and capable of holding maximum volume when it matters most.</p>
@@ -95,21 +95,21 @@ export const blogPosts: BlogPost[] = [
     `
   },
   {
-    title: "Pure Herbex Ultra Force: The Definitive Guide to Sexual Performance",
+    title: "Mushtaq Ultra Force: The Definitive Guide to Sexual Performance",
     slug: "definitive-sexual-performance-guide",
     date: "May 15, 2026",
     author: "Chief Product Officer",
     readTime: "12 min read",
     category: "Performance",
-    seoDescription: "The ultimate guide to Pure Herbex Ultra Force. Direct, transparent, and medically-backed insights into sexual enhancement in Pakistan.",
-    seoKeywords: ["sexual performance Pakistan", "Pure Herbex results", "herbal stamina guide", "men's health Okara"],
-    seoTitle: "Ultra Force: Ultimate Performance Guide | Pure Herbex",
+    seoDescription: "The ultimate guide to Mushtaq Ultra Force. Direct, transparent, and medically-backed insights into sexual enhancement in Pakistan.",
+    seoKeywords: ["sexual performance Pakistan", "Mushtaq results", "herbal stamina guide", "men's health Okara"],
+    seoTitle: "Ultra Force: Ultimate Performance Guide | Mushtaq",
     excerpt: "Our most direct and transparent guide yet. We break down the formula, the timeline, and the results you can expect without the sugar-coating.",
     content: `
-      <p>Welcome to the most transparent conversation about male performance in Pakistan. For too long, this industry has been filled with false promises and dangerous chemicals. Pure Herbex Ultra Force was founded on a different principle: <strong>Medical-grade herbalism that actually works.</strong></p>
+      <p>Welcome to the most transparent conversation about male performance in Pakistan. For too long, this industry has been filled with false promises and dangerous chemicals. Mushtaq Ultra Force was founded on a different principle: <strong>Medical-grade herbalism that actually works.</strong></p>
       
       <h2>Why Most Products Fail</h2>
-      <p>Most performance products focus on a temporary 'kick' by using hidden stimulants. These are dangerous and do nothing for your long-term health. Pure Herbex Ultra Force is designed as a 'Total System Upgrade.' We don't just look at performance; we look at the heart, the brain, and the blood vessels collectively.</p>
+      <p>Most performance products focus on a temporary 'kick' by using hidden stimulants. These are dangerous and do nothing for your long-term health. Mushtaq Ultra Force is designed as a 'Total System Upgrade.' We don't just look at performance; we look at the heart, the brain, and the blood vessels collectively.</p>
       
       <h2>The 'Ultra Force' Formula: 32 Dynamic Ingredients</h2>
       <p>Our formula is a result of years of research into Unani and Ayurvedic traditions, refined by modern extraction technology. Key components include:</p>
@@ -132,7 +132,7 @@ export const blogPosts: BlogPost[] = [
       <p>We understand that privacy is paramount. Every order from our Okara facility is packed in plain, discreet boxes with no branding on the outside. We deliver to every city in Pakistan—from Karachi to Peshawar—with Cash on Delivery (COD) for your peace of mind.</p>
 
       <h2>The Bottom Line</h2>
-      <p>If you are serious about your health, stop using chemical shortcuts. Invest in your body's natural potential with Pure Herbex Ultra Force. It's safe, it's natural, and it's backed by thousands of success stories across Pakistan.</p>
+      <p>If you are serious about your health, stop using chemical shortcuts. Invest in your body's natural potential with Mushtaq Ultra Force. It's safe, it's natural, and it's backed by thousands of success stories across Pakistan.</p>
     `
   },
   {
@@ -144,10 +144,10 @@ export const blogPosts: BlogPost[] = [
     category: "Men's Health",
     seoDescription: "The definitive medical-grade guide to men's health, sexual wellness, and natural stamina supplements in Pakistan. Clear, safe, and transparent natural alternatives.",
     seoKeywords: ["men health pakistan", "mens health supplements Pakistan", "sex enhancement pills for men", "natural sex enhancement capsules", "herbal stamina Pakistan"],
-    seoTitle: "Men's Sexual Health & Vitality Guide | Pure Herbex",
+    seoTitle: "Men's Sexual Health & Vitality Guide | Mushtaq",
     excerpt: "The definitive guide to men's health, sexual wellness, and natural stamina supplements in Pakistan. We analyze the top natural options, biological markers, and daily vitality protocols.",
     content: `
-      <p>Across Pakistan—from Karachi to Lahore—men are taking a proactive stance on their health. However, a major part of <strong>men's health in Pakistan</strong> remains hushed or misinformed: sexual wellness. Many men turn to quick synthetic chemical solutions from local pharmacies, unaware of the long-term cardiac and vascular risks. At Pure Herbex, we believe in providing honest, clinically-backed, and natural alternatives to reclaim vitality.</p>
+      <p>Across Pakistan—from Karachi to Lahore—men are taking a proactive stance on their health. However, a major part of <strong>men's health in Pakistan</strong> remains hushed or misinformed: sexual wellness. Many men turn to quick synthetic chemical solutions from local pharmacies, unaware of the long-term cardiac and vascular risks. At Mushtaq, we believe in providing honest, clinically-backed, and natural alternatives to reclaim vitality.</p>
       
       <h2>The Landscape of Men's Health in Pakistan</h2>
       <p>Modern lifestyle choices, high-stress levels in urban centers, and dietary mineral deficiencies have led to a silent epidemic of low testosterone, premature fatigue, and sexual performance anxiety among Pakistani men. To fix these issues, a temporary 'quick-fix' pill is not the answer. Optimal health requires targeting the root biological markers: nitric oxide levels, endocrine balance, and vascular elasticity.</p>
@@ -160,7 +160,7 @@ export const blogPosts: BlogPost[] = [
           <tr class="bg-primary/20">
             <th class="border border-white/10 p-3 text-left">Feature</th>
             <th class="border border-white/10 p-3 text-left">Synthetic Pills (Sildenafil/Tadalafil)</th>
-            <th class="border border-white/10 p-3 text-left">Pure Herbex Ultra Force (Herbal)</th>
+            <th class="border border-white/10 p-3 text-left">Mushtaq Ultra Force (Herbal)</th>
           </tr>
         </thead>
         <tbody>
@@ -205,15 +205,15 @@ export const blogPosts: BlogPost[] = [
     title: "Himalayan Shilajit (Salajeet) in Pakistan: Benefits, Price, and Original vs. Fake Identification Guide",
     slug: "salajeet-pakistan-price-originality-guide",
     date: "May 16, 2026",
-    author: "Pure Herbex Research Team",
+    author: "Mushtaq Research Team",
     readTime: "11 min read",
     category: "Vitality",
     seoDescription: "The definitive guide on pure Himalayan Shilajit (Salajeet) in Pakistan. Learn about health benefits, real market prices, and simple home tests to spot fake Shilajit.",
     seoKeywords: ["Salajeet benefits Pakistan", "original Shilajit price Pakistan", "Himalayan Salajeet Okara", "natural testosterone booster"],
-    seoTitle: "Original Shilajit (Salajeet) Pakistan Guide | Pure Herbex",
+    seoTitle: "Original Shilajit (Salajeet) Pakistan Guide | Mushtaq",
     excerpt: "The definitive guide to identifying original Shilajit (Salajeet) in Pakistan. We cover clinical benefits, real market prices, and simple laboratory tests you can run at home.",
     content: `
-      <p>Known as the 'Conqueror of Mountains,' <strong>Shilajit (locally called Salajeet)</strong> is highly prized in Pakistan for its restorative stamina and longevity benefits. However, as demand has soared in Lahore, Karachi, and Islamabad, the market has become flooded with cheap synthetic copies, diluted resins, and heavy-metal contaminated products. At Pure Herbex, we believe that education is the first step to natural wellness. Here is how to find real, gold-grade Himalayan Salajeet.</p>
+      <p>Known as the 'Conqueror of Mountains,' <strong>Shilajit (locally called Salajeet)</strong> is highly prized in Pakistan for its restorative stamina and longevity benefits. However, as demand has soared in Lahore, Karachi, and Islamabad, the market has become flooded with cheap synthetic copies, diluted resins, and heavy-metal contaminated products. At Mushtaq, we believe that education is the first step to natural wellness. Here is how to find real, gold-grade Himalayan Salajeet.</p>
       
       <h2>Major Health Benefits of Salajeet for Men</h2>
       <p>Original Shilajit is not just an energy booster; it is a profound adaptogen containing over 84 minerals in ionic form and a high percentage of <strong>Fulvic Acid</strong>. The core benefits include:</p>
@@ -234,8 +234,8 @@ export const blogPosts: BlogPost[] = [
       <h2>Shilajit Prices in Pakistan</h2>
       <p>Genuine, high-altitude gold-grade Salajeet requires specialized labor, extraction, and 7-stage purification to filter out heavy metals. Be cautious of raw, cheap Salajeet sold by local street vendors. Real, purified gold-grade Shilajit typically ranges from <strong>Rs. 3,500 to Rs. 6,000 per 10 grams</strong> in Pakistan.</p>
       
-      <h2>The Pure Herbex Ultra Force Guarantee</h2>
-      <p>Rather than dealing with the bitter taste and measuring mess of raw resin, Pure Herbex Ultra Force contains <strong>clinical-grade, purified Shilajit extract dry-stabilized inside capsules</strong> alongside 31 complementary herbs. It ensures you receive the exact, safe mineral dosage every day, shipped discreetly via Cash on Delivery from our Okara laboratory.</p>
+      <h2>The Mushtaq Ultra Force Guarantee</h2>
+      <p>Rather than dealing with the bitter taste and measuring mess of raw resin, Mushtaq Ultra Force contains <strong>clinical-grade, purified Shilajit extract dry-stabilized inside capsules</strong> alongside 31 complementary herbs. It ensures you receive the exact, safe mineral dosage every day, shipped discreetly via Cash on Delivery from our Okara laboratory.</p>
     `
   },
   {
@@ -247,7 +247,7 @@ export const blogPosts: BlogPost[] = [
     category: "Performance",
     seoDescription: "Looking for a safe Viagra or Sildenafil alternative in Pakistan? Read our medical-grade comparison of herbal stamina enhancers and natural vasodilators.",
     seoKeywords: ["Viagra alternative Pakistan", "Sildenafil side effects", "herbal stamina capsules", "natural sexual timing booster"],
-    seoTitle: "Viagra & Sildenafil Natural Alternatives | Pure Herbex",
+    seoTitle: "Viagra & Sildenafil Natural Alternatives | Mushtaq",
     excerpt: "We analyze the severe cardiovascular risks of synthetic sildenafil pills and compare them with natural organic vasodilators and stamina adaptogens.",
     content: `
       <p>Every day, thousands of Pakistani men purchase synthetic blue pills over-the-counter under names like Viagra, Sildenafil, or Tadalafil. While these chemical vasodilators offer immediate results, the medical reality is alarming. For men in Pakistan struggling with underlying blood pressure, cardiac issues, or high stress, these pills pose severe side effects. Today, we look at the safest, organic <strong>herbal alternatives to Viagra in Pakistan</strong>.</p>
@@ -273,8 +273,8 @@ export const blogPosts: BlogPost[] = [
       <h3>3. Saffron (Zafran)</h3>
       <p>Medical studies show that Saffron is a potent natural mood-stabilizer. It targets performance anxiety and triggers natural, relaxed vascular circulation, creating a clean pathway for peak stamina.</p>
       
-      <h2>Why Choose Pure Herbex Ultra Force?</h2>
-      <p>Rather than using toxic chemical shortcuts, Pure Herbex Ultra Force builds a resilient cardiovascular and reproductive foundation. The synergistic blend of 32 herbs (including Saffron, Shilajit, and Tribulus) ensures that you experience real, sustained results that stay with you—all without a single side effect. Shipped privately in plain packaging with Free Cash on Delivery all across Pakistan.</p>
+      <h2>Why Choose Mushtaq Ultra Force?</h2>
+      <p>Rather than using toxic chemical shortcuts, Mushtaq Ultra Force builds a resilient cardiovascular and reproductive foundation. The synergistic blend of 32 herbs (including Saffron, Shilajit, and Tribulus) ensures that you experience real, sustained results that stay with you—all without a single side effect. Shipped privately in plain packaging with Free Cash on Delivery all across Pakistan.</p>
     `
   }
 ];

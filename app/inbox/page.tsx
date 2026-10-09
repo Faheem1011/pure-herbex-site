@@ -127,7 +127,8 @@ function CustomAudioPlayer({ src, isMe }: { src: string; isMe: boolean }) {
   );
 }
 
-const ACCESS_PASSWORD = "PureHerbex2026!";
+const VALID_PASSWORDS = ["Mushtaq2026!", "PureHerbex2026!"];
+const ACCESS_PASSWORD = "Mushtaq2026!";
 const getEpochTime = () => Math.floor(Date.now() / 1000);
 
 const TAGS = [
@@ -141,7 +142,8 @@ export default function InboxPage() {
   const [password, setPassword] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== "undefined") {
-      return sessionStorage.getItem("inbox_password") === ACCESS_PASSWORD;
+      const stored = localStorage.getItem("inbox_password");
+      return !!stored && VALID_PASSWORDS.includes(stored);
     }
     return false;
   });
@@ -431,53 +433,37 @@ export default function InboxPage() {
       });
       const data = await res.json();
       if (data.contacts) {
-        // Sort contacts by latest message
+        // Sort contacts by latest message timestamp
         const sorted = data.contacts.sort((a: Contact, b: Contact) => {
-          const timeA = a.messages[a.messages.length - 1]?.timestamp || 0;
-          const timeB = b.messages[b.messages.length - 1]?.timestamp || 0;
+          const timeA = a.messages && a.messages.length > 0 ? a.messages[a.messages.length - 1].timestamp : 0;
+          const timeB = b.messages && b.messages.length > 0 ? b.messages[b.messages.length - 1].timestamp : 0;
           return timeB - timeA;
         });
 
         // Preserve any newly started empty chats that haven't received a message yet
         setContacts((prev) => {
           const emptyChats = prev.filter(
-            (p) => p.messages.length === 0 && !sorted.some((s: Contact) => s.phone === p.phone)
+            (p) => (!p.messages || p.messages.length === 0) && !sorted.some((s: Contact) => s.phone === p.phone)
           );
 
-          // Re-apply tags & detect new unread messages
+          // Re-apply tags & use server-side unread states
           const merged = [...emptyChats, ...sorted].map((c: Contact) => {
             const localContact = prev.find((p) => p.phone === c.phone);
-            // Preserve tag
+            
+            // Preserve tag from local state if server doesn't have it (fallback)
             if (localContact?.tag && !c.tag) {
               c.tag = localContact.tag;
             }
 
-            // Compute unread: count new "them" messages since last time
+            // If the chat is currently open, mark it as read immediately
             const isOpen = activeChatRef.current?.phone === c.phone;
-            if (isOpen) {
-              // Chat is open — treat as read
+            if (isOpen && (c.hasUnread || (c.unreadCount || 0) > 0)) {
+              markChatRead(c.phone);
               return { ...c, hasUnread: false, unreadCount: 0 };
             }
 
-            const prevThemCount = (localContact?.messages || []).filter(
-              (m) => m.sender === "them"
-            ).length;
-            const newThemCount = c.messages.filter((m: Message) => m.sender === "them").length;
-            const newCount = Math.max(0, newThemCount - prevThemCount);
-
-            if (newCount > 0) {
-              return {
-                ...c,
-                hasUnread: true,
-                unreadCount: (localContact?.unreadCount || 0) + newCount,
-              };
-            }
-            // Preserve existing unread state if no new messages
-            return {
-              ...c,
-              hasUnread: localContact?.hasUnread || false,
-              unreadCount: localContact?.unreadCount || 0,
-            };
+            // Otherwise, trust the server-side unread state
+            return c;
           });
           return merged;
         });
@@ -511,6 +497,7 @@ export default function InboxPage() {
       clearTimeout(timer);
       clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
 
   // Scroll to bottom on new message
@@ -520,8 +507,8 @@ export default function InboxPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ACCESS_PASSWORD) {
-      sessionStorage.setItem("inbox_password", password);
+    if (VALID_PASSWORDS.includes(password)) {
+      localStorage.setItem("inbox_password", password);
       setIsLoggedIn(true);
       setLoginError("");
     } else {
@@ -785,7 +772,7 @@ export default function InboxPage() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem("inbox_password");
+    localStorage.removeItem("inbox_password");
     setIsLoggedIn(false);
   };
 
@@ -898,7 +885,7 @@ export default function InboxPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
               </svg>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Pure Herbex Inbox</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Mushtaq Inbox</h1>
             <p className="text-zinc-400 text-sm mt-1">Unlock WhatsApp conversations</p>
           </div>
 

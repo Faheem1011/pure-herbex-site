@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 
-const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || "pure_herbex_secret_token";
+const VALID_VERIFY_TOKENS = [
+  process.env.WHATSAPP_VERIFY_TOKEN,
+  "mushtaq_secret_token",
+  "pure_herbex_secret_token",
+].filter(Boolean);
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -10,7 +14,7 @@ export async function GET(request: NextRequest) {
   const challenge = searchParams.get("hub.challenge");
 
   if (mode && token) {
-    if (mode === "subscribe" && token === verifyToken) {
+    if (mode === "subscribe" && VALID_VERIFY_TOKENS.includes(token)) {
       console.log("WEBHOOK_VERIFIED");
       return new NextResponse(challenge, {
         status: 200,
@@ -81,23 +85,30 @@ export async function POST(request: NextRequest) {
           };
         }
 
-        // Add message
-        contact.messages.push({
-          id: msgId,
-          sender: "them",
-          text: text,
-          timestamp: parseInt(timestamp),
-          status: "received",
-          type: msgType,
-          mediaId: mediaId || undefined,
-          fileName: fileName || undefined,
-          location: location || undefined
-        });
+        // Add message if it doesn't already exist
+        const isDuplicate = contact.messages.some((m: any) => m.id === msgId);
+        if (!isDuplicate) {
+          contact.messages.push({
+            id: msgId,
+            sender: "them",
+            text: text,
+            timestamp: parseInt(timestamp),
+            status: "received",
+            type: msgType,
+            mediaId: mediaId || undefined,
+            fileName: fileName || undefined,
+            location: location || undefined
+          });
 
-        // Save back to KV
-        await kv.set(`whatsapp:contact:${from}`, contact);
-        // Track list of active contacts
-        await kv.sadd("whatsapp:active_contacts", from);
+          // Set unread states only for new messages
+          contact.unreadCount = (contact.unreadCount || 0) + 1;
+          contact.hasUnread = true;
+
+          // Save back to KV
+          await kv.set(`whatsapp:contact:${from}`, contact);
+          // Track list of active contacts
+          await kv.sadd("whatsapp:active_contacts", from);
+        }
       }
 
       // Handle status updates (sent, delivered, read)

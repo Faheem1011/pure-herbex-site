@@ -16,14 +16,25 @@ export default function Navbar() {
   return (
     <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-background/80 backdrop-blur-lg border-b border-border py-4' : 'bg-transparent py-6'}`}>
       <div className="container mx-auto px-6 flex justify-between items-center">
-        <Link href="/" className="relative h-10 w-48">
-          <Image 
-            src="/assets/images/typo-herbex.png" 
-            alt="Pure Herbex Logo" 
-            fill
-            className="object-contain brightness-110"
-            priority
-          />
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="relative w-9 h-9 flex items-center justify-center">
+            <Image 
+              src="/assets/images/logo.svg" 
+              alt="Mushtaq Emblem" 
+              width={36}
+              height={36}
+              className="object-contain drop-shadow-[0_0_12px_rgba(16,115,84,0.4)] group-hover:scale-105 transition-transform"
+              priority
+            />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-heading font-black text-xl tracking-wider text-foreground leading-none">
+              MUSHTAQ
+            </span>
+            <span className="text-[9px] font-bold tracking-[0.22em] text-primary uppercase leading-tight">
+              Ultra Force
+            </span>
+          </div>
         </Link>
 
         <div className="hidden lg:flex gap-8 items-center">

@@ -21,7 +21,7 @@ export default function TransparencySection() {
             </div>
             <h3 className="text-xl font-bold">Medical Intent</h3>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Pure Herbex Ultra Force is specifically formulated for sexual enhancement. It works by increasing 
+              Mushtaq Ultra Force is specifically formulated for sexual enhancement. It works by increasing 
               nitric oxide production and improving blood flow to the genitals naturally.
             </p>
           </div>

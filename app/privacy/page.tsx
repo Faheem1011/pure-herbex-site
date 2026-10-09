@@ -5,10 +5,10 @@ import SmoothScroll from '@/components/SmoothScroll';
 import { Shield, Lock, EyeOff, FileText, Mail, MessageSquare } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | Pure Herbex',
-  description: 'Privacy Policy and customer confidentiality guidelines for Pure Herbex Pakistan. Learn how we guarantee 100% order discretion and secure data handling.',
+  title: 'Privacy Policy | Mushtaq',
+  description: 'Privacy Policy and customer confidentiality guidelines for Mushtaq Pakistan. Learn how we guarantee 100% order discretion and secure data handling.',
   alternates: {
-    canonical: 'https://pureherbex.com/privacy',
+    canonical: 'https://mushtaq.vercel.app/privacy',
   },
 };
 
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
                 <div className="space-y-3 relative z-10">
                   <h3 className="text-2xl font-bold">100% Discreet Packaging Guarantee</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    Because we specialize in male performance and wellness, we understand the importance of privacy. Every single order dispatched from our facility is enclosed in a plain, unmarked envelope or brown cardboard box with zero mention of &quot;Pure Herbex&quot;, &quot;Ultra Force&quot;, or &quot;Sexual Enhancement&quot;. The shipping label only lists our discrete corporate sender initials and address.
+                    Because we specialize in male performance and wellness, we understand the importance of privacy. Every single order dispatched from our facility is enclosed in a plain, unmarked envelope or brown cardboard box with zero mention of &quot;Mushtaq&quot;, &quot;Ultra Force&quot;, or &quot;Sexual Enhancement&quot;. The shipping label only lists our discrete corporate sender initials and address.
                   </p>
                 </div>
               </div>
@@ -105,7 +105,7 @@ export default function PrivacyPage() {
                     4. Data Deletion Rights
                   </h2>
                   <p className="text-muted-foreground leading-relaxed">
-                    We believe you have complete ownership of your medical and order history. If you wish to purge your phone number, delivery address, or inquiry history from our active records post-delivery, simply drop an email to <a href="mailto:info@pureherbex.com" className="text-primary hover:underline font-semibold">info@pureherbex.com</a> or message us on WhatsApp. We will delete all logs within 24 hours.
+                    We believe you have complete ownership of your medical and order history. If you wish to purge your phone number, delivery address, or inquiry history from our active records post-delivery, simply drop an email to <a href="mailto:info@mushtaq.com" className="text-primary hover:underline font-semibold">info@mushtaq.com</a> or message us on WhatsApp. We will delete all logs within 24 hours.
                   </p>
                 </div>
 
@@ -126,7 +126,7 @@ export default function PrivacyPage() {
                     Confidential Chat
                   </a>
                   <a 
-                    href="mailto:info@pureherbex.com" 
+                    href="mailto:info@mushtaq.com" 
                     className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white/5 border border-white/10 hover:border-primary hover:text-primary rounded-xl font-bold transition-all"
                   >
                     <Mail size={18} />

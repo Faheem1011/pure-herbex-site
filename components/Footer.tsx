@@ -15,14 +15,26 @@ export default function Footer() {
     <footer className="bg-black pt-24 pb-12 border-t border-border">
       <div className="container mx-auto px-6">
         <div className="grid lg:grid-cols-4 gap-12 mb-20">
-          <div className="lg:col-span-2 space-y-8">
-            <Image 
-              src="/assets/images/typo-herbex.png" 
-              alt="Pure Herbex Typography" 
-              width={400} 
-              height={100} 
-              className="brightness-125"
-            />
+          <div className="lg:col-span-2 space-y-6">
+            <Link href="/" className="inline-flex items-center gap-3 group">
+              <div className="relative w-10 h-10 flex items-center justify-center">
+                <Image 
+                  src="/assets/images/logo.svg" 
+                  alt="Mushtaq Emblem" 
+                  width={40}
+                  height={40}
+                  className="object-contain drop-shadow-[0_0_15px_rgba(16,115,84,0.5)] group-hover:scale-105 transition-transform"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-heading font-black text-2xl tracking-wider text-foreground leading-none">
+                  MUSHTAQ
+                </span>
+                <span className="text-[10px] font-bold tracking-[0.25em] text-primary uppercase leading-tight">
+                  Ultra Force
+                </span>
+              </div>
+            </Link>
             <p className="text-muted-foreground max-w-sm">
               The gold standard in male herbal wellness. Pure ingredients, medical-grade potency, 
               and results that speak for themselves.
@@ -68,7 +80,7 @@ export default function Footer() {
 
         <div className="pt-12 border-t border-border flex flex-col md:row justify-between items-center gap-6">
           <p className="text-xs text-muted-foreground text-center md:text-left">
-            © 2026 Pure Herbex Pakistan. All Rights Reserved. <br className="md:hidden" />
+            © 2026 Mushtaq Pakistan. All Rights Reserved. <br className="md:hidden" />
             <Link href="/privacy" className="hover:text-primary transition-colors ml-0 md:ml-4">Privacy Policy</Link>
           </p>
           <div className="flex gap-6 text-xs text-muted-foreground">

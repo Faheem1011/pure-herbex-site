@@ -74,7 +74,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <div className="font-bold">Email Support</div>
-                        <div className="text-sm text-muted-foreground">info@pureherbex.com</div>
+                        <div className="text-sm text-muted-foreground">info@mushtaq.com</div>
                       </div>
                     </div>
 

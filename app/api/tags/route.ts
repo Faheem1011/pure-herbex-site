@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 
-const ACCESS_PASSWORD = "PureHerbex2026!";
+const VALID_AUTH_TOKENS = [
+  "Mushtaq2026!",
+  "PureHerbex2026!",
+  process.env.INBOX_PASSWORD
+].filter(Boolean);
 
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("Authorization");
     const sessionToken = authHeader?.split(" ")[1];
 
-    if (sessionToken !== ACCESS_PASSWORD) {
+    if (!sessionToken || !VALID_AUTH_TOKENS.includes(sessionToken)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

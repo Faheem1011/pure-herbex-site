@@ -6,8 +6,8 @@ import { blogPosts } from './data';
 import { Calendar, Clock, ChevronRight, ArrowRight } from 'lucide-react';
 
 export const metadata = {
-  title: 'Wellness Journal | Pure Herbex Ultra Force',
-  description: 'Expert insights on male vitality, herbal science, and natural performance. Professional guides from the Pure Herbex research team.',
+  title: 'Wellness Journal | Mushtaq Ultra Force',
+  description: 'Expert insights on male vitality, herbal science, and natural performance. Professional guides from the Mushtaq research team.',
 };
 
 export default function BlogPage() {

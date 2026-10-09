@@ -8,7 +8,7 @@ const reviews = [
     name: "Ahmed Ali",
     city: "Lahore",
     date: "April 18, 2026",
-    text: "Mene pehle chemical pills use ki thin jin se bohot headache hota tha. Pure Herbex Ultra Force se results slow aye lekin koi side effect nahi hua. Highly recommended for long term results.",
+    text: "Mene pehle chemical pills use ki thin jin se bohot headache hota tha. Mushtaq Ultra Force se results slow aye lekin koi side effect nahi hua. Highly recommended for long term results.",
     rating: 5
   },
   {
@@ -114,7 +114,7 @@ export default function ReviewsPage() {
             <div className="mt-20 glass-card p-12 rounded-3xl max-w-2xl mx-auto text-center space-y-6 bg-primary/5 border-primary/20">
               <h3 className="text-2xl font-bold">Share Your Experience</h3>
               <p className="text-muted-foreground">Help others make an informed decision. Send us your feedback on WhatsApp and get a 10% discount on your next order.</p>
-              <a href="https://wa.me/923160924151?text=Assalam%20o%20Alaikum,%20I%20want%20to%20give%20feedback%20on%20Pure%20Herbex..." className="inline-block px-10 py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:scale-105 transition-transform">
+              <a href="https://wa.me/923160924151?text=Assalam%20o%20Alaikum,%20I%20want%20to%20give%20feedback%20on%20Mushtaq%20Ultra%20Force..." className="inline-block px-10 py-4 bg-primary text-primary-foreground rounded-xl font-bold hover:scale-105 transition-transform">
                 Submit Feedback
               </a>
             </div>

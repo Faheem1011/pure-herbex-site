@@ -22,20 +22,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = blogPosts.find((p) => p.slug === slug);
   if (!post) return { title: 'Post Not Found' };
 
-  const metaTitle = post.seoTitle || `${post.title} | Pure Herbex`;
+  const metaTitle = post.seoTitle || `${post.title} | Mushtaq`;
 
   return {
     title: metaTitle,
     description: post.seoDescription,
     keywords: post.seoKeywords.join(', '),
     alternates: {
-      canonical: `https://pureherbex.com/blog/${slug}`,
+      canonical: `https://mushtaq.vercel.app/blog/${slug}`,
     },
     openGraph: {
       title: metaTitle,
       description: post.seoDescription,
-      url: `https://pureherbex.com/blog/${slug}`,
-      siteName: 'Pure Herbex',
+      url: `https://mushtaq.vercel.app/blog/${slug}`,
+      siteName: 'Mushtaq',
       images: [
         {
           url: '/assets/images/product-bottle.png',
@@ -88,11 +88,11 @@ export default async function BlogPostPage({ params }: Props) {
     "@type": "BlogPosting",
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `https://pureherbex.com/blog/${post.slug}`
+      "@id": `https://mushtaq.vercel.app/blog/${post.slug}`
     },
     "headline": post.title,
     "description": post.seoDescription,
-    "image": "https://pureherbex.com/assets/images/product-bottle.png",
+    "image": "https://mushtaq.vercel.app/assets/images/product-bottle.png",
     "datePublished": getSafeISODate(post.date),
     "dateModified": getSafeISODate(post.date),
     "author": {
@@ -100,16 +100,16 @@ export default async function BlogPostPage({ params }: Props) {
       "name": post.author,
       "worksFor": {
         "@type": "Organization",
-        "name": "Pure Herbex",
-        "url": "https://pureherbex.com"
+        "name": "Mushtaq",
+        "url": "https://mushtaq.vercel.app"
       }
     },
     "publisher": {
       "@type": "Organization",
-      "name": "Pure Herbex",
+      "name": "Mushtaq",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://pureherbex.com/assets/images/product-bottle.png"
+        "url": "https://mushtaq.vercel.app/assets/images/product-bottle.png"
       }
     }
   };
@@ -122,19 +122,19 @@ export default async function BlogPostPage({ params }: Props) {
         "@type": "ListItem",
         "position": 1,
         "name": "Home",
-        "item": "https://pureherbex.com"
+        "item": "https://mushtaq.vercel.app"
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Journal",
-        "item": "https://pureherbex.com/blog"
+        "item": "https://mushtaq.vercel.app/blog"
       },
       {
         "@type": "ListItem",
         "position": 3,
         "name": post.title,
-        "item": `https://pureherbex.com/blog/${post.slug}`
+        "item": `https://mushtaq.vercel.app/blog/${post.slug}`
       }
     ]
   };

@@ -14,27 +14,29 @@ const sora = Sora({
   variable: '--font-sora',
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://mushtaq.vercel.app';
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://pureherbex.com'),
-  title: 'Pure Herbex Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
-  description: 'Pure Herbex Ultra Force is Pakistan\'s premium medical-grade herbal formula for sexual enhancement, natural stamina, and genital health. 100% Herbal. Rs. 3,000. Cash on Delivery Available.',
+  metadataBase: new URL(SITE_URL),
+  title: 'Mushtaq Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
+  description: 'Mushtaq Ultra Force is Pakistan\'s premium medical-grade herbal formula for sexual enhancement, natural stamina, and genital health. 100% Herbal. Rs. 3,000. Cash on Delivery Available.',
   alternates: {
-    canonical: 'https://pureherbex.com',
+    canonical: SITE_URL,
   },
   verification: {
     google: 'r6EENSmrJ6_2NeYVkKtE2i-1pIu5qn6KxNegT-ws5OU',
   },
   openGraph: {
-    title: 'Pure Herbex Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
+    title: 'Mushtaq Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
     description: 'Pakistan\'s premium medical-grade herbal formula for sexual enhancement, natural stamina, and genital health. 100% Herbal. Rs. 3,000. Cash on Delivery Available.',
-    url: 'https://pureherbex.com',
-    siteName: 'Pure Herbex',
+    url: SITE_URL,
+    siteName: 'Mushtaq',
     images: [
       {
         url: '/assets/images/product-bottle.png',
         width: 800,
         height: 600,
-        alt: 'Pure Herbex Ultra Force',
+        alt: 'Mushtaq Ultra Force',
       },
     ],
     locale: 'en_PK',
@@ -42,7 +44,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pure Herbex Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
+    title: 'Mushtaq Ultra Force | Potent Herbal Sexual Enhancement Pakistan',
     description: 'Pakistan\'s premium medical-grade herbal formula for sexual enhancement, natural stamina, and genital health.',
     images: ['/assets/images/product-bottle.png'],
   },
@@ -54,13 +56,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://pureherbex.com/#organization",
-        "name": "Pure Herbex",
-        "url": "https://pureherbex.com",
+        "@id": `${SITE_URL}/#organization`,
+        "name": "Mushtaq",
+        "url": SITE_URL,
         "logo": {
           "@type": "ImageObject",
-          "url": "https://pureherbex.com/assets/images/product-bottle.png",
-          "caption": "Pure Herbex Logo"
+          "url": `${SITE_URL}/assets/images/product-bottle.png`,
+          "caption": "Mushtaq Logo"
         },
         "sameAs": [
           "https://www.facebook.com/profile.php?id=61589767019589",
@@ -83,12 +85,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       },
       {
         "@type": "WebSite",
-        "@id": "https://pureherbex.com/#website",
-        "url": "https://pureherbex.com",
-        "name": "Pure Herbex",
+        "@id": `${SITE_URL}/#website`,
+        "url": SITE_URL,
+        "name": "Mushtaq",
         "description": "Pakistan's premium medical-grade herbal formula for sexual enhancement, natural stamina, and genital health.",
         "publisher": {
-          "@id": "https://pureherbex.com/#organization"
+          "@id": `${SITE_URL}/#organization`
         }
       }
     ]

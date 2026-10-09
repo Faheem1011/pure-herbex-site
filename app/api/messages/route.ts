@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 
-const accessToken = "EAAa0oH3M7CYBRmNij6bQHxQZBp0OgdYbqedMF9XRQFDEElnilxUi3ygW9qsygpf7YN1Ok3ZAi9T2ZCuV8XuWNq8GxbAMgsNwGEIVQzCytgCEGYWdFbfhZCcHbxZANwIe222pjnVSgedDPxe9NwPZCgb6CfO4hn2Em5Tr5AWWdMEWZBvFRv3QmGhla1QDb98PQZDZD";
-const phoneNumberId = "1098694096667377";
+const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || "EAAa0oH3M7CYBRmNij6bQHxQZBp0OgdYbqedMF9XRQFDEElnilxUi3ygW9qsygpf7YN1Ok3ZAi9T2ZCuV8XuWNq8GxbAMgsNwGEIVQzCytgCEGYWdFbfhZCcHbxZANwIe222pjnVSgedDPxe9NwPZCgb6CfO4hn2Em5Tr5AWWdMEWZBvFRv3QmGhla1QDb98PQZDZD";
+const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || "1098694096667377";
+
+const VALID_AUTH_TOKENS = [
+  "Mushtaq2026!",
+  "PureHerbex2026!",
+  process.env.INBOX_PASSWORD
+].filter(Boolean);
+
+function isAuthorized(token?: string | null) {
+  return !!token && VALID_AUTH_TOKENS.includes(token);
+}
 
 // 1. GET: Fetch all active chats and message history
 export async function GET(request: NextRequest) {
@@ -11,20 +21,22 @@ export async function GET(request: NextRequest) {
     const sessionToken = authHeader?.split(" ")[1];
     
     // Quick security check against verify token or a static password
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isAuthorized(sessionToken)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Fetch the list of active contact numbers
     const activeNumbers: string[] = await kv.smembers("whatsapp:active_contacts");
     
-    const contacts = [];
-    for (const phone of activeNumbers) {
-      const contactData = await kv.get(`whatsapp:contact:${phone}`);
-      if (contactData) {
-        contacts.push(contactData);
-      }
+    if (activeNumbers.length === 0) {
+      return NextResponse.json({ contacts: [] });
     }
+
+    // Fetch all contact data in a single mget call for better performance
+    const contactKeys = activeNumbers.map(phone => `whatsapp:contact:${phone}`);
+    const contactsData = await kv.mget(contactKeys);
+    
+    const contacts = contactsData.filter(c => c !== null);
 
     return NextResponse.json({ contacts });
   } catch (error: any) {
@@ -38,7 +50,7 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("Authorization");
     const sessionToken = authHeader?.split(" ")[1];
 
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isAuthorized(sessionToken)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -154,7 +166,7 @@ export async function DELETE(request: NextRequest) {
     const authHeader = request.headers.get("Authorization");
     const sessionToken = authHeader?.split(" ")[1];
 
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isAuthorized(sessionToken)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -178,18 +190,24 @@ export async function PATCH(request: NextRequest) {
     const authHeader = request.headers.get("Authorization");
     const sessionToken = authHeader?.split(" ")[1];
 
-    if (sessionToken !== "PureHerbex2026!") {
+    if (!isAuthorized(sessionToken)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { phone, archived } = await request.json();
+    const { phone, archived, markRead } = await request.json();
     if (!phone) {
       return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
     }
 
     const contact: any = await kv.get(`whatsapp:contact:${phone}`);
     if (contact) {
-      contact.archived = !!archived;
+      if (archived !== undefined) {
+        contact.archived = !!archived;
+      }
+      if (markRead) {
+        contact.unreadCount = 0;
+        contact.hasUnread = false;
+      }
       await kv.set(`whatsapp:contact:${phone}`, contact);
     }
 
