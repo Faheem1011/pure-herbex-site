@@ -1,45 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { kv } from "@vercel/kv";
+import { getDb, saveDb, isAuthorized } from "@/lib/db";
 
-const VALID_AUTH_TOKENS = [
-  "Mushtaq2026!",
-  "PureHerbex2026!",
-  process.env.INBOX_PASSWORD
-].filter(Boolean);
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get("Authorization");
-    const sessionToken = authHeader?.split(" ")[1];
-
-    if (!sessionToken || !VALID_AUTH_TOKENS.includes(sessionToken)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { phone, tag } = await request.json();
-
-    if (!phone) {
-      return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
-    }
-
-    // Fetch existing contact or create a new one to tag
-    let contact: any = await kv.get(`whatsapp:contact:${phone}`);
-    if (!contact) {
-      contact = {
-        name: "WhatsApp Contact",
-        phone: phone,
-        messages: [],
-      };
-    }
-
-    // Update the tag (e.g., "Confirm", "Potential", "Important", "Spam", or null/empty)
-    contact.tag = tag || null;
-
-    await kv.set(`whatsapp:contact:${phone}`, contact);
-    await kv.sadd("whatsapp:active_contacts", phone);
-
-    return NextResponse.json({ status: "success", tag: contact.tag });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  const authHeader = request.headers.get("Authorization");
+  if (!isAuthorized(authHeader)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { phone, tag } = await request.json();
+
+  if (!phone) {
+    return NextResponse.json({ error: "Missing phone number" }, { status: 400 });
+  }
+
+  const db = await getDb();
+  let contact = db.contacts.find((c) => c.phone === phone);
+  if (!contact) {
+    contact = {
+      name: "WhatsApp Contact",
+      phone: phone,
+      messages: [],
+      tag: tag || null,
+      archived: false,
+      unreadCount: 0,
+      hasUnread: false,
+    };
+    db.contacts.unshift(contact);
+  } else {
+    contact.tag = tag || null;
+  }
+
+  await saveDb(db);
+  return NextResponse.json({ status: "success", tag: contact.tag });
 }

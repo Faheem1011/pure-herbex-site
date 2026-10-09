@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
+import { getDb, saveDb } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 const VALID_VERIFY_TOKENS = [
   process.env.WHATSAPP_VERIFY_TOKEN,
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
         const message = value.messages[0];
         const from = message.from;
         const msgType = message.type || "text";
-        const timestamp = message.timestamp || Math.floor(Date.now() / 1000);
+        const timestamp = parseInt(message.timestamp || `${Math.floor(Date.now() / 1000)}`, 10);
         const msgId = message.id;
 
         let text = message.text?.body || "";
@@ -74,41 +77,49 @@ export async function POST(request: NextRequest) {
           text = `(${msgType} message)`;
         }
 
-        // Fetch existing contact or create new
-        let contact: any = await kv.get(`whatsapp:contact:${from}`);
-        if (!contact) {
-          const profileName = value.contacts?.[0]?.profile?.name || "WhatsApp Contact";
-          contact = {
+        // Sync with unified lib/db
+        const db = await getDb();
+        let dbContact = db.contacts.find((c) => c.phone === from);
+        if (!dbContact) {
+          const profileName = value.contacts?.[0]?.profile?.name || from;
+          dbContact = {
             name: profileName,
             phone: from,
-            messages: []
+            messages: [],
+            tag: null,
+            archived: false,
+            unreadCount: 0,
+            hasUnread: false,
           };
+          db.contacts.unshift(dbContact);
         }
 
-        // Add message if it doesn't already exist
-        const isDuplicate = contact.messages.some((m: any) => m.id === msgId);
+        const isDuplicate = dbContact.messages.some((m) => m.id === msgId);
         if (!isDuplicate) {
-          contact.messages.push({
+          dbContact.messages.push({
             id: msgId,
             sender: "them",
             text: text,
-            timestamp: parseInt(timestamp),
+            timestamp: timestamp,
             status: "received",
             type: msgType,
             mediaId: mediaId || undefined,
             fileName: fileName || undefined,
-            location: location || undefined
+            location: location || undefined,
           });
 
-          // Set unread states only for new messages
-          contact.unreadCount = (contact.unreadCount || 0) + 1;
-          contact.hasUnread = true;
-
-          // Save back to KV
-          await kv.set(`whatsapp:contact:${from}`, contact);
-          // Track list of active contacts
-          await kv.sadd("whatsapp:active_contacts", from);
+          dbContact.unreadCount = (dbContact.unreadCount || 0) + 1;
+          dbContact.hasUnread = true;
+          await saveDb(db);
         }
+
+        // Optional KV sync
+        try {
+          if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+            await kv.set(`whatsapp:contact:${from}`, dbContact);
+            await kv.sadd("whatsapp:active_contacts", from);
+          }
+        } catch (e) {}
       }
 
       // Handle status updates (sent, delivered, read)
@@ -116,21 +127,18 @@ export async function POST(request: NextRequest) {
         const status = value.statuses[0];
         const recipient_id = status.recipient_id;
         const msg_id = status.id;
-        const msg_status = status.status; // "sent", "delivered", "read"
+        const msg_status = status.status;
 
-        let contact: any = await kv.get(`whatsapp:contact:${recipient_id}`);
-        if (contact && contact.messages) {
-          let updated = false;
-          for (let msg of contact.messages) {
+        const db = await getDb();
+        const dbContact = db.contacts.find((c) => c.phone === recipient_id);
+        if (dbContact && dbContact.messages) {
+          for (let msg of dbContact.messages) {
             if (msg.id === msg_id) {
               msg.status = msg_status;
-              updated = true;
               break;
             }
           }
-          if (updated) {
-            await kv.set(`whatsapp:contact:${recipient_id}`, contact);
-          }
+          await saveDb(db);
         }
       }
 
