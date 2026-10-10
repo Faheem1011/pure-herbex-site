@@ -1,0 +1,3 @@
+## 2025-02-12 - Prevent Zombie requestAnimationFrame Loops in React
+**Learning:** Found a severe CPU leak pattern in `components/SmoothScroll.tsx`. While the `Lenis` instance was destroyed on unmount, the continuous `requestAnimationFrame` loop initiated inside the `useEffect` was not cancelled. Because `raf` recursively calls itself, it becomes an orphaned "zombie" loop running indefinitely in the background at 60+ FPS even after the component unmounts. Navigating back and forth stacks these infinite loops, drastically burning CPU/Battery and degrading performance.
+**Action:** Always store the return ID from `requestAnimationFrame` (e.g. `rafId = requestAnimationFrame(raf)`) and explicitly call `cancelAnimationFrame(rafId)` inside the `useEffect` cleanup function.
