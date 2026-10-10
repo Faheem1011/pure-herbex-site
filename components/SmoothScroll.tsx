@@ -13,14 +13,20 @@ export default function SmoothScroll({ children }: { children: React.ReactNode }
       smoothWheel: true,
     });
 
+    let rafId: number;
+
     function raf(time: number) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      rafId = requestAnimationFrame(raf);
     }
 
-    requestAnimationFrame(raf);
+    rafId = requestAnimationFrame(raf);
 
     return () => {
+      // ⚡ Bolt Performance Optimization: Cancel the requestAnimationFrame loop on unmount
+      // Without this, the component creates a zombie RAF loop on every mount/unmount cycle,
+      // permanently consuming CPU and triggering unnecessary React re-evaluations for scroll state.
+      cancelAnimationFrame(rafId);
       lenis.destroy();
     };
   }, []);
